@@ -4,22 +4,31 @@
 
 (def reserved-words
   "List of Ludus reserved words."
-  #{"fn"
-    "if"
-    "then"
-    "else"
-    "nil"
-    "match"
-    "true"
-    "false"
-    "loop"
-    "recur"
+  ;; see ludus-spec repo for more info
+  #{
     "as"
-    "ref"
-    "mut"})
-    ;; other possibilities
-    ;; "pattern" -- first class patterns?
-    
+    "cond"
+    "else"
+    "false"
+    "fn"
+    "if"
+    "match"
+    "mut"
+    "nil"
+    "panic!"
+    "then"
+    "true"
+    "var"
+    "with" ;;maybe
+    ;; below here, probable
+    "defer"
+    "loop"
+    "ns"
+    "recur"
+    "repeat"
+    "when"
+  })
+
 
 (defn- new-scanner 
   "Creates a new scanner."
@@ -137,9 +146,11 @@
 
       ;; two-character tokens
       ;; ->
+      ;; have to fix this: negative numbers
       \- (if (= next \>)
            (add-token (advance scanner) ::token/rarrow)
            (add-error scanner (str "Expected ->. Got " char next)))
+
       ;; <-
       \< (if (= next \-)
            (add-token (advance scanner) ::token/larrow)
@@ -151,6 +162,9 @@
           (add-error scanner (str "Expected |>. Got " char next)))
 
       ;; possible additional operator: => (bind)
+      \= (if (= next \>)
+          (add-token (advance scanner) ::token/bind)
+          (add-error scanner (str "Expected =>. Got " char next)))
 
       ;; hashmap #{
       \# (if (= next \{)
