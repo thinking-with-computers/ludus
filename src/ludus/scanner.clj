@@ -143,6 +143,7 @@
       \; (add-token scanner ::token/semicolon)
       \, (add-token scanner ::token/comma)
       \newline (add-token scanner ::token/newline)
+      \\ (add-token scanner ::token/backslash)
 
       ;; two-character tokens
       ;; ->
