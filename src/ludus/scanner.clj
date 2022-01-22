@@ -1,6 +1,6 @@
 (ns ludus.scanner
   (:require [ludus.token :as token]
-            [clojure.pprint :as pp]))
+    [clojure.pprint :as pp]))
 
 (def reserved-words
   "List of Ludus reserved words."
@@ -26,8 +26,9 @@
     "ns"
     "recur"
     "repeat"
+    ;; below here, possible
     "when"
-  })
+    })
 
 
 (defn- new-scanner 
@@ -67,8 +68,8 @@
 
 (defn- char-in-range? [start end char]
   (and char
-       (>= (int char) (int start))
-       (<= (int char) (int end))))
+    (>= (int char) (int start))
+    (<= (int char) (int end))))
 
 (defn- digit? [c]
   (char-in-range? \0 \9 c))
@@ -91,10 +92,16 @@
   ([scanner token-type]
    (add-token scanner token-type nil))
   ([scanner token-type literal]
-   (update scanner ::tokens conj (token/token token-type (current-lexeme scanner) literal (::line scanner)))))
+   (update scanner ::tokens conj 
+     (token/token 
+       token-type 
+       (current-lexeme scanner) 
+       literal 
+       (::line scanner) 
+       (::start scanner)))))
 
 (defn- add-error [scanner msg]
-  (update scanner ::errors conj {:msg msg :line (::line scanner)}))
+  (update scanner ::errors conj {:msg msg :line (::line scanner) :start (::start scanner)}))
 
 (defn- scan-keyword 
   ([scanner] (scan-keyword scanner scanner))
@@ -114,11 +121,18 @@
     (if (nonzero-digit? current)
       (loop [current current]))))
 
-;; I am working here--trying to figure out how to add a string token
 (defn- add-string 
-  ([scanner] (add-string scanner "")
-  ([scanner string]
-    (let [char (current-char scanner)]))))
+  [scanner]
+  (loop [scanner scanner
+         string ""]
+    (let [char (current-char scanner)]
+      (case char
+        \newline (add-error scanner "Unterminated string.")
+        \" (add-token (advance scanner) ::token/string string)
+        \\ (recur (advance (advance scanner)) (str string (next-char scanner)))
+        (if (at-end? scanner)
+          (add-error scanner "Unterminated string.")
+          (recur (advance scanner) (str string char)))))))
 
 (defn- add-word [scanner])
 
@@ -159,13 +173,13 @@
 
       ;; |>
       \| (if (= next \>)
-          (add-token (advance scanner) ::token/pipeline)
-          (add-error scanner (str "Expected |>. Got " char next)))
+           (add-token (advance scanner) ::token/pipeline)
+           (add-error scanner (str "Expected |>. Got " char next)))
 
       ;; possible additional operator: => (bind)
       \= (if (= next \>)
-          (add-token (advance scanner) ::token/bind)
-          (add-error scanner (str "Expected =>. Got " char next)))
+           (add-token (advance scanner) ::token/bind)
+           (add-error scanner (str "Expected =>. Got " char next)))
 
       ;; hashmap #{
       \# (if (= next \{)
@@ -179,8 +193,8 @@
 
       ;; placeholder
       \_ (if (terminates? next)
-          (add-token scanner ::token/placeholder)
-          (add-word scanner))
+           (add-token scanner ::token/placeholder)
+           (add-word scanner))
 
       ;; comments
       ;; &
@@ -194,10 +208,10 @@
 
       ;; word matches
       (cond
-         (whitespace? char) scanner
-         ;; (digit? char) (add-number scanner)
-         ;; (alpha? char) (add-word scanner)
-         :else (add-error scanner (str "Unexpected character: " char))))))
+        (whitespace? char) scanner
+        ;; (digit? char) (add-number scanner)
+        ;; (alpha? char) (add-word scanner)
+        :else (add-error scanner (str "Unexpected character: " char))))))
 
 (defn- next-token [scanner]
   (assoc scanner ::start (::current scanner)))
@@ -207,10 +221,16 @@
     (if (at-end? scanner)
       (let [scanner (add-token scanner ::eof)]
         {:tokens (::tokens scanner) 
-          :errors (::errors scanner)})
+         :errors (::errors scanner)})
       (recur (-> scanner (scan-token) (next-token))))))
 
 
-(let [source "|)"]
+(let [source "\"foo\\\nbar\"\n)"]
   (scan source))
+
+;; string scanning is (I think) working
+;; line counting is not working
+;; do I just save a location and then calculate line numbers if an error happens?
+;; next up: numbers!
+
 
