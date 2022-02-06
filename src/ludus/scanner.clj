@@ -80,6 +80,8 @@
 (defn- alpha? [c]
   (or (char-in-range? \a \z c) (char-in-range? \A \Z c)))
 
+;; (defn- alpha? [c] (boolean (re-find #"\p{L}" (str c))))
+
 ;; legal characters in words
 (def word-chars #{\_ \? \! \* \/})
 
@@ -106,10 +108,12 @@
        (::line scanner) 
        (::start scanner)))))
 
-;; TODO: errors should also be 
+;; TODO: errors should also be in the vector of tokens
+;; The goal is to be able to be able to hand this to an LSP
 (defn- add-error [scanner msg]
   (update scanner ::errors conj {:msg msg :line (::line scanner) :start (::start scanner)}))
 
+;; TODO: finish this
 (defn- scan-keyword 
   ([scanner] (scan-keyword scanner scanner))
   ([start current]))
@@ -187,8 +191,10 @@
            (add-token (advance scanner) ::token/pipeline)
            (add-error scanner (str "Expected |>. Got " char next)))
 
-      ;; possible additional operator: => (bind/result)
-      ;; possible additional operator: ~> (bind/some)
+      ;; possible additional operator: bind/result
+      ;; possible additional operator: bind/some
+      ;; oh god, monads
+      ;; additional arrow possibilities: >> ||> ~> => !>
 
       ;; hashmap #{
       \# (if (= next \{)
@@ -201,18 +207,22 @@
            (add-error scanner (str "Expected beginning of set: ${. Got " char next)))
 
       ;; placeholder
+      ;; TODO: add named placeholder
       \_ (if (terminates? next)
            (add-token scanner ::token/placeholder)
            (add-word scanner))
 
       ;; comments
-      ;; &
+      ;; & starts an inline comment
       ;; TODO: include comments in scanned file
+      ;; TODO: add doc comments: &&&
       \& (skip-comment scanner)
 
       ;; keywords
+      ;; TODO: instead of a separate token, scan a whole type keyword
+      ;;    e.g. ::string, ::number
       \: (cond
-            (= \: next) (add-token (advance scanner) ::token/doublecolon))
+            ;;(= \: next) (add-token (advance scanner) ::token/doublecolon))
             (alpha? next) (add-word scanner)
             :else (add-error scanner (str "Expected keyword. Got " char next))
 
@@ -221,7 +231,7 @@
 
       ;; word matches
       (cond
-        (whitespace? char) scanner
+        (whitespace? char) scanner ;; TODO: include whitespace in scan
         ;; (digit? char) (add-number scanner)
         ;; (alpha? char) (add-word scanner)
         :else (add-error scanner (str "Unexpected character: " char))))))
