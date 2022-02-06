@@ -1,11 +1,15 @@
 (ns ludus.scanner
-  (:require [ludus.token :as token]
-    [clojure.pprint :as pp]))
+  (:require 
+    [ludus.token :as token]
+    [clojure.pprint :as pp]
+    [clojure.edn :as edn]
+    [clojure.string :as s]))
 
 (def reserved-words
   "List of Ludus reserved words."
   ;; see ludus-spec repo for more info
   #{
+    "as"
     "cond"
     "else"
     "false"
@@ -18,13 +22,17 @@
     "then"
     "true"
     "var"
-    "with" ;;maybe
+    "with"
     ;; below here, probable
     "defer"
+    "gen"
     "loop"
     "ns"
     "recur"
     "repeat"
+    "test"
+    "wait"
+    "yield"
     ;; below here, possible
     "when"
     })
@@ -77,10 +85,11 @@
   (char-in-range? \1 \9 c))
 
 ;; for now, use very basic ASCII charset in words
+;; TODO: research the implications of using the whole 
+;; (defn- alpha? [c] (boolean (re-find #"\p{L}" (str c))))
 (defn- alpha? [c]
   (or (char-in-range? \a \z c) (char-in-range? \A \Z c)))
 
-;; (defn- alpha? [c] (boolean (re-find #"\p{L}" (str c))))
 
 ;; legal characters in words
 (def word-chars #{\_ \? \! \* \/})
@@ -91,7 +100,7 @@
 (defn- whitespace? [c]
   (or (= c \space) (= c \tab)))
 
-(def terminators #{\: \; \newline \{ \} \( \) \[ \] \$ \# \- \< \& \, \|})
+(def terminators #{\: \; \newline \{ \} \( \) \[ \] \$ \# \- \< \& \, \| nil \\})
 
 (defn- terminates? [c]
   (or (whitespace? c) (contains? terminators c)))
@@ -109,29 +118,39 @@
        (::start scanner)))))
 
 ;; TODO: errors should also be in the vector of tokens
-;; The goal is to be able to be able to hand this to an LSP
+;; The goal is to be able to be able to hand this to an LSP?
+;; Do we need a different structure
 (defn- add-error [scanner msg]
   (update scanner ::errors conj {:msg msg :line (::line scanner) :start (::start scanner)}))
 
-;; TODO: finish this
-(defn- scan-keyword 
-  ([scanner] (scan-keyword scanner scanner))
-  ([start current]))
+(defn- add-keyword 
+  [scanner]
+(loop [scanner scanner
+         key ""]
+    (let [char (current-char scanner)]
+      (cond
+        (terminates? char) (add-token scanner ::token/keyword (keyword key))
+        (word-char? char) (recur (advance scanner) (str key char))
+        :else (add-error scanner "Unexpected " char "after keyword :" key)))))
 
-(defn- add-keyword [scanner]
-  (let [advanced (advance scanner)
-        char (current-char advanced)]
-    (if (not (alpha? char))
-      (add-error scanner (str "Keywords must start with a letter, e.g. :foo. Got " \: char))
-      (scan-keyword advanced))))
+;; TODO: improve number parsing?
+;; This will currently parse 000001 as 1. Is that correct behaviour?
+(defn- add-number [char scanner]
+    (loop [scanner scanner
+           num (str char)
+           float? false]
+      (let [curr (current-char scanner)]
+        (cond
+          (= curr \_) (recur (advance scanner) num float?) ;; consume underscores unharmed
+          (= curr \.) (if float?
+            (add-error scanner (str "Unexpected second decimal point after " num "."))
+            (recur (advance scanner) (str num curr) true))
+          (terminates? curr) (add-token scanner ::token/number (edn/read-string num))
+          (digit? curr) (recur (advance scanner) (str num curr) float?)
+          :else (add-error scanner (str "Unexpected " curr " after number " num "."))))))
 
-(defn- add-zero-start [scanner])
-
-(defn- add-number [scanner]
-  (let [current (current-char scanner)]
-    (if (nonzero-digit? current)
-      (loop [current current]))))
-
+;; TODO: add string interpolation
+;; This still has to be devised
 (defn- add-string 
   [scanner]
   (loop [scanner scanner
@@ -140,27 +159,51 @@
       (case char
         \newline (add-error scanner "Unterminated string.")
         \" (add-token (advance scanner) ::token/string string)
-        \\ (recur (advance (advance scanner)) (str string (next-char scanner)))
+        \\ (let [next (next-char scanner)
+                 scanner (if (= next \newline)
+                            (update scanner ::line inc)
+                            scanner)]
+            (recur (advance (advance scanner)) (str string next)))
         (if (at-end? scanner)
           (add-error scanner "Unterminated string.")
           (recur (advance scanner) (str string char)))))))
 
 (defn- add-word 
+  [char scanner]
+  (loop [scanner scanner
+         word (str char)]
+     (let [curr (current-char scanner)]
+      (cond
+        (terminates? curr) (if (contains? reserved-words word) 
+          (add-token scanner ::token/reserved)
+          (add-token scanner ::token/word))
+        (word-char? curr) (recur (advance scanner) (str word curr))
+        :else (add-error scanner (str "Unexpected " curr " after word " word "."))))))
+
+(defn- add-ignored
   [scanner]
   (loop [scanner scanner
-         word ""])
-    (let [char (current-char scanner)]))
+         ignored "_"]
+      (let [char (current-char scanner)]
+        (cond
+          (terminates? char) (add-token scanner ::token/ignored)
+          (word-char? char) (recur (advance scanner) (str ignored char))
+          :else (add-error scanner (str "Unexpected " char " after word " ignored "."))))))
 
-(defn- skip-comment [scanner]
-  (if (= \newline (current-char scanner)) 
-    (advance scanner)
-    (recur (advance scanner))))
+(defn- add-comment [char scanner]
+  (loop [scanner scanner
+         comm (str char)]
+    (let [char (current-char scanner)]
+      (if (= \newline char)
+        (if (s/starts-with? comm "&&&")
+          (add-token (update scanner ::line inc) ::token/docstring)
+          (add-token (update scanner ::line inc) ::token/comment))
+        (recur (advance scanner) (str comm char))))))
 
 (defn- scan-token [scanner]
   (let [char (current-char scanner)
         scanner (advance scanner)
-        next (current-char scanner)
-        ]
+        next (current-char scanner)]
     (case char
       ;; one-character tokens
       \( (add-token scanner ::token/lparen)
@@ -171,15 +214,15 @@
       \] (add-token scanner ::token/rbracket)
       \; (add-token scanner ::token/semicolon)
       \, (add-token scanner ::token/comma)
-      \newline (add-token scanner ::token/newline)
+      \newline (add-token (update scanner ::line inc) ::token/newline)
       \\ (add-token scanner ::token/backslash)
 
       ;; two-character tokens
       ;; ->
       \- (cond
             (= next \>) (add-token (advance scanner) ::token/rarrow)
-            (digit? next) (add-number scanner)
-            (add-error scanner ("Expected -> or negative number. Got " char next)))
+            (digit? next) (add-number char scanner)
+            :else (add-error scanner (str "Expected -> or negative number. Got " char next)))
 
       ;; <-
       \< (if (= next \-)
@@ -206,34 +249,45 @@
            (add-token (advance scanner) ::token/startset)
            (add-error scanner (str "Expected beginning of set: ${. Got " char next)))
 
-      ;; placeholder
-      ;; TODO: add named placeholder
-      \_ (if (terminates? next)
-           (add-token scanner ::token/placeholder)
-           (add-word scanner))
+      ;; placeholders
+      ;; there's a flat _, and then ignored words
+      \_ (cond 
+           (terminates? next) (add-token scanner ::token/placeholder)
+           (alpha? next) (add-ignored scanner)
+           :else (add-error scanner (str "Expected placeholder: _. Got " char next)))
 
       ;; comments
       ;; & starts an inline comment
       ;; TODO: include comments in scanned file
       ;; TODO: add doc comments: &&&
-      \& (skip-comment scanner)
+      \& (add-comment char scanner)
 
       ;; keywords
       ;; TODO: instead of a separate token, scan a whole type keyword
       ;;    e.g. ::string, ::number
       \: (cond
             ;;(= \: next) (add-token (advance scanner) ::token/doublecolon))
-            (alpha? next) (add-word scanner)
-            :else (add-error scanner (str "Expected keyword. Got " char next))
+            (alpha? next) (add-keyword scanner)
+            :else (add-error scanner (str "Expected keyword. Got " char next)))
+
+      ;; splats
+      \. (let [after_next (current-char (advance scanner))]
+        (if (= ".." (str next after_next))
+          (add-token (advance (advance scanner)) ::token/splat)
+          (add-error scanner (str "Expected splat: ... . Got " (str "." next after_next)))))
 
       ;; strings
       \" (add-string scanner)
 
       ;; word matches
       (cond
-        (whitespace? char) scanner ;; TODO: include whitespace in scan
-        ;; (digit? char) (add-number scanner)
-        ;; (alpha? char) (add-word scanner)
+        (whitespace? char) (loop [scanner scanner ws (str char)]
+          (let [curr (current-char scanner)]
+            (if (whitespace? curr) 
+              (recur (advance scanner) (str ws curr)) 
+              (add-token scanner ::token/ws))))
+        (digit? char) (add-number char scanner)
+        (alpha? char) (add-word char scanner)
         :else (add-error scanner (str "Unexpected character: " char))))))
 
 (defn- next-token [scanner]
@@ -242,18 +296,24 @@
 (defn scan [source]
   (loop [scanner (new-scanner source)]
     (if (at-end? scanner)
-      (let [scanner (add-token scanner ::eof)]
+      (let [scanner (add-token scanner ::token/eof)]
         {:tokens (::tokens scanner) 
          :errors (::errors scanner)})
       (recur (-> scanner (scan-token) (next-token))))))
 
 
-(let [source "\"foo\\\nbar\"\n)"]
+(let [source "&&1 abc qde\n\n"]
   (scan source))
 
-;; string scanning is (I think) working
-;; line counting is not working
-;; do I just save a location and then calculate line numbers if an error happens?
-;; next up: numbers!
+
+
+
+
+
+
+
+
+
+
 
 
