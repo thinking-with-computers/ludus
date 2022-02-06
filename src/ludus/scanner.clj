@@ -6,7 +6,6 @@
   "List of Ludus reserved words."
   ;; see ludus-spec repo for more info
   #{
-    "as"
     "cond"
     "else"
     "false"
@@ -77,13 +76,20 @@
 (defn- nonzero-digit? [c]
   (char-in-range? \1 \9 c))
 
+;; for now, use very basic ASCII charset in words
 (defn- alpha? [c]
-  (boolean (re-find #"\p{L}" (str c))))
+  (or (char-in-range? \a \z c) (char-in-range? \A \Z c)))
+
+;; legal characters in words
+(def word-chars #{\_ \? \! \* \/})
+
+(defn- word-char? [c]
+  (or (alpha? c) (digit? c) (contains? word-chars c)))
 
 (defn- whitespace? [c]
   (or (= c \space) (= c \tab)))
 
-(def terminators #{\: \; \newline \{ \( \[ \$ \# \- \< \& \,})
+(def terminators #{\: \; \newline \{ \} \( \) \[ \] \$ \# \- \< \& \, \|})
 
 (defn- terminates? [c]
   (or (whitespace? c) (contains? terminators c)))
@@ -100,6 +106,7 @@
        (::line scanner) 
        (::start scanner)))))
 
+;; TODO: errors should also be 
 (defn- add-error [scanner msg]
   (update scanner ::errors conj {:msg msg :line (::line scanner) :start (::start scanner)}))
 
@@ -134,7 +141,11 @@
           (add-error scanner "Unterminated string.")
           (recur (advance scanner) (str string char)))))))
 
-(defn- add-word [scanner])
+(defn- add-word 
+  [scanner]
+  (loop [scanner scanner
+         word ""])
+    (let [char (current-char scanner)]))
 
 (defn- skip-comment [scanner]
   (if (= \newline (current-char scanner)) 
@@ -161,10 +172,10 @@
 
       ;; two-character tokens
       ;; ->
-      ;; have to fix this: negative numbers
-      \- (if (= next \>)
-           (add-token (advance scanner) ::token/rarrow)
-           (add-error scanner (str "Expected ->. Got " char next)))
+      \- (cond
+            (= next \>) (add-token (advance scanner) ::token/rarrow)
+            (digit? next) (add-number scanner)
+            (add-error scanner ("Expected -> or negative number. Got " char next)))
 
       ;; <-
       \< (if (= next \-)
@@ -176,10 +187,8 @@
            (add-token (advance scanner) ::token/pipeline)
            (add-error scanner (str "Expected |>. Got " char next)))
 
-      ;; possible additional operator: => (bind)
-      \= (if (= next \>)
-           (add-token (advance scanner) ::token/bind)
-           (add-error scanner (str "Expected =>. Got " char next)))
+      ;; possible additional operator: => (bind/result)
+      ;; possible additional operator: ~> (bind/some)
 
       ;; hashmap #{
       \# (if (= next \{)
@@ -198,10 +207,14 @@
 
       ;; comments
       ;; &
+      ;; TODO: include comments in scanned file
       \& (skip-comment scanner)
 
       ;; keywords
-      \: (add-keyword scanner)
+      \: (cond
+            (= \: next) (add-token (advance scanner) ::token/doublecolon))
+            (alpha? next) (add-word scanner)
+            :else (add-error scanner (str "Expected keyword. Got " char next))
 
       ;; strings
       \" (add-string scanner)
