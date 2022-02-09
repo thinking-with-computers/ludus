@@ -110,7 +110,7 @@
    (add-token scanner token-type nil))
   ([scanner token-type literal]
    (update scanner ::tokens conj 
-     (token/token 
+     (token/token
        token-type 
        (current-lexeme scanner) 
        literal 
@@ -300,20 +300,3 @@
         {:tokens (::tokens scanner) 
          :errors (::errors scanner)})
       (recur (-> scanner (scan-token) (next-token))))))
-
-
-(let [source "&&1 abc qde\n\n"]
-  (scan source))
-
-
-
-
-
-
-
-
-
-
-
-
-
