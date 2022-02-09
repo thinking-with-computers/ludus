@@ -9,6 +9,3 @@
     ::literal literal
     ::line line
     ::start start}))
-
-(defn from-keyword [kw]
-  (keyword "ludus.token" kw))
