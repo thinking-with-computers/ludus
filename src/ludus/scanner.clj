@@ -8,33 +8,34 @@
 (def reserved-words
   "List of Ludus reserved words."
   ;; see ludus-spec repo for more info
-  #{
-    "as"
-    "cond"
-    "else"
-    "false"
-    "fn"
-    "if"
-    "match"
-    "mut"
-    "nil"
-    "panic!"
-    "then"
-    "true"
-    "var"
-    "with"
+  {
+    "as" ::token/as
+    "cond" ::token/cond
+    "else" ::token/else
+    "false" ::token/false
+    "fn" ::token/fn
+    "if" ::token/if
+    "let" ::token/let
+    "match" ::token/match
+    "mut" ::token/mut
+    "nil" ::token/nil
+    "panic!" ::token/panic
+    "then" ::token/then
+    "true" ::token/true
+    "var" ::token/var
+    "with" ::token/with
     ;; below here, probable
-    "defer"
-    "gen"
-    "loop"
-    "ns"
-    "recur"
-    "repeat"
-    "test"
-    "wait"
-    "yield"
+    "defer" ::token/defer
+    "gen" ::token/gen
+    "loop" ::token/loop
+    "ns" ::token/ns
+    "recur" ::token/recur
+    "repeat" ::token/repeat
+    "test" ::token/test
+    "wait" ::token/wait
+    "yield" ::token/yield
     ;; below here, possible
-    "when"
+    "when" ::token/when
     })
 
 
@@ -174,9 +175,7 @@
          word (str char)]
      (let [curr (current-char scanner)]
       (cond
-        (terminates? curr) (if (contains? reserved-words word) 
-          (add-token scanner ::token/reserved)
-          (add-token scanner ::token/word))
+        (terminates? curr) (add-token scanner (get reserved-words word ::token/word))
         (word-char? curr) (recur (advance scanner) (str word curr))
         :else (add-error scanner (str "Unexpected " curr " after word " word "."))))))
 
@@ -281,11 +280,7 @@
 
       ;; word matches
       (cond
-        (whitespace? char) (loop [scanner scanner ws (str char)]
-          (let [curr (current-char scanner)]
-            (if (whitespace? curr) 
-              (recur (advance scanner) (str ws curr)) 
-              (add-token scanner ::token/ws))))
+        ;; for now, don't add whitespace tokens
         (digit? char) (add-number char scanner)
         (alpha? char) (add-word char scanner)
         :else (add-error scanner (str "Unexpected character: " char))))))
