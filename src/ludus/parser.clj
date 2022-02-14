@@ -178,14 +178,38 @@
 
 			)))
 
+(defn- parse-word [parser curr]
+	(let [next (next parser)]
+		(case (::token/type next)
+			
+			::token/lparen ::oops
+
+			::token/keyword ::oops
+
+			(assoc (advance parser) ::ast {::ast/type ::ast/word :word (::token/lexeme curr)})
+
+		)))
+
+(defn- parse-keyword [parser token]
+	(let [next (next parser)]
+		(case (::token/type next)
+			
+			::token/lparen ::oops
+			
+			(parse-atom parser token))))
+
 (defn- parse-expr [parser]
 	(loop [parser parser]
 		(let [token (current parser)]
 			(println "Parsing expr " (::token/type token))
 			(case (::token/type token)
 
-				(::token/number ::token/string ::token/keyword)
+				(::token/number ::token/string)
 					(parse-atom parser token)
+
+				::token/keyword (parse-keyword parser token)
+
+				::token/word (parse-word parser token)
 
 				(::token/nil ::token/true ::token/false)
 					(parse-atomic-word parser token)
@@ -200,7 +224,7 @@
 
 				))))
 
-(def source "{1; 2; :foo}\n{1}")
+(def source "foo")
 
 (def tokens (:tokens (scanner/scan source)))
 
