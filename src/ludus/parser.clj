@@ -178,25 +178,32 @@
 
 			)))
 
-(defn- parse-word [parser curr]
-	(let [next (next parser)]
-		(case (::token/type next)
-			
-			::token/lparen ::oops
+(defn- parse-synthetic [parser]
+	(loop [parser parser
+		terms []]
+		(let [curr (current parser)
+			type (::token/type curr)]
+			(case type
+				::token/keyword 
+					(recur (advance parser) (conj terms (::ast (parse-atom parser curr))))
 
-			::token/keyword ::oops
+				::token/word 
+					(recur (advance parser) (conj terms (::ast (parse-word parser))))
 
-			(assoc (advance parser) ::ast {::ast/type ::ast/word :word (::token/lexeme curr)})
+				::token/lparen
+					(let [parsed (parse-tuple parser)]
+						(recur parsed (conj terms (::ast parsed))))
 
-		)))
+				(-> parser 
+					(assoc ::ast {::ast/type ::ast/synthetic :terms terms})
 
-(defn- parse-keyword [parser token]
-	(let [next (next parser)]
-		(case (::token/type next)
-			
-			::token/lparen ::oops
-			
-			(parse-atom parser token))))
+				)))))
+
+(defn- parse-word [parser]
+	(let [curr (current parser)]
+		(-> parser
+			(advance)
+			(assoc ::ast {::ast/type ::ast/word :word (::token/lexeme curr)}))))
 
 (defn- parse-expr [parser]
 	(loop [parser parser]
@@ -207,9 +214,17 @@
 				(::token/number ::token/string)
 					(parse-atom parser token)
 
-				::token/keyword (parse-keyword parser token)
+				::token/keyword (let [next (next parser)
+					type (::token/type next)]
+					(if (= type ::token/lparen)
+						(parse-synthetic parser)
+						(parse-atom parser token)))
 
-				::token/word (parse-word parser token)
+				::token/word (let [next (next parser)
+					type (::token/type next)]
+					(case type
+						(::token/lparen ::token/keyword) (parse-synthetic parser)
+						(parse-word parser)))
 
 				(::token/nil ::token/true ::token/false)
 					(parse-atomic-word parser token)
@@ -224,7 +239,7 @@
 
 				))))
 
-(def source "foo")
+(def source ":foo (bar) (baz)")
 
 (def tokens (:tokens (scanner/scan source)))
 
@@ -268,6 +283,8 @@
 	For future correctness checks:
 	* Early (even as part of wiring up the interpreter), begin the static analysis check for unbound names, redeclaration
 	* Compound `loop` and `gen` forms must have LHS's (tuple patterns) of the same length
+	* Recur is in tail position in `loop`s
+	* Tail call optimization for simple recursion
 ")
 
 
