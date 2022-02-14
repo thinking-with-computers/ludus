@@ -157,8 +157,12 @@
 			(::token/semicolon ::token/newline) 
 				(recur (advance parser) (add-member exprs current_expr) nil)
 			
-			(let [parsed (parse-expr parser)]
-				(recur parsed exprs (::ast parsed)))
+			(if current_expr
+				(-> parser
+					(advance)
+					(assoc ::ast {::ast/type ::ast/poison :message "Expected end of expression"}))
+				(let [parsed (parse-expr parser)]
+					(recur parsed exprs (::ast parsed))))
 			)))
 
 (defn- parse-script [parser]
@@ -173,8 +177,12 @@
 			(::token/semicolon ::token/newline)
 				(recur (advance parser) (add-member exprs current_expr) nil)
 
-			(let [parsed (parse-expr parser)]
-				(recur parsed exprs (::ast parsed)))
+			(if current_expr
+				(-> parser
+					(advance)
+					(assoc ::ast {::ast/type ::ast/poison :message "Expected end of expression"}))
+				(let [parsed (parse-expr parser)]
+					(recur parsed exprs (::ast parsed))))
 
 			)))
 
@@ -239,7 +247,7 @@
 
 				))))
 
-(def source ":foo (bar) (baz)")
+(def source ":foo; :baz (foo, bar)")
 
 (def tokens (:tokens (scanner/scan source)))
 
@@ -248,8 +256,7 @@
 (pp/pprint p)
 
 (-> (parse-script p)
-	(::ast)
-	(:exprs))
+	(::ast))
 
 (comment "
 	Just leaving this note here for myself. I'm too tired to write more code, but I want not to lose momentum. So:
@@ -285,6 +292,7 @@
 	* Compound `loop` and `gen` forms must have LHS's (tuple patterns) of the same length
 	* Recur is in tail position in `loop`s
 	* Tail call optimization for simple recursion
+	* Check arities for statically known functions
 ")
 
 
