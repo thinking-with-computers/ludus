@@ -152,7 +152,9 @@
 		(case (::token/type (current parser))
 			::token/rbrace 
 				(assoc (advance parser) ::ast
-					{::ast/type ::ast/block :exprs (add-member exprs current_expr)})
+					(if (and (empty? exprs) (nil? current_expr))
+						{::ast/type ::ast/poison :message "Blocks must have at least one expression"}
+						{::ast/type ::ast/block :exprs (add-member exprs current_expr)}))
 			
 			(::token/semicolon ::token/newline) 
 				(recur (advance parser) (add-member exprs current_expr) nil)
@@ -247,7 +249,7 @@
 
 				))))
 
-(def source ":foo; :baz (foo, bar)")
+(def source "{:foo}")
 
 (def tokens (:tokens (scanner/scan source)))
 
@@ -259,25 +261,10 @@
 	(::ast))
 
 (comment "
-	Just leaving this note here for myself. I'm too tired to write more code, but I want not to lose momentum. So:
-
-	Next, we'll need to look at synthetic expressions. Their first terms are always keywords or words.
-
-	Take the case of keywords:
-	* if the next token is NOT a (, then return the atomic keyword
-	* if it is, then you're in a synthetic expression
-
-	Take the case of words:
-	* if the next token is NOT : or (, then return the atomic word
-	* if it is, then you're in a synthetic expression
-
-	A synthetic expression is a chain of calls and property accesses.
-	That means you can parse, starting from either a keyword or a word, any combination of tuples and keywords, in any order.
-	Until, that is, you reach an expression terminator (of any kind): eof newline ; } ) 
-	Tuples of this kind are special in each case:
-	* Tuples after *initial* keywords may only be of length 1 (b/c that's a called keyword; subsequent keywords in synthetic expressions are property accesses)
-	* All other tuples may contain exactly one or zero placeholders as members
-	* We want both of these to be parse errors (should these be at parsing or subsequent correctness checks)
+	Further thoughts/still to do:
+	* Placeholders
+		* Placeholders may only appear in tuples in synthetic expressions
+		* Each of these may have zero or one placeholders
 
 	Other quick thoughts:
 	* Blocks must have at least one expression. This should be a parse error.
@@ -293,6 +280,7 @@
 	* Recur is in tail position in `loop`s
 	* Tail call optimization for simple recursion
 	* Check arities for statically known functions
+	* Enforce single-member tuple after called keywords
 ")
 
 
