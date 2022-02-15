@@ -215,6 +215,7 @@
       \, (add-token scanner ::token/comma)
       \newline (add-token (update scanner ::line inc) ::token/newline)
       \\ (add-token scanner ::token/backslash)
+      \= (add-token scanner ::token/equals)
 
       ;; two-character tokens
       ;; ->
@@ -223,6 +224,7 @@
             (digit? next) (add-number char scanner)
             :else (add-error scanner (str "Expected -> or negative number. Got " char next)))
 
+      ;; at current we're not using this
       ;; <-
       \< (if (= next \-)
            (add-token (advance scanner) ::token/larrow)
