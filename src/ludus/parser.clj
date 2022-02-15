@@ -24,29 +24,9 @@
 (defn- token-type [parser]
 	(::token/type (current parser)))
 
-(defn- expect [message tokens parser]
-	(let [curr (current parser)]
-		(if (contains? tokens (::token/type curr))
-			parser
-			(assoc parser ::ast {
-				::ast/type ::ast/poison 
-				:message (str "Expected " message)
-				:token curr}))))
-
-(defn- expect+ [message tokens parser]
-	(print "Epxecting ")
-	(pp/pprint tokens)
-	(let [curr (current parser)
-		  next (next parser)]
-		(println "Current: " curr " Next: " next)
-		(if (contains? tokens (::token/type curr))
-			(if (contains? tokens (::token/type next))
-				(recur message tokens (advance parser))
-				parser)
-			(assoc parser ::ast {
-				::ast/type ::ast/poison 
-				:message (str "Expected " message)
-				:token curr}))))
+;; some forward declarations
+(declare parse-expr)
+(declare parse-word)
 
 (defn- parse-atom [parser token]
 	(-> parser
@@ -68,7 +48,6 @@
 			::ast/type ::ast/atom 
 			:value (get atomic-words (::token/type token))})))
 
-(declare parse-expr)
 
 (defn- add-member [members member]
 	(if (nil? member)
