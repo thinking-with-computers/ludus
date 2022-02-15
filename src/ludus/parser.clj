@@ -215,6 +215,26 @@
 			(advance)
 			(assoc ::ast {::ast/type ::ast/word :word (::token/lexeme curr)}))))
 
+(defn- parse-pattern [parser]
+	(let [curr (current parser)
+		type (::token/type curr)]
+		(case type
+			::token/word (parse-word parser)
+
+			(::token/number ::token/string ::token/keyword) (parse-atom parser curr)
+
+			::oops
+		)))
+
+(defn- parse-equals [parser])
+
+(defn- parse-let [parser]
+	(let [
+		pattern (parse-pattern (advance parser))
+		equals (parse-equals pattern)
+		expr (parse-expr equals)
+		]))
+
 (defn- parse-expr [parser]
 	(loop [parser parser]
 		(let [token (current parser)]
@@ -247,6 +267,8 @@
 
 				::token/lbrace (parse-block parser)
 
+				::token/let (parse-let parser)
+
 				))))
 
 (def source "{:foo}")
@@ -267,7 +289,6 @@
 		* Each of these may have zero or one placeholders
 
 	Other quick thoughts:
-	* Blocks must have at least one expression. This should be a parse error.
 	* `let`s with literal matching and word matching are easy. Parsing all the patterns comes later.
 	* The first conditional form to parse is `if` (b/c no patterns) (but it does have funny scoping!)
 	* Once I get this far, then it's time to wire up the interpreter (with hard-coded functions, and the beginning of static analysis)
