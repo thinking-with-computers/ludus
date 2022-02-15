@@ -246,6 +246,7 @@
 		expr (parse-expr equals)
 		results (map #(get-in % [::ast ::ast/type]) [pattern equals expr])
 		]
+		(println "!!!!!!!! let results")
 		(pp/pprint results)
 		))
 
@@ -289,7 +290,7 @@
 
 				))))
 
-(def source "{:foo}")
+(def source "let {1} = 12")
 
 (def tokens (:tokens (scanner/scan source)))
 
@@ -297,7 +298,7 @@
 
 (pp/pprint p)
 
-(-> (parse-script p)
+(-> (parse-let p)
 	(::ast))
 
 (comment "
