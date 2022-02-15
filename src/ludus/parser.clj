@@ -223,17 +223,31 @@
 
 			(::token/number ::token/string ::token/keyword) (parse-atom parser curr)
 
-			::oops
+			(-> parser
+				(advance)
+				(assoc ::ast {::ast/type ::ast/poison :message "Expected pattern"}))
 		)))
 
-(defn- parse-equals [parser])
+(defn- parse-equals [parser]
+	(let [curr (current parser)
+		type (::token/type curr)]
+		(case type
+			::token/equals (advance parser)
+
+			(-> parser
+				(advance)
+				(assoc ::ast {::ast/type ::ast/poison :message "Expected assignment"}))
+			)))
 
 (defn- parse-let [parser]
 	(let [
 		pattern (parse-pattern (advance parser))
 		equals (parse-equals pattern)
 		expr (parse-expr equals)
-		]))
+		results (map #(get-in % [::ast ::ast/type]) [pattern equals expr])
+		]
+		(pp/pprint results)
+		))
 
 (defn- parse-expr [parser]
 	(loop [parser parser]
@@ -268,6 +282,10 @@
 				::token/lbrace (parse-block parser)
 
 				::token/let (parse-let parser)
+
+				(-> parser
+					(advance)
+					(assoc ::ast {::ast/type ::ast/poison :message "Expected expression"}))
 
 				))))
 
