@@ -12,7 +12,7 @@
 (defn- current [parser]
 	(nth (::tokens parser) (::token parser) nil))
 
-(defn- next [parser]
+(defn- peek [parser]
 	(nth (::tokens parser) (inc (::token parser)) nil))
 
 (defn- at-end? [parser]
@@ -60,10 +60,6 @@
 	(loop [parser (advance parser)
 		members []
 		current_member nil]
-		(println "***parsing tuple with ")
-		(print "parser ") (pp/pprint parser)
-		(print "members ") (pp/pprint members)
-		(print "current member ")(pp/pprint current_member)
 		(let [curr (current parser)]
 			(case (::token/type curr)
 				::token/rparen (let [ms (add-member members current_member)] 
@@ -74,8 +70,6 @@
 				(::token/comma ::token/newline) (recur (advance parser) (add-member members current_member) nil)
 
 				(let [parsed (parse-expr parser)]
-					(print "Got to expr with")
-					(pp/pprint (::ast parsed))
 					(recur parsed members (::ast parsed)))
 
 				))))
@@ -84,10 +78,6 @@
 	(loop [parser (advance parser)
 		members []
 		current_member nil]
-		(println "***parsing list with ")
-		(print "parser ") (pp/pprint parser)
-		(print "members ") (pp/pprint members)
-		(print "current member ")(pp/pprint current_member)
 		(let [curr (current parser)]
 			(case (::token/type curr)
 				::token/rbracket (let [ms (add-member members current_member)] 
@@ -97,7 +87,6 @@
 				(::token/comma ::token/newline) (recur (advance parser) (add-member members current_member) nil)
 
 				(let [parsed (parse-expr parser)]
-					(print "Got to expr with ") (pp/pprint (::ast parsed))
 					(recur parsed members (::ast parsed)))
 
 				))))
@@ -106,10 +95,6 @@
 	(loop [parser (advance parser)
 		members []
 		current_member nil]
-		(println "***parsing set with ")
-		(print "parser ") (pp/pprint parser)
-		(print "members ") (pp/pprint members)
-		(print "current member ")(pp/pprint current_member)
 		(let [curr (current parser)]
 			(case (::token/type curr)
 				::token/rbrace (let [ms (add-member members current_member)] 
@@ -119,17 +104,14 @@
 				(::token/comma ::token/newline) (recur (advance parser) (add-member members current_member) nil)
 
 				(let [parsed (parse-expr parser)]
-					(print "Got to expr with ") (pp/pprint (::ast parsed))
 					(recur parsed members (::ast parsed)))
 
 				))))
 
 (defn- parse-block [parser]
-	(println "*** *** parsing block")
 	(loop [parser (advance parser)
 		exprs []
 		current_expr nil]
-		(print "current ")(pp/pprint (current parser))
 		(case (::token/type (current parser))
 			::token/rbrace 
 				(assoc (advance parser) ::ast
@@ -149,7 +131,6 @@
 			)))
 
 (defn- parse-script [parser]
-	(println "*** *** *** parsing script")
 	(loop [parser parser
 		exprs []
 		current_expr nil]
@@ -240,7 +221,6 @@
 		expr (parse-expr equals)
 		results (map #(get-in % [::ast ::ast/type]) [pattern equals expr])
 		]
-		(println "!!!!!!!! let results")
 		(if (some #(= ::ast/poison %) results)
 			(println ::poison)
 			(assoc expr ::ast {
@@ -258,7 +238,6 @@
 		else-expr (parse-expr else)
 		results (map #(get-in % [::ast ::ast/type]) [if-expr then then-expr else else-expr])
 		]
-		(println "//////////// if results")
 		(if (some #(= ::ast/poison %) results)
 			(println ::ast/poison)
 			(assoc else-expr ::ast {
@@ -270,59 +249,61 @@
 		))
 
 (defn- parse-expr [parser]
-	(loop [parser parser]
-		(let [token (current parser)]
-			(println "Parsing expr " (::token/type token))
-			(case (::token/type token)
+	(let [token (current parser)]
+		(case (::token/type token)
 
-				(::token/number ::token/string)
-					(parse-atom parser token)
+			(::token/number ::token/string)
+				(parse-atom parser token)
 
-				::token/keyword (let [next (next parser)
-					type (::token/type next)]
-					(if (= type ::token/lparen)
-						(parse-synthetic parser)
-						(parse-atom parser token)))
+			::token/keyword (let [next (peek parser)
+				type (::token/type next)]
+				(if (= type ::token/lparen)
+					(parse-synthetic parser)
+					(parse-atom parser token)))
 
-				::token/word (let [next (next parser)
-					type (::token/type next)]
-					(case type
-						(::token/lparen ::token/keyword) (parse-synthetic parser)
-						(parse-word parser)))
+			::token/word (let [next (peek parser)
+				type (::token/type next)]
+				(case type
+					(::token/lparen ::token/keyword) (parse-synthetic parser)
+					(parse-word parser)))
 
-				(::token/nil ::token/true ::token/false)
-					(parse-atomic-word parser token)
+			(::token/nil ::token/true ::token/false)
+				(parse-atomic-word parser token)
 
-				::token/lparen (parse-tuple parser)
+			::token/lparen (parse-tuple parser)
 
-				::token/lbracket (parse-list parser)
+			::token/lbracket (parse-list parser)
 
-				::token/startset (parse-set parser)
+			::token/startset (parse-set parser)
 
-				::token/lbrace (parse-block parser)
+			::token/lbrace (parse-block parser)
 
-				::token/let (parse-let parser)
+			::token/let (parse-let parser)
 
-				::token/if (parse-if parser)
+			::token/if (parse-if parser)
 
-				(-> parser
-					(advance)
-					(assoc ::ast {::ast/type ::ast/poison :message "Expected expression"}))
+			(-> parser
+				(advance)
+				(assoc ::ast {::ast/type ::ast/poison :message "Expected expression"}))
 
-				))))
+			)))
 
 (do
 	(def source "if let foo = :foo 
 	then {
 		bar (baz) :quux
 	} 
-	else (42)")
+	else [
+		(42)
+		12
+		:twenty-three
+		foo (bar) (baz) :quux
+		(false, nil, ())
+	]")
 
 (def tokens (:tokens (scanner/scan source)))
 
 (def p (parser tokens))
-
-
 
 (-> (parse-script p)
 	(::ast)
@@ -330,6 +311,11 @@
 
 (comment "
 	Further thoughts/still to do:
+	* Clean up the parsing functions:
+		- use accept-many in blocks and scripts
+		- parse-atom (and other parse functions) should take only a parser
+		- ast nodes should include their tokens
+		- 
 
 	Other quick thoughts:
 	* Once I get this far, then it's time to wire up the interpreter (with hard-coded functions, and the beginning of static analysis)
