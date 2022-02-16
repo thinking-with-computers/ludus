@@ -5,6 +5,7 @@
 		[ludus.ast :as ast]
 		[clojure.pprint :as pp]))
 
+;; a parser map and some functions to work with them
 (defn- parser [tokens]
 	{::tokens tokens ::token 0 ::ast {}})
 
@@ -28,6 +29,7 @@
 (declare parse-expr)
 (declare parse-word)
 
+;; various parsing functions
 (defn- parse-atom [parser token]
 	(-> parser
 		(advance)
@@ -207,26 +209,64 @@
 				(assoc ::ast {::ast/type ::ast/poison :message "Expected pattern"}))
 		)))
 
-(defn- parse-equals [parser]
+(defn- expect [token message parser]
 	(let [curr (current parser)
 		type (::token/type curr)]
-		(case type
-			::token/equals (advance parser)
-
+		(if (= type token)
+			(advance parser)
 			(-> parser
 				(advance)
-				(assoc ::ast {::ast/type ::ast/poison :message "Expected assignment"}))
-			)))
+				(assoc ::ast {::ast/type ::ast/poison :message message})))))
+
+(defn- accept [token parser]
+	(let [curr (current parser)
+		type (::token/type curr)]
+		(if (= type token)
+			(advance parser)
+			parser)))
+
+(defn- accept-many [token parser]
+	(loop [curr (current parser)]
+		(let [type (::token/type curr)]
+			(if (= type token)
+				(recur (advance parser))
+				parser))))
+
 
 (defn- parse-let [parser]
 	(let [
 		pattern (parse-pattern (advance parser))
-		equals (parse-equals pattern)
+		equals (expect ::token/equals "Expected assignment" pattern)
 		expr (parse-expr equals)
 		results (map #(get-in % [::ast ::ast/type]) [pattern equals expr])
 		]
 		(println "!!!!!!!! let results")
-		(pp/pprint results)
+		(if (some #(= ::ast/poison %) results)
+			(println ::poison)
+			(assoc expr ::ast {
+				::ast/type ::ast/let 
+				:pattern (::ast pattern)
+				:expr (::ast expr)}))
+		))
+
+(defn- parse-if [parser]
+	(let [
+		if-expr (parse-expr (advance parser))
+		then (expect ::token/then "Expected then" (accept ::token/newline if-expr))
+		then-expr (parse-expr then)
+		else (expect ::token/else "Epected else" (accept ::token/newline then-expr))
+		else-expr (parse-expr else)
+		results (map #(get-in % [::ast ::ast/type]) [if-expr then then-expr else else-expr])
+		]
+		(println "//////////// if results")
+		(if (some #(= ::ast/poison %) results)
+			(println ::ast/poison)
+			(assoc else-expr ::ast {
+				::ast/type ::ast/let
+				:if-expr (::ast if-expr)
+				:then-expr (::ast then-expr)
+				:else-expr (::ast else-expr)
+				}))
 		))
 
 (defn- parse-expr [parser]
@@ -263,35 +303,43 @@
 
 				::token/let (parse-let parser)
 
+				::token/if (parse-if parser)
+
 				(-> parser
 					(advance)
 					(assoc ::ast {::ast/type ::ast/poison :message "Expected expression"}))
 
 				))))
 
-(def source "let {1} = 12")
+(do
+	(def source "if let foo = :foo 
+	then {
+		bar (baz) :quux
+	} 
+	else (42)")
 
 (def tokens (:tokens (scanner/scan source)))
 
 (def p (parser tokens))
 
-(pp/pprint p)
 
-(-> (parse-let p)
-	(::ast))
+
+(-> (parse-script p)
+	(::ast)
+	(pp/pprint)))
 
 (comment "
 	Further thoughts/still to do:
-	* Placeholders
-		* Placeholders may only appear in tuples in synthetic expressions
-		* Each of these may have zero or one placeholders
 
 	Other quick thoughts:
-	* `let`s with literal matching and word matching are easy. Parsing all the patterns comes later.
-	* The first conditional form to parse is `if` (b/c no patterns) (but it does have funny scoping!)
 	* Once I get this far, then it's time to wire up the interpreter (with hard-coded functions, and the beginning of static analysis)
 
 	* ALSO: time to start working on parsing errors. (poisoned nodes, panic mode, etc.)
+
+	* Placeholders
+		* Placeholders may only appear in tuples in synthetic expressions
+		* Each of these may have zero or one placeholders
+		* Does this want to happen in parsing or in analysis?
 
 	For future correctness checks:
 	* Early (even as part of wiring up the interpreter), begin the static analysis check for unbound names, redeclaration
