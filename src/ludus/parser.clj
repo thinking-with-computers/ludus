@@ -315,12 +315,10 @@
 		- use accept-many in blocks and scripts
 		- parse-atom (and other parse functions) should take only a parser
 		- ast nodes should include their tokens
-		- 
+	* Time to start working on parsing errors (poisoned nodes, panic mode, etc.)
 
 	Other quick thoughts:
 	* Once I get this far, then it's time to wire up the interpreter (with hard-coded functions, and the beginning of static analysis)
-
-	* ALSO: time to start working on parsing errors. (poisoned nodes, panic mode, etc.)
 
 	* Placeholders
 		* Placeholders may only appear in tuples in synthetic expressions
@@ -328,9 +326,11 @@
 		* Does this want to happen in parsing or in analysis?
 
 	For future correctness checks:
-	* Early (even as part of wiring up the interpreter), begin the static analysis check for unbound names, redeclaration
+	* Early (even as part of wiring up the interpreter), begin the static analysis check for 
+		- unbound names 
+		- re-binding of names
 	* Compound `loop` and `gen` forms must have LHS's (tuple patterns) of the same length
-	* Recur is in tail position in `loop`s
+	* Recur must be in tail position in `loop`s
 	* Tail call optimization for simple recursion
 	* Check arities for statically known functions
 	* Enforce single-member tuple after called keywords
