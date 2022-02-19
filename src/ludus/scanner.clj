@@ -9,34 +9,34 @@
   "List of Ludus reserved words."
   ;; see ludus-spec repo for more info
   {
-    "as" ::token/as
-    "cond" ::token/cond
-    "else" ::token/else
-    "false" ::token/false
-    "fn" ::token/fn
-    "if" ::token/if
-    "let" ::token/let
-    "match" ::token/match
-    "mut" ::token/mut
-    "nil" ::token/nil
-    "panic!" ::token/panic
-    "then" ::token/then
-    "true" ::token/true
-    "var" ::token/var
-    "with" ::token/with
-    ;; below here, probable
-    "defer" ::token/defer
-    "gen" ::token/gen
-    "loop" ::token/loop
-    "ns" ::token/ns
-    "recur" ::token/recur
-    "repeat" ::token/repeat
-    "test" ::token/test
-    "wait" ::token/wait
-    "yield" ::token/yield
-    ;; below here, possible
-    "when" ::token/when
-    })
+   "as" ::token/as
+   "cond" ::token/cond
+   "else" ::token/else
+   "false" ::token/false
+   "fn" ::token/fn
+   "if" ::token/if
+   "let" ::token/let
+   "match" ::token/match
+   "mut" ::token/mut
+   "nil" ::token/nil
+   "panic!" ::token/panic
+   "then" ::token/then
+   "true" ::token/true
+   "var" ::token/var
+   "with" ::token/with
+   ;; below here, probable
+   "defer" ::token/defer
+   "gen" ::token/gen
+   "loop" ::token/loop
+   "ns" ::token/ns
+   "recur" ::token/recur
+   "repeat" ::token/repeat
+   "test" ::token/test
+   "wait" ::token/wait
+   "yield" ::token/yield
+   ;; below here, possible
+   "when" ::token/when
+   })
 
 
 (defn- new-scanner 
@@ -122,34 +122,45 @@
 ;; The goal is to be able to be able to hand this to an LSP?
 ;; Do we need a different structure
 (defn- add-error [scanner msg]
-  (update scanner ::errors conj {:msg msg :line (::line scanner) :start (::start scanner)}))
+  (let [
+        token (token/token 
+                ::token/error
+                (current-lexeme scanner)
+                nil
+                (::line scanner)
+                (::start scanner))
+        err-token (assoc token :msg msg)
+        ]
+    (-> scanner
+      (update ::errors conj err-token)
+      (update ::tokens conj err-token))))
 
 (defn- add-keyword 
   [scanner]
-(loop [scanner scanner
+  (loop [scanner scanner
          key ""]
     (let [char (current-char scanner)]
       (cond
         (terminates? char) (add-token scanner ::token/keyword (keyword key))
         (word-char? char) (recur (advance scanner) (str key char))
-        :else (add-error scanner "Unexpected " char "after keyword :" key)))))
+        :else (add-error scanner (str "Unexpected " char "after keyword :" key))))))
 
 ;; TODO: improve number parsing?
 ;; Currently this uses Clojure's number formatting rules (since we use the EDN reader)
 ;; These rules are here: https://cljs.github.io/api/syntax/number
 (defn- add-number [char scanner]
-    (loop [scanner scanner
-           num (str char)
-           float? false]
-      (let [curr (current-char scanner)]
-        (cond
-          (= curr \_) (recur (advance scanner) num float?) ;; consume underscores unharmed
-          (= curr \.) (if float?
-            (add-error scanner (str "Unexpected second decimal point after " num "."))
-            (recur (advance scanner) (str num curr) true))
-          (terminates? curr) (add-token scanner ::token/number (edn/read-string num))
-          (digit? curr) (recur (advance scanner) (str num curr) float?)
-          :else (add-error scanner (str "Unexpected " curr " after number " num "."))))))
+  (loop [scanner scanner
+         num (str char)
+         float? false]
+    (let [curr (current-char scanner)]
+      (cond
+        (= curr \_) (recur (advance scanner) num float?) ;; consume underscores unharmed
+        (= curr \.) (if float?
+                      (add-error scanner (str "Unexpected second decimal point after " num "."))
+                      (recur (advance scanner) (str num curr) true))
+        (terminates? curr) (add-token scanner ::token/number (edn/read-string num))
+        (digit? curr) (recur (advance scanner) (str num curr) float?)
+        :else (add-error scanner (str "Unexpected " curr " after number " num "."))))))
 
 ;; TODO: add string interpolation
 ;; This still has to be devised
@@ -163,9 +174,9 @@
         \" (add-token (advance scanner) ::token/string string)
         \\ (let [next (next-char scanner)
                  scanner (if (= next \newline)
-                            (update scanner ::line inc)
-                            scanner)]
-            (recur (advance (advance scanner)) (str string next)))
+                           (update scanner ::line inc)
+                           scanner)]
+             (recur (advance (advance scanner)) (str string next)))
         (if (at-end? scanner)
           (add-error scanner "Unterminated string.")
           (recur (advance scanner) (str string char)))))))
@@ -174,7 +185,7 @@
   [char scanner]
   (loop [scanner scanner
          word (str char)]
-     (let [curr (current-char scanner)]
+    (let [curr (current-char scanner)]
       (cond
         (terminates? curr) (add-token scanner (get reserved-words word ::token/word))
         (word-char? curr) (recur (advance scanner) (str word curr))
@@ -184,11 +195,11 @@
   [scanner]
   (loop [scanner scanner
          ignored "_"]
-      (let [char (current-char scanner)]
-        (cond
-          (terminates? char) (add-token scanner ::token/ignored)
-          (word-char? char) (recur (advance scanner) (str ignored char))
-          :else (add-error scanner (str "Unexpected " char " after word " ignored "."))))))
+    (let [char (current-char scanner)]
+      (cond
+        (terminates? char) (add-token scanner ::token/ignored)
+        (word-char? char) (recur (advance scanner) (str ignored char))
+        :else (add-error scanner (str "Unexpected " char " after word " ignored "."))))))
 
 (defn- add-comment [char scanner]
   (loop [scanner scanner
@@ -221,9 +232,9 @@
       ;; two-character tokens
       ;; ->
       \- (cond
-            (= next \>) (add-token (advance scanner) ::token/rarrow)
-            (digit? next) (add-number char scanner)
-            :else (add-error scanner (str "Expected -> or negative number. Got " char next)))
+           (= next \>) (add-token (advance scanner) ::token/rarrow)
+           (digit? next) (add-number char scanner)
+           :else (add-error scanner (str "Expected -> or negative number. Got " char next)))
 
       ;; at current we're not using this
       ;; <-
@@ -268,15 +279,15 @@
       ;; TODO: instead of a separate token, scan a whole type keyword
       ;;    e.g. ::string, ::number
       \: (cond
-            ;;(= \: next) (add-token (advance scanner) ::token/doublecolon))
-            (alpha? next) (add-keyword scanner)
-            :else (add-error scanner (str "Expected keyword. Got " char next)))
+           ;;(= \: next) (add-token (advance scanner) ::token/doublecolon))
+           (alpha? next) (add-keyword scanner)
+           :else (add-error scanner (str "Expected keyword. Got " char next)))
 
       ;; splats
       \. (let [after_next (current-char (advance scanner))]
-        (if (= ".." (str next after_next))
-          (add-token (advance (advance scanner)) ::token/splat)
-          (add-error scanner (str "Expected splat: ... . Got " (str "." next after_next)))))
+           (if (= ".." (str next after_next))
+             (add-token (advance (advance scanner)) ::token/splat)
+             (add-error scanner (str "Expected splat: ... . Got " (str "." next after_next)))))
 
       ;; strings
       \" (add-string scanner)
