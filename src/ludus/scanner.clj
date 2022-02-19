@@ -135,7 +135,8 @@
         :else (add-error scanner "Unexpected " char "after keyword :" key)))))
 
 ;; TODO: improve number parsing?
-;; This will currently parse 000001 as 1. Is that correct behaviour?
+;; Currently this uses Clojure's number formatting rules (since we use the EDN reader)
+;; These rules are here: https://cljs.github.io/api/syntax/number
 (defn- add-number [char scanner]
     (loop [scanner scanner
            num (str char)
