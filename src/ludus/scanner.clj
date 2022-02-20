@@ -129,7 +129,7 @@
                 nil
                 (::line scanner)
                 (::start scanner))
-        err-token (assoc token :msg msg)
+        err-token (assoc token :message msg)
         ]
     (-> scanner
       (update ::errors conj err-token)
@@ -243,6 +243,7 @@
            (add-error scanner (str "Expected <-. Got " char next)))
 
       ;; |>
+      ;; Consider => , with =>> for bind
       \| (if (= next \>)
            (add-token (advance scanner) ::token/pipeline)
            (add-error scanner (str "Expected |>. Got " char next)))
@@ -294,7 +295,7 @@
 
       ;; word matches
       (cond
-        ;; for now, don't add whitespace tokens
+        (whitespace? char) scanner ;; for now just skip whitespace characters
         (digit? char) (add-number char scanner)
         (alpha? char) (add-word char scanner)
         :else (add-error scanner (str "Unexpected character: " char))))))
@@ -309,3 +310,10 @@
         {:tokens (::tokens scanner) 
          :errors (::errors scanner)})
       (recur (-> scanner (scan-token) (next-token))))))
+
+
+(do
+  (def source "abc nil")
+
+  (pp/pprint (scan source))
+)
