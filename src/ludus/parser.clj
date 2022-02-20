@@ -7,7 +7,7 @@
 
 ;; a parser map and some functions to work with them
 (defn- parser [tokens]
-  {::tokens tokens ::token 0 ::ast {}})
+  {::tokens tokens ::token 0 ::ast {} ::errors []})
 
 (defn- current [parser]
   (nth (::tokens parser) (::token parser) nil))
@@ -29,13 +29,43 @@
 (declare parse-expr)
 (declare parse-word)
 
+;; handle some errors
+(defn- sync [parser message origin end]
+  (println "Synching on " (current parser))
+  (let [poison {
+                ::ast/type ::ast/poison
+                :message message
+                :origin origin
+                :end end
+                }]
+    (-> parser
+      (assoc ::ast poison)
+      (update ::errors conj poison))))
+
+(defn- poisoned? [parser]
+  (= ::ast/poison (get-in parser [::ast ::ast/type])))
+
+(defn- panic [parser message sync-on]
+  (println "PANIC!!! in the parser")
+  (let [origin (current parser)]
+    (loop [parser parser]
+      (let [
+            curr (current parser)
+            type (::token/type curr)
+            ]
+        (if (or (= ::token/eof type) (contains? sync-on type))
+          (sync parser message origin curr) 
+          (recur (advance parser)))))))
+
 ;; various parsing functions
-(defn- parse-atom [parser token]
-  (-> parser
-    (advance)
-    (assoc ::ast {
-                  ::ast/type ::ast/atom 
-                  :value (::token/literal token)})))
+(defn- parse-atom [parser]
+  (let [token (current parser)]
+    (-> parser
+      (advance)
+      (assoc ::ast {
+                    ::ast/type ::ast/atom 
+                    :token token
+                    :value (::token/literal token)}))))
 
 ;; just a quick and dirty map to associate atomic words with values
 (def atomic-words {
@@ -43,12 +73,14 @@
                    ::token/true true
                    ::token/false false})
 
-(defn parse-atomic-word [parser token]
-  (-> parser
-    (advance)
-    (assoc ::ast {
-                  ::ast/type ::ast/atom 
-                  :value (get atomic-words (::token/type token))})))
+(defn parse-atomic-word [parser]
+  (let [token (current parser)]
+    (-> parser
+      (advance)
+      (assoc ::ast {
+                    ::ast/type ::ast/atom
+                    :token token
+                    :value (get atomic-words (::token/type token))}))))
 
 
 (defn- add-member [members member]
@@ -70,7 +102,11 @@
         (::token/comma ::token/newline) (recur (advance parser) (add-member members current_member) nil)
 
         (let [parsed (parse-expr parser)]
-          (recur parsed members (::ast parsed)))
+          (if (= ::ast/poison (get-in parsed [::ast ::ast/type]))
+            (panic parsed (:message (::ast parsed)) #{::token/rparen})
+            (recur parsed members (::ast parsed))
+            )
+          )
 
         ))))
 
@@ -134,6 +170,12 @@
   (loop [parser parser
          exprs []
          current_expr nil]
+    (comment (println "*** Parsing script")
+      (print "Exprs: ")
+      (pp/pprint exprs)
+      (print "Current expr: ")
+      (pp/pprint current_expr)
+      (println "Current token type " (::token/type (current parser))))
     (case (::token/type (current parser))
       ::token/eof (assoc parser ::ast
                     {::ast/type ::ast/script :exprs (add-member exprs current_expr)})
@@ -142,11 +184,14 @@
       (recur (advance parser) (add-member exprs current_expr) nil)
 
       (if current_expr
-        (-> parser
-          (advance)
-          (assoc ::ast {::ast/type ::ast/poison :message "Expected end of expression"}))
+        (if (poisoned? current_expr)
+          (panic parser (:message current_expr) #{::token/newline ::token/semicolon})
+          (let [synced (panic parser "Expected end of expression" #{::token/newline ::token/semicolon})]
+            (recur synced exprs (::ast synced))
+            ))
         (let [parsed (parse-expr parser)]
-          (recur parsed exprs (::ast parsed))))
+          (recur parsed exprs (::ast parsed))
+          ))
 
       )))
 
@@ -157,7 +202,7 @@
           type (::token/type curr)]
       (case type
         ::token/keyword 
-        (recur (advance parser) (conj terms (::ast (parse-atom parser curr))))
+        (recur (advance parser) (conj terms (::ast (parse-atom parser))))
 
         ::token/word 
         (recur (advance parser) (conj terms (::ast (parse-word parser))))
@@ -183,7 +228,7 @@
     (case type
       ::token/word (parse-word parser)
 
-      (::token/number ::token/string ::token/keyword) (parse-atom parser curr)
+      (::token/number ::token/string ::token/keyword) (parse-atom parser)
 
       (-> parser
         (advance)
@@ -248,18 +293,27 @@
                               }))
     ))
 
+(def expr-sync #{
+                 ::token/newline
+                 ::token/semicolon
+                 ::token/comma
+                 ::token/rparen
+                 ::token/rbracket
+                 ::token/rbrace
+                 })
+
 (defn- parse-expr [parser]
   (let [token (current parser)]
     (case (::token/type token)
 
       (::token/number ::token/string)
-      (parse-atom parser token)
+      (parse-atom parser)
 
       ::token/keyword (let [next (peek parser)
                             type (::token/type next)]
                         (if (= type ::token/lparen)
                           (parse-synthetic parser)
-                          (parse-atom parser token)))
+                          (parse-atom parser)))
 
       ::token/word (let [next (peek parser)
                          type (::token/type next)]
@@ -268,7 +322,7 @@
                        (parse-word parser)))
 
       (::token/nil ::token/true ::token/false)
-      (parse-atomic-word parser token)
+      (parse-atomic-word parser)
 
       ::token/lparen (parse-tuple parser)
 
@@ -282,40 +336,52 @@
 
       ::token/if (parse-if parser)
 
-      (-> parser
-        (advance)
-        (assoc ::ast {::ast/type ::ast/poison :message "Expected expression"}))
+      ::token/error (panic parser (:message token) 
+                      #{
+                        ::token/newline
+                        ::token/semicolon
+                        ::token/comma
+                        ::token/rparen
+                        ::token/rbracket
+                        ::token/rbrace
+                        })
+
+      (::token/rparen ::token/rbrace ::token/rbracket)
+      (panic parser (str "Unbalanced enclosure: " (::token/lexeme token)) expr-sync)
+
+      (::token/semicolon ::token/comma)
+      (panic parser (str "Unexpected delimiter: " (::token/lexeme token)) expr-sync)
+
+      (panic parser "Expected expression" expr-sync)
 
       )))
 
 (do
-  (def source "if let foo = :foo 
-	then {
-		bar (baz) :quux
-	} 
-	else [
-		(42)
-		12
-		:twenty-three
-		foo (bar) (baz) :quux
-		(false, nil, ())
-	]")
+  (def pp pp/pprint)
+  (def source "(foo, bar, baz^, } )
+    :foo (bar)
 
-  (def tokens (:tokens (scanner/scan source)))
-
+    [1, 2, 3]")
+  (def lexed (scanner/scan source))
+  (def tokens (:tokens lexed))
   (def p (parser tokens))
 
-  (-> (parse-script p)
+  (-> p
+    (parse-script)
     (::ast)
-    (pp/pprint)))
+    (pp)
+    )
+  )
 
 (comment "
 	Further thoughts/still to do:
 	* Clean up the parsing functions:
 		- use accept-many in blocks and scripts
-		- parse-atom (and other parse functions) should take only a parser
-		- ast nodes should include their tokens
+		- ast nodes should include their tokens (this is added for atoms, which may be fully sufficient)
 	* Time to start working on parsing errors (poisoned nodes, panic mode, etc.)
+    - this works (ish) for expr, script, tuple
+    - add to everything else
+    - investigate duplicated/missing error messages
 
 	Other quick thoughts:
 	* Once I get this far, then it's time to wire up the interpreter (with hard-coded functions, and the beginning of static analysis)
