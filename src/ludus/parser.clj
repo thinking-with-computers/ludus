@@ -25,13 +25,24 @@
 (defn- token-type [parser]
   (::token/type (current parser)))
 
+(defn- node-type [parser]
+  (get-in parser [::ast ::ast/type]))
+
 ;; some forward declarations
 (declare parse-expr)
 (declare parse-word)
 
 ;; handle some errors
+(def sync-on #{
+               ::token/newline
+               ::token/semicolon
+               ::token/comma
+               ::token/rparen
+               ::token/rbracket
+               ::token/rbrace
+               })
+
 (defn- sync [parser message origin end]
-  (println "Synching on " (current parser))
   (let [poison {
                 ::ast/type ::ast/poison
                 :message message
@@ -45,17 +56,48 @@
 (defn- poisoned? [parser]
   (= ::ast/poison (get-in parser [::ast ::ast/type])))
 
-(defn- panic [parser message sync-on]
-  (println "PANIC!!! in the parser")
-  (let [origin (current parser)]
+(defn- panic 
+  ([parser message] (panic parser message sync-on))
+  ([parser message sync-on]
+   (println "PANIC!!! in the parser")
+   (let [origin (current parser)]
+     (loop [parser (advance parser)]
+       (let [
+             curr (current parser)
+             type (::token/type curr)
+             ]
+         (if (or (= ::token/eof type) (contains? sync-on type))
+           (sync parser message origin curr) 
+           (recur (advance parser))))))))
+
+;; some helper functions
+(defn- expect [tokens message parser]
+  (let [curr (current parser)
+        tokens (if (set? tokens) tokens #{tokens})
+        type (::token/type curr)]
+    (if (contains? tokens type)
+      (advance parser)
+      (-> parser
+        (advance)
+        (panic message tokens)))))
+
+(defn- accept [tokens parser]
+  (let [curr (current parser)
+        tokens (if (set? tokens) tokens #{tokens})
+        type (::token/type curr)]
+    (if (contains? tokens type)
+      (advance parser)
+      parser)))
+
+(defn- accept-many [tokens parser]
+  (let [tokens (if (set? tokens) tokens #{tokens})]
     (loop [parser parser]
       (let [
             curr (current parser)
-            type (::token/type curr)
-            ]
-        (if (or (= ::token/eof type) (contains? sync-on type))
-          (sync parser message origin curr) 
-          (recur (advance parser)))))))
+            type (::token/type curr)]
+        (if (contains? tokens type)
+          (recur (advance parser))
+          parser)))))
 
 ;; various parsing functions
 (defn- parse-atom [parser]
@@ -89,31 +131,37 @@
     (conj members member)))
 
 (defn- parse-tuple [parser]
-  (loop [parser (advance parser)
+  (loop [
+         parser (accept-many #{::token/newline ::token/comma} (advance parser))
          members []
-         current_member nil]
-    (let [curr (current parser)]
-      (case (::token/type curr)
-        ::token/rparen (let [ms (add-member members current_member)] 
+         current_member nil
+         ]
+    (let [
+          curr (current parser)
+          ]
+      (case (token-type parser)
+        ::token/rparen (let [ms (add-member members current_member)]
                          (assoc (advance parser) ::ast 
                            {::ast/type ::ast/tuple
                             :length (count ms)
                             :members ms}))
-        (::token/comma ::token/newline) (recur (advance parser) (add-member members current_member) nil)
+
+        (::token/comma ::token/newline)
+        (recur 
+          (accept-many #{::token/comma ::token/newline} parser) 
+          (add-member members current_member) nil)
+
+        (::token/rbrace ::token/rbracket)
+        (panic parser (str "Mismatched enclosure in tuple: " (::token/lexeme curr)))
 
         (let [parsed (parse-expr parser)]
-          (if (poisoned? parsed)
-            (let [
-                panicked 
-                (panic parser (get-in parsed [::ast :message]) #{::token/rparen})
-              ]
-              (recur panicked members (::ast panicked))
-              )
-            (recur parsed members (::ast parsed))
-            )
+          (recur parsed members (::ast parsed))
           )
 
-        ))))
+        )
+      )
+    ) 
+  )
 
 (defn- parse-list [parser]
   (loop [parser (advance parser)
@@ -240,33 +288,10 @@
         (assoc ::ast {::ast/type ::ast/poison :message "Expected pattern"}))
       )))
 
-(defn- expect [token message parser]
-  (let [curr (current parser)
-        type (::token/type curr)]
-    (if (= type token)
-      (advance parser)
-      (-> parser
-        (advance)
-        (panic message #{token})))))
-
-(defn- accept [token parser]
-  (let [curr (current parser)
-        type (::token/type curr)]
-    (if (= type token)
-      (advance parser)
-      parser)))
-
-(defn- accept-many [token parser]
-  (loop [curr (current parser)]
-    (let [type (::token/type curr)]
-      (if (= type token)
-        (recur (advance parser))
-        parser))))
-
 (defn- parse-let-expr [parser pattern]
   (let [expr (parse-expr parser)]
     (assoc expr ::ast {::ast/type ::ast/let
-      :pattern (::ast pattern) :expr (::ast expr)})))
+                       :pattern (::ast pattern) :expr (::ast expr)})))
 
 (defn- parse-assignment [parser]
   (let [assignment (expect ::token/equals "Expected assignment" parser)]
@@ -364,15 +389,14 @@
 
 (do
   (def pp pp/pprint)
-  (def source "(12, 43, arf@)
-  ")
+  (def source "(1, 2, (},; 4, 123^)")
   (def lexed (scanner/scan source))
   (def tokens (:tokens lexed))
   (def p (parser tokens))
 
   (-> p
     (parse-script)
-    (::ast)
+    (::errors)
     (pp)
     )
   )
