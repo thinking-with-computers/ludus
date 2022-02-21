@@ -161,22 +161,32 @@
         (let [parsed (parse-expr parser)]
           (recur parsed members (::ast parsed)))))))
 
-(defn- parse-list [parser]
-  (loop [parser (advance parser)
+(defn- parse-list [origin]
+    (loop [
+         parser (accept-many #{::token/newline ::token/comma} (advance origin))
          members []
-         current_member nil]
+         current_member nil
+         ]
     (let [curr (current parser)]
-      (case (::token/type curr)
-        ::token/rbracket (let [ms (add-member members current_member)] 
-                           (assoc (advance parser) ::ast 
-                             {::ast/type ::ast/list
-                              :members ms}))
-        (::token/comma ::token/newline) (recur (advance parser) (add-member members current_member) nil)
+      (case (token-type parser)
+        ::token/rbracket (let [ms (add-member members current_member)]
+                         (assoc (advance parser) ::ast 
+                           {::ast/type ::ast/list
+                            :members ms}))
+
+        (::token/comma ::token/newline)
+        (recur 
+          (accept-many #{::token/comma ::token/newline} parser) 
+          (add-member members current_member) nil)
+
+        (::token/rbrace ::token/rparen)
+        (panic parser (str "Mismatched enclosure in list: " (::token/lexeme curr)))
+
+        ::token/eof
+        (panic origin "Unterminated list" ::token/eof) 
 
         (let [parsed (parse-expr parser)]
-          (recur parsed members (::ast parsed)))
-
-        ))))
+          (recur parsed members (::ast parsed)))))))
 
 (defn- parse-set [parser]
   (loop [parser (advance parser)
@@ -376,15 +386,14 @@
 
 (do
   (def pp pp/pprint)
-  (def source "let foo = (32, 23
-    let baz = foo () :bar 42")
+  (def source "[32, 23, 42]")
   (def lexed (scanner/scan source))
   (def tokens (:tokens lexed))
   (def p (parser tokens))
 
   (-> p
     (parse-script)
-    (::errors)
+    (::ast)
     (pp)
     )
   )
