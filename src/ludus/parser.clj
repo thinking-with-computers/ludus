@@ -156,7 +156,7 @@
         (panic parser (str "Mismatched enclosure in tuple: " (::token/lexeme curr)))
 
         ::token/eof
-        (panic origin "Unterminated tuple" ::token/eof) 
+        (panic (assoc origin ::errors (::errors parser)) "Unterminated tuple" ::token/eof) 
 
         (let [parsed (parse-expr parser)]
           (recur parsed members (::ast parsed)))))))
@@ -183,27 +183,37 @@
         (panic parser (str "Mismatched enclosure in list: " (::token/lexeme curr)))
 
         ::token/eof
-        (panic origin "Unterminated list" ::token/eof) 
+        (panic (assoc origin ::errors (::errors parser)) "Unterminated list" ::token/eof) 
 
         (let [parsed (parse-expr parser)]
           (recur parsed members (::ast parsed)))))))
 
-(defn- parse-set [parser]
-  (loop [parser (advance parser)
+(defn- parse-set [origin]
+    (loop [
+         parser (accept-many #{::token/newline ::token/comma} (advance origin))
          members []
-         current_member nil]
+         current_member nil
+         ]
     (let [curr (current parser)]
-      (case (::token/type curr)
-        ::token/rbrace (let [ms (add-member members current_member)] 
+      (case (token-type parser)
+        ::token/rbrace (let [ms (add-member members current_member)]
                          (assoc (advance parser) ::ast 
                            {::ast/type ::ast/set
                             :members ms}))
-        (::token/comma ::token/newline) (recur (advance parser) (add-member members current_member) nil)
+
+        (::token/comma ::token/newline)
+        (recur 
+          (accept-many #{::token/comma ::token/newline} parser) 
+          (add-member members current_member) nil)
+
+        (::token/rbracket ::token/rparen)
+        (panic parser (str "Mismatched enclosure in set: " (::token/lexeme curr)))
+
+        ::token/eof
+        (panic (assoc origin ::errors (::errors parser)) "Unterminated set" ::token/eof) 
 
         (let [parsed (parse-expr parser)]
-          (recur parsed members (::ast parsed)))
-
-        ))))
+          (recur parsed members (::ast parsed)))))))
 
 (defn- parse-block [parser]
   (loop [parser (advance parser)
@@ -386,14 +396,14 @@
 
 (do
   (def pp pp/pprint)
-  (def source "[32, 23, 42]")
+  (def source "${32, (23, 42}")
   (def lexed (scanner/scan source))
   (def tokens (:tokens lexed))
   (def p (parser tokens))
 
   (-> p
     (parse-script)
-    (::ast)
+    (::errors)
     (pp)
     )
   )
