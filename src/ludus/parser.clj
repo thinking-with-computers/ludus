@@ -139,9 +139,7 @@
          members []
          current_member nil
          ]
-    (let [
-          curr (current parser)
-          ]
+    (let [curr (current parser)]
       (case (token-type parser)
         ::token/rparen (let [ms (add-member members current_member)]
                          (assoc (advance parser) ::ast 
@@ -161,12 +159,7 @@
         (panic origin "Unterminated tuple" ::token/eof) 
 
         (let [parsed (parse-expr parser)]
-          (recur parsed members (::ast parsed))
-          )
-        )
-      )
-    ) 
-  )
+          (recur parsed members (::ast parsed)))))))
 
 (defn- parse-list [parser]
   (loop [parser (advance parser)
