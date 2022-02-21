@@ -61,9 +61,9 @@
   ([parser message sync-on]
    (println "PANIC!!! in the parser")
    (let [
-    sync-on (if (set? sync-on) sync-on #{sync-on})
-    origin (current parser)
-    ]
+         sync-on (if (set? sync-on) sync-on #{sync-on})
+         origin (current parser)
+         ]
      (loop [parser (advance parser)]
        (let [
              curr (current parser)
@@ -162,7 +162,7 @@
           (recur parsed members (::ast parsed)))))))
 
 (defn- parse-list [origin]
-    (loop [
+  (loop [
          parser (accept-many #{::token/newline ::token/comma} (advance origin))
          members []
          current_member nil
@@ -170,9 +170,9 @@
     (let [curr (current parser)]
       (case (token-type parser)
         ::token/rbracket (let [ms (add-member members current_member)]
-                         (assoc (advance parser) ::ast 
-                           {::ast/type ::ast/list
-                            :members ms}))
+                           (assoc (advance parser) ::ast 
+                             {::ast/type ::ast/list
+                              :members ms}))
 
         (::token/comma ::token/newline)
         (recur 
@@ -189,7 +189,7 @@
           (recur parsed members (::ast parsed)))))))
 
 (defn- parse-set [origin]
-    (loop [
+  (loop [
          parser (accept-many #{::token/newline ::token/comma} (advance origin))
          members []
          current_member nil
@@ -215,27 +215,41 @@
         (let [parsed (parse-expr parser)]
           (recur parsed members (::ast parsed)))))))
 
-(defn- parse-block [parser]
-  (loop [parser (advance parser)
+(defn- parse-block [origin]
+  (loop [
+         parser (accept-many #{::token/newline ::token/semicolon} (advance origin))
          exprs []
-         current_expr nil]
-    (case (::token/type (current parser))
-      ::token/rbrace 
-      (assoc (advance parser) ::ast
-        (if (and (empty? exprs) (nil? current_expr))
-          {::ast/type ::ast/poison :message "Blocks must have at least one expression"}
-          {::ast/type ::ast/block :exprs (add-member exprs current_expr)}))
-			
-      (::token/semicolon ::token/newline) 
-      (recur (advance parser) (add-member exprs current_expr) nil)
-			
-      (if current_expr
-        (-> parser
-          (advance)
-          (assoc ::ast {::ast/type ::ast/poison :message "Expected end of expression"}))
-        (let [parsed (parse-expr parser)]
-          (recur parsed exprs (::ast parsed))))
-      )))
+         current_expr nil
+         ]
+    (let [curr (current parser)]
+      (case (token-type parser)
+        ::token/rbrace (let [es (add-member exprs current_expr)]
+                         (if (empty? es)
+                           (panic parser "Blocks must have at least one expression")
+                           (assoc (advance parser) ::ast {
+                                                          ::ast/type ::ast/block
+                                                          :exprs es
+                                                          })))
+
+        (::token/semicolon ::token/newline)
+        (recur (advance parser) (add-member exprs current_expr) nil)
+
+        (::token/rbracket ::token/rparen)
+        (panic parser (str "Mismatched enclosure in block: " (::token/lexeme curr)))
+
+        ::token/eof
+        (panic (assoc origin ::errors (::errors parser)) "Unterminated block" ::token/eof)
+
+
+        (let [parsed 
+              (if current_expr
+                (panic parser "Expected end of expression" #{::token/semicolon ::token/newline})
+                (parse-expr parser))]
+          (recur parsed exprs (::ast parsed))
+          )
+        )
+      )
+    ))
 
 (defn- parse-script [parser]
   (loop [parser parser
@@ -243,25 +257,25 @@
          current_expr nil]
     (if (at-end? parser) 
       (assoc parser ::ast
-                    {::ast/type ::ast/script :exprs (add-member exprs current_expr)})
-    (case (::token/type (current parser))
-      ::token/eof (assoc parser ::ast
-                    {::ast/type ::ast/script :exprs (add-member exprs current_expr)})
+        {::ast/type ::ast/script :exprs (add-member exprs current_expr)})
+      (case (::token/type (current parser))
+        ::token/eof (assoc parser ::ast
+                      {::ast/type ::ast/script :exprs (add-member exprs current_expr)})
 
-      (::token/semicolon ::token/newline)
-      (recur (advance parser) (add-member exprs current_expr) nil)
+        (::token/semicolon ::token/newline)
+        (recur (advance parser) (add-member exprs current_expr) nil)
 
-      (if current_expr
-        (if (poisoned? current_expr)
-          (panic parser (:message current_expr) #{::token/newline ::token/semicolon})
-          (let [synced (panic parser "Expected end of expression" #{::token/newline ::token/semicolon})]
-            (recur synced exprs (::ast synced))
+        (if current_expr
+          (if (poisoned? current_expr)
+            (panic parser (:message current_expr) #{::token/newline ::token/semicolon})
+            (let [synced (panic parser "Expected end of expression" #{::token/newline ::token/semicolon})]
+              (recur synced exprs (::ast synced))
+              ))
+          (let [parsed (parse-expr parser)]
+            (recur parsed exprs (::ast parsed))
             ))
-        (let [parsed (parse-expr parser)]
-          (recur parsed exprs (::ast parsed))
-          ))
 
-      ))))
+        ))))
 
 (defn- parse-synthetic [parser]
   (loop [parser parser
@@ -396,7 +410,8 @@
 
 (do
   (def pp pp/pprint)
-  (def source "${32, (23, 42}")
+  (def source "{ 1; 2; \"foo
+   }")
   (def lexed (scanner/scan source))
   (def tokens (:tokens lexed))
   (def p (parser tokens))
