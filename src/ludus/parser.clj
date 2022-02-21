@@ -353,15 +353,6 @@
                               }))
     ))
 
-(def expr-sync #{
-                 ::token/newline
-                 ::token/semicolon
-                 ::token/comma
-                 ::token/rparen
-                 ::token/rbracket
-                 ::token/rbrace
-                 })
-
 (defn- parse-expr [parser]
   (let [token (current parser)]
     (case (::token/type token)
@@ -404,7 +395,7 @@
       (::token/semicolon ::token/comma)
       (panic parser (str "Unexpected delimiter: " (::token/lexeme token)))
 
-      (panic parser "Expected expression" expr-sync)
+      (panic parser "Expected expression")
 
       )))
 
