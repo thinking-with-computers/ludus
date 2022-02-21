@@ -102,8 +102,13 @@
         (::token/comma ::token/newline) (recur (advance parser) (add-member members current_member) nil)
 
         (let [parsed (parse-expr parser)]
-          (if (= ::ast/poison (get-in parsed [::ast ::ast/type]))
-            (panic parsed (:message (::ast parsed)) #{::token/rparen})
+          (if (poisoned? parsed)
+            (let [
+                panicked 
+                (panic parser (get-in parsed [::ast :message]) #{::token/rparen})
+              ]
+              (recur panicked members (::ast panicked))
+              )
             (recur parsed members (::ast parsed))
             )
           )
@@ -242,7 +247,7 @@
       (advance parser)
       (-> parser
         (advance)
-        (assoc ::ast {::ast/type ::ast/poison :message message})))))
+        (panic message #{token})))))
 
 (defn- accept [token parser]
   (let [curr (current parser)
@@ -258,21 +263,22 @@
         (recur (advance parser))
         parser))))
 
+(defn- parse-let-expr [parser pattern]
+  (let [expr (parse-expr parser)]
+    (assoc expr ::ast {::ast/type ::ast/let
+      :pattern (::ast pattern) :expr (::ast expr)})))
+
+(defn- parse-assignment [parser]
+  (let [assignment (expect ::token/equals "Expected assignment" parser)]
+    (if (poisoned? assignment)
+      (panic parser (get-in assignment [::ast :message]) #{::token/newline ::token/semicolon})
+      (parse-let-expr assignment parser))))
 
 (defn- parse-let [parser]
-  (let [
-        pattern (parse-pattern (advance parser))
-        equals (expect ::token/equals "Expected assignment" pattern)
-        expr (parse-expr equals)
-        results (map #(get-in % [::ast ::ast/type]) [pattern equals expr])
-        ]
-    (if (some #(= ::ast/poison %) results)
-      (println ::poison)
-      (assoc expr ::ast {
-                         ::ast/type ::ast/let 
-                         :pattern (::ast pattern)
-                         :expr (::ast expr)}))
-    ))
+  (let [pattern (parse-pattern (advance parser))]
+    (if (poisoned? pattern)
+      (panic parser (get-in pattern [::ast :message]) #{::token/newline ::token/semicolon})
+      (parse-assignment pattern))))
 
 (defn- parse-if [parser]
   (let [
@@ -358,10 +364,8 @@
 
 (do
   (def pp pp/pprint)
-  (def source "(foo, bar, baz^, } )
-    :foo (bar)
-
-    [1, 2, 3]")
+  (def source "(12, 43, arf@)
+  ")
   (def lexed (scanner/scan source))
   (def tokens (:tokens lexed))
   (def p (parser tokens))
@@ -379,7 +383,7 @@
 		- use accept-many in blocks and scripts
 		- ast nodes should include their tokens (this is added for atoms, which may be fully sufficient)
 	* Time to start working on parsing errors (poisoned nodes, panic mode, etc.)
-    - this works (ish) for expr, script, tuple
+    - this works for expr, script, let, tuple (this one was titchy--and still runs away on unmatched parens)
     - add to everything else
     - investigate duplicated/missing error messages
 
