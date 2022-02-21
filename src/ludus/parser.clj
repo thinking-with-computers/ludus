@@ -3,7 +3,8 @@
     [ludus.token :as token]
     [ludus.scanner :as scanner]
     [ludus.ast :as ast]
-    [clojure.pprint :as pp]))
+    [clojure.pprint :as pp]
+    [clojure.set :as s]))
 
 ;; a parser map and some functions to work with them
 (defn- parser [tokens]
@@ -232,7 +233,9 @@
                                                           })))
 
         (::token/semicolon ::token/newline)
-        (recur (advance parser) (add-member exprs current_expr) nil)
+        (recur 
+          (accept-many #{::token/newline ::token/semicolon} parser) 
+          (add-member exprs current_expr) nil)
 
         (::token/rbracket ::token/rparen)
         (panic parser (str "Mismatched enclosure in block: " (::token/lexeme curr)))
@@ -245,37 +248,34 @@
               (if current_expr
                 (panic parser "Expected end of expression" #{::token/semicolon ::token/newline})
                 (parse-expr parser))]
-          (recur parsed exprs (::ast parsed))
-          )
-        )
-      )
-    ))
+          (recur parsed exprs (::ast parsed)))))))
 
-(defn- parse-script [parser]
-  (loop [parser parser
+(defn- parse-script* [parser]
+  (loop [
+         parser (accept-many #{::token/newline ::token/semicolon} parser)
          exprs []
-         current_expr nil]
-    (if (at-end? parser) 
-      (assoc parser ::ast
-        {::ast/type ::ast/script :exprs (add-member exprs current_expr)})
-      (case (::token/type (current parser))
-        ::token/eof (assoc parser ::ast
-                      {::ast/type ::ast/script :exprs (add-member exprs current_expr)})
+         current_expr nil
+         ]
+    (let [curr (current parser)]
+      (case (token-type parser)
+        ::token/eof (let [es (add-member exprs current_expr)]
+                      (if (empty? es)
+                        (panic parser "Scripts must have at least one expression")
+                        (assoc parser ::ast {::ast/type ::ast/script :exprs es})))
 
         (::token/semicolon ::token/newline)
-        (recur (advance parser) (add-member exprs current_expr) nil)
+        (recur 
+          (accept-many #{::token/semicolon ::token/newline} parser) 
+          (add-member exprs current_expr)
+          nil)
 
-        (if current_expr
-          (if (poisoned? current_expr)
-            (panic parser (:message current_expr) #{::token/newline ::token/semicolon})
-            (let [synced (panic parser "Expected end of expression" #{::token/newline ::token/semicolon})]
-              (recur synced exprs (::ast synced))
-              ))
-          (let [parsed (parse-expr parser)]
-            (recur parsed exprs (::ast parsed))
-            ))
-
-        ))))
+        (let [parsed
+              (if current_expr
+                (panic parser "Expected end of expression" #{::token/semicolon ::token/newline})
+                (parse-expr parser)
+                )
+              ]
+          (recur parsed exprs (::ast parsed)))))))
 
 (defn- parse-synthetic [parser]
   (loop [parser parser
@@ -304,6 +304,8 @@
       (advance)
       (assoc ::ast {::ast/type ::ast/word :word (::token/lexeme curr)}))))
 
+(def sync-pattern (s/union sync-on #{::token/equals ::token/rarrow}))
+
 (defn- parse-pattern [parser]
   (let [curr (current parser)
         type (::token/type curr)]
@@ -312,9 +314,11 @@
 
       (::token/number ::token/string ::token/keyword) (parse-atom parser)
 
-      (-> parser
-        (advance)
-        (assoc ::ast {::ast/type ::ast/poison :message "Expected pattern"}))
+
+      ::token/error
+      (panic parser (:message (current parser)) sync-pattern)
+
+      (panic parser "Expected pattern" sync-pattern)
       )))
 
 (defn- parse-let-expr [parser pattern]
@@ -330,9 +334,7 @@
 
 (defn- parse-let [parser]
   (let [pattern (parse-pattern (advance parser))]
-    (if (poisoned? pattern)
-      (panic parser (get-in pattern [::ast :message]) #{::token/newline ::token/semicolon})
-      (parse-assignment pattern))))
+    (parse-assignment pattern)))
 
 (defn- parse-if [parser]
   (let [
@@ -401,15 +403,20 @@
 
 (do
   (def pp pp/pprint)
-  (def source "{ 1; 2; \"foo
-   }")
+  (def source "let foo^ = bar")
   (def lexed (scanner/scan source))
   (def tokens (:tokens lexed))
   (def p (parser tokens))
 
+  (println "")
+  (println "")
+  (println "******************************************************")
+  (println "")
+  (println "*** *** NEW PARSE *** ***")
+
   (-> p
-    (parse-script)
-    (::errors)
+    (parse-script*)
+    (::ast)
     (pp)
     )
   )
