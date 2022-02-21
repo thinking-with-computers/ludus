@@ -60,13 +60,16 @@
   ([parser message] (panic parser message sync-on))
   ([parser message sync-on]
    (println "PANIC!!! in the parser")
-   (let [origin (current parser)]
+   (let [
+    sync-on (if (set? sync-on) sync-on #{sync-on})
+    origin (current parser)
+    ]
      (loop [parser (advance parser)]
        (let [
              curr (current parser)
              type (::token/type curr)
              ]
-         (if (or (= ::token/eof type) (contains? sync-on type))
+         (if (or (at-end? parser) (contains? sync-on type))
            (sync parser message origin curr) 
            (recur (advance parser))))))))
 
@@ -130,9 +133,9 @@
     members
     (conj members member)))
 
-(defn- parse-tuple [parser]
+(defn- parse-tuple [origin]
   (loop [
-         parser (accept-many #{::token/newline ::token/comma} (advance parser))
+         parser (accept-many #{::token/newline ::token/comma} (advance origin))
          members []
          current_member nil
          ]
@@ -154,10 +157,12 @@
         (::token/rbrace ::token/rbracket)
         (panic parser (str "Mismatched enclosure in tuple: " (::token/lexeme curr)))
 
+        ::token/eof
+        (panic origin "Unterminated tuple" ::token/eof) 
+
         (let [parsed (parse-expr parser)]
           (recur parsed members (::ast parsed))
           )
-
         )
       )
     ) 
@@ -223,12 +228,9 @@
   (loop [parser parser
          exprs []
          current_expr nil]
-    (comment (println "*** Parsing script")
-      (print "Exprs: ")
-      (pp/pprint exprs)
-      (print "Current expr: ")
-      (pp/pprint current_expr)
-      (println "Current token type " (::token/type (current parser))))
+    (if (at-end? parser) 
+      (assoc parser ::ast
+                    {::ast/type ::ast/script :exprs (add-member exprs current_expr)})
     (case (::token/type (current parser))
       ::token/eof (assoc parser ::ast
                     {::ast/type ::ast/script :exprs (add-member exprs current_expr)})
@@ -246,7 +248,7 @@
           (recur parsed exprs (::ast parsed))
           ))
 
-      )))
+      ))))
 
 (defn- parse-synthetic [parser]
   (loop [parser parser
@@ -367,21 +369,13 @@
 
       ::token/if (parse-if parser)
 
-      ::token/error (panic parser (:message token) 
-                      #{
-                        ::token/newline
-                        ::token/semicolon
-                        ::token/comma
-                        ::token/rparen
-                        ::token/rbracket
-                        ::token/rbrace
-                        })
+      ::token/error (panic parser (:message token))
 
       (::token/rparen ::token/rbrace ::token/rbracket)
-      (panic parser (str "Unbalanced enclosure: " (::token/lexeme token)) expr-sync)
+      (panic parser (str "Unbalanced enclosure: " (::token/lexeme token)))
 
       (::token/semicolon ::token/comma)
-      (panic parser (str "Unexpected delimiter: " (::token/lexeme token)) expr-sync)
+      (panic parser (str "Unexpected delimiter: " (::token/lexeme token)))
 
       (panic parser "Expected expression" expr-sync)
 
@@ -389,7 +383,8 @@
 
 (do
   (def pp pp/pprint)
-  (def source "(1, 2, (},; 4, 123^)")
+  (def source "let foo = (32, 23
+    let baz = foo () :bar 42")
   (def lexed (scanner/scan source))
   (def tokens (:tokens lexed))
   (def p (parser tokens))
