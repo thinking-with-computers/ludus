@@ -11,10 +11,12 @@
   {
    "as" ::token/as
    "cond" ::token/cond
+   "do" ::token/do
    "else" ::token/else
    "false" ::token/false
    "fn" ::token/fn
    "if" ::token/if
+   "import" ::token/import
    "let" ::token/let
    "match" ::token/match
    "mut" ::token/mut
