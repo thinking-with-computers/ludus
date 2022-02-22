@@ -403,7 +403,7 @@
 
 (do
   (def pp pp/pprint)
-  (def source "let foo^ = bar")
+  (def source "let foo")
   (def lexed (scanner/scan source))
   (def tokens (:tokens lexed))
   (def p (parser tokens))
@@ -427,9 +427,13 @@
 		- use accept-many in blocks and scripts
 		- ast nodes should include their tokens (this is added for atoms, which may be fully sufficient)
 	* Time to start working on parsing errors (poisoned nodes, panic mode, etc.)
-    - this works for expr, script, let, tuple (this one was titchy--and still runs away on unmatched parens)
-    - add to everything else
-    - investigate duplicated/missing error messages
+    - this now works on atoms, collections, synthetics, blocks, and scripts
+    - add to everything else:
+    - CURRENTLY:
+      * working on `let`: how to get good error messages here
+      * previously, the whole expression gets coded as an error (there's only one errror in the errors vector, regardless of the AST representation)
+      * what we want is to have each error added to the vector (and just to return a poisoned AST node, whatever the kind)
+      * the strategy here will be the same for the rest of the sequential constructs: `let`, `if`, `import`, `fn`, `loop`, etc.
 
 	Other quick thoughts:
 	* Once I get this far, then it's time to wire up the interpreter (with hard-coded functions, and the beginning of static analysis)
