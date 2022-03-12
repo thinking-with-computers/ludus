@@ -452,9 +452,9 @@
     - this now works on atoms, collections, synthetics, blocks, and scripts
     - add to everything else:
     - CURRENTLY:
-      * working on `let`: how to get good error messages here
-      * previously, the whole expression gets coded as an error (there's only one errror in the errors vector, regardless of the AST representation)
-      * what we want is to have each error added to the vector (and just to return a poisoned AST node, whatever the kind)
+      * figure out how to parse `if` with similar strategy to `let`
+        * one possibility is to paramterize parse-expr with a sync token:
+        the idea here is that exprs will have different end sync points in different contexts (`}` vs `then` vs `\n`, etc.)
       * the strategy here will be the same for the rest of the sequential constructs: `let`, `if`, `import`, `fn`, `loop`, etc.
 
 	Other quick thoughts:
