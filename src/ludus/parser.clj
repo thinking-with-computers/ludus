@@ -41,6 +41,7 @@
                ::token/rparen
                ::token/rbracket
                ::token/rbrace
+               ::token/eof
                })
 
 (defn- sync [parser message origin end]
@@ -62,10 +63,10 @@
   ([parser message sync-on]
    (println "PANIC!!! in the parser")
    (let [
-         sync-on (if (set? sync-on) sync-on #{sync-on})
+         sync-on (conj (if (set? sync-on) sync-on #{sync-on}) ::token/eof)
          origin (current parser)
          ]
-     (loop [parser (advance parser)]
+     (loop [parser parser]
        (let [
              curr (current parser)
              type (::token/type curr)
@@ -250,7 +251,7 @@
                 (parse-expr parser))]
           (recur parsed exprs (::ast parsed)))))))
 
-(defn- parse-script* [parser]
+(defn- parse-script [parser]
   (loop [
          parser (accept-many #{::token/newline ::token/semicolon} parser)
          exprs []
@@ -314,7 +315,6 @@
 
       (::token/number ::token/string ::token/keyword) (parse-atom parser)
 
-
       ::token/error
       (panic parser (:message (current parser)) sync-pattern)
 
@@ -329,13 +329,17 @@
 (defn- parse-assignment [parser]
   (let [assignment (expect ::token/equals "Expected assignment" parser)]
     (if (poisoned? assignment)
-      (panic parser (get-in assignment [::ast :message]) #{::token/newline ::token/semicolon})
+      assignment
       (parse-let-expr assignment parser))))
 
 (defn- parse-let [parser]
   (let [pattern (parse-pattern (advance parser))]
-    (parse-assignment pattern)))
-
+    (if (poisoned? pattern)
+      (panic (advance parser) "Expected pattern")
+      (parse-assignment pattern)
+      )
+    ))
+ 
 (defn- parse-if [parser]
   (let [
         if-expr (parse-expr (advance parser))
@@ -403,7 +407,8 @@
 
 (do
   (def pp pp/pprint)
-  (def source "let foo")
+  (def source "let then = 42
+    let foo = bar")
   (def lexed (scanner/scan source))
   (def tokens (:tokens lexed))
   (def p (parser tokens))
@@ -415,7 +420,7 @@
   (println "*** *** NEW PARSE *** ***")
 
   (-> p
-    (parse-script*)
+    (parse-script)
     (::ast)
     (pp)
     )
