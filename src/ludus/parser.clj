@@ -61,7 +61,7 @@
 (defn- panic 
   ([parser message] (panic parser message sync-on))
   ([parser message sync-on]
-   (println "PANIC!!! in the parser")
+   (println (str "PANIC!!! in the parser" message))
    (let [
          sync-on (conj (if (set? sync-on) sync-on #{sync-on}) ::token/eof)
          origin (current parser)
@@ -85,6 +85,15 @@
       (-> parser
         (advance)
         (panic message tokens)))))
+
+(defn- expect* [tokens message parser]
+  (let [curr (current parser)
+    tokens (if (set? tokens) tokens #{tokens})
+    type (::token/type curr)]
+    (if (contains? tokens type)
+      {:success true :parser (advance parser)}
+      {:success false :paser (panic (advance parser) message)}
+      )))
 
 (defn- accept [tokens parser]
   (let [curr (current parser)
@@ -327,10 +336,11 @@
                        :pattern (::ast pattern) :expr (::ast expr)})))
 
 (defn- parse-assignment [parser]
-  (let [assignment (expect ::token/equals "Expected assignment" parser)]
-    (if (poisoned? assignment)
-      assignment
-      (parse-let-expr assignment parser))))
+  (let [assignment (expect* ::token/equals "Expected assignment" parser)
+      success (:success assignment)]
+    (if success
+      (parse-let-expr (:parser assignment) parser)
+      (panic parser "Expected assignment"))))
 
 (defn- parse-let [parser]
   (let [pattern (parse-pattern (advance parser))]
@@ -339,7 +349,15 @@
       (parse-assignment pattern)
       )
     ))
- 
+
+(defn- parse-let* [parser]
+  (let [pattern (parse-pattern (advance parser))]
+    (parse-assignment pattern)))
+
+(defn- parse-if* [parser]
+  )
+
+;; TODO: Fix failure case here 
 (defn- parse-if [parser]
   (let [
         if-expr (parse-expr (advance parser))
@@ -350,9 +368,9 @@
         results (map #(get-in % [::ast ::ast/type]) [if-expr then then-expr else else-expr])
         ]
     (if (some #(= ::ast/poison %) results)
-      (println ::ast/poison)
+      (println ::ast/poison) ;; TODO: FIX THIS
       (assoc else-expr ::ast {
-                              ::ast/type ::ast/let
+                              ::ast/type ::ast/if
                               :if-expr (::ast if-expr)
                               :then-expr (::ast then-expr)
                               :else-expr (::ast else-expr)
@@ -389,7 +407,7 @@
 
       ::token/lbrace (parse-block parser)
 
-      ::token/let (parse-let parser)
+      ::token/let (parse-let* parser)
 
       ::token/if (parse-if parser)
 
@@ -407,8 +425,7 @@
 
 (do
   (def pp pp/pprint)
-  (def source "let then = 42
-    let foo = bar")
+  (def source "if *else then bar else baz")
   (def lexed (scanner/scan source))
   (def tokens (:tokens lexed))
   (def p (parser tokens))
