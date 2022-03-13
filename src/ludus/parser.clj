@@ -61,7 +61,7 @@
 (defn- panic 
   ([parser message] (panic parser message sync-on))
   ([parser message sync-on]
-   (println (str "PANIC!!! in the parser" message))
+   (println (str "PANIC!!! in the parser: " message))
    (let [
          sync-on (conj (if (set? sync-on) sync-on #{sync-on}) ::token/eof)
          origin (current parser)
@@ -360,11 +360,11 @@
 ;; TODO: Fix failure case here 
 (defn- parse-if [parser]
   (let [
-        if-expr (parse-expr (advance parser))
+        if-expr (parse-expr (advance parser) #{::token/then ::token/newline})
         then (expect ::token/then "Expected then" (accept ::token/newline if-expr))
         then-expr (parse-expr then)
         else (expect ::token/else "Epected else" (accept ::token/newline then-expr))
-        else-expr (parse-expr else)
+        else-expr (parse-expr else #{::token/else ::token/newline})
         results (map #(get-in % [::ast ::ast/type]) [if-expr then then-expr else else-expr])
         ]
     (if (some #(= ::ast/poison %) results)
@@ -377,55 +377,58 @@
                               }))
     ))
 
-(defn- parse-expr [parser]
-  (let [token (current parser)]
-    (case (::token/type token)
-
-      (::token/number ::token/string)
-      (parse-atom parser)
-
-      ::token/keyword (let [next (peek parser)
-                            type (::token/type next)]
-                        (if (= type ::token/lparen)
-                          (parse-synthetic parser)
-                          (parse-atom parser)))
-
-      ::token/word (let [next (peek parser)
-                         type (::token/type next)]
-                     (case type
-                       (::token/lparen ::token/keyword) (parse-synthetic parser)
-                       (parse-word parser)))
-
-      (::token/nil ::token/true ::token/false)
-      (parse-atomic-word parser)
-
-      ::token/lparen (parse-tuple parser)
-
-      ::token/lbracket (parse-list parser)
-
-      ::token/startset (parse-set parser)
-
-      ::token/lbrace (parse-block parser)
-
-      ::token/let (parse-let* parser)
-
-      ::token/if (parse-if parser)
-
-      ::token/error (panic parser (:message token))
-
-      (::token/rparen ::token/rbrace ::token/rbracket)
-      (panic parser (str "Unbalanced enclosure: " (::token/lexeme token)))
-
-      (::token/semicolon ::token/comma)
-      (panic parser (str "Unexpected delimiter: " (::token/lexeme token)))
-
-      (panic parser "Expected expression")
-
-      )))
+(defn- parse-expr 
+  ([parser] (parse-expr parser sync-on))
+  ([parser sync-on] (let [token (current parser)]
+      (case (::token/type token)
+  
+        (::token/number ::token/string)
+        (parse-atom parser)
+  
+        ::token/keyword (let [next (peek parser)
+                              type (::token/type next)]
+                          (if (= type ::token/lparen)
+                            (parse-synthetic parser)
+                            (parse-atom parser)))
+  
+        ::token/word (let [next (peek parser)
+                           type (::token/type next)]
+                       (case type
+                         (::token/lparen ::token/keyword) (parse-synthetic parser)
+                         (parse-word parser)))
+  
+        (::token/nil ::token/true ::token/false)
+        (parse-atomic-word parser)
+  
+        ::token/lparen (parse-tuple parser)
+  
+        ::token/lbracket (parse-list parser)
+  
+        ::token/startset (parse-set parser)
+  
+        ::token/lbrace (parse-block parser)
+  
+        ::token/let (parse-let* parser)
+  
+        ::token/if (parse-if parser)
+  
+        ::token/error (panic parser (:message token))
+  
+        (::token/rparen ::token/rbrace ::token/rbracket)
+        (panic parser (str "Unbalanced enclosure: " (::token/lexeme token)))
+  
+        (::token/semicolon ::token/comma)
+        (panic parser (str "Unexpected delimiter: " (::token/lexeme token)))
+  
+        (panic parser "Expected expression" sync-on)
+  
+        ))))
 
 (do
   (def pp pp/pprint)
-  (def source "if *else then bar else baz")
+  (def source "if 
+    then bar 
+    else baz")
   (def lexed (scanner/scan source))
   (def tokens (:tokens lexed))
   (def p (parser tokens))
@@ -437,7 +440,7 @@
   (println "*** *** NEW PARSE *** ***")
 
   (-> p
-    (parse-script)
+    (parse-if)
     (::ast)
     (pp)
     )
