@@ -260,13 +260,12 @@
                 (parse-expr parser))]
           (recur parsed exprs (::ast parsed)))))))
 
-(defn- parse-script [parser]
+(defn parse-script [parser]
   (loop [
          parser (accept-many #{::token/newline ::token/semicolon} parser)
          exprs []
          current_expr nil
          ]
-    (let [curr (current parser)]
       (case (token-type parser)
         ::token/eof (let [es (add-member exprs current_expr)]
                       (if (empty? es)
@@ -285,7 +284,7 @@
                 (parse-expr parser)
                 )
               ]
-          (recur parsed exprs (::ast parsed)))))))
+          (recur parsed exprs (::ast parsed))))))
 
 (defn- parse-synthetic [parser]
   (loop [parser parser
@@ -423,7 +422,7 @@
 
 (do
   (def pp pp/pprint)
-  (def source "let quux = if {foo} then bar else baz")
+  (def source "nil")
   (def lexed (scanner/scan source))
   (def tokens (:tokens lexed))
   (def p (parser tokens))
