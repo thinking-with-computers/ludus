@@ -524,35 +524,19 @@
 
 (comment "
 	Further thoughts/still to do:
-	* Clean up the parsing functions:
-		- use accept-many in blocks and scripts
-		- ast nodes should include their tokens (this is added for atoms, which may be fully sufficient)
-	* Time to start working on parsing errors (poisoned nodes, panic mode, etc.)
-    - this now works on atoms, collections, synthetics, blocks, and scripts
-    - add to everything else:
-    - CURRENTLY:
-      * figure out how to parse `if` with similar strategy to `let`
-        * one possibility is to paramterize parse-expr with a sync token:
-        the idea here is that exprs will have different end sync points in different contexts (`}` vs `then` vs `\n`, etc.)
-      * the strategy here will be the same for the rest of the sequential constructs: `let`, `if`, `import`, `fn`, `loop`, etc.
+  * AST nodes should include tokens/locations
+    - at current, only atoms do this
+  * Improve error handling in hashmap parsing
+  * 
 
 	Other quick thoughts:
-	* Once I get this far, then it's time to wire up the interpreter (with hard-coded functions, and the beginning of static analysis)
 
 	* Placeholders
-		* Placeholders may only appear in tuples in synthetic expressions
-		* Each of these may have zero or one placeholders
+
 		* Does this want to happen in parsing or in analysis?
 
 	For future correctness checks:
-	* Early (even as part of wiring up the interpreter), begin the static analysis check for 
-		- unbound names 
-		- re-binding of names
-	* Compound `loop` and `gen` forms must have LHS's (tuple patterns) of the same length
-	* Recur must be in tail position in `loop`s
-	* Tail call optimization for simple recursion
-	* Check arities for statically known functions
-	* Enforce single-member tuple after called keywords
+
 ")
 
 
