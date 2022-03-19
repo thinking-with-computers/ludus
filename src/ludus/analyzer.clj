@@ -15,4 +15,6 @@
 	* Tail call optimization for simple recursion (rewrite it as a loop?)
 	* Check arities for statically known functions
 	* Enforce single-member tuple after called keywords
+	* Placeholders may only appear in tuples in synthetic expressions
+	* Each of these may have zero or one placeholders
 ")
