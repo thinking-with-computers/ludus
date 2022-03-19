@@ -169,7 +169,7 @@
         ::token/eof
         (panic (assoc origin ::errors (::errors parser)) "Unterminated tuple" ::token/eof) 
 
-        (let [parsed (parse-expr parser)]
+        (let [parsed (parse-expr parser #{::token/comma ::token/newline ::token/rparen})]
           (recur parsed members (::ast parsed)))))))
 
 (defn- parse-list [origin]
@@ -196,7 +196,7 @@
         ::token/eof
         (panic (assoc origin ::errors (::errors parser)) "Unterminated list" ::token/eof) 
 
-        (let [parsed (parse-expr parser)]
+        (let [parsed (parse-expr parser #{::token/comma ::token/newline ::token/rbracket})]
           (recur parsed members (::ast parsed)))))))
 
 (defn- parse-set [origin]
@@ -223,7 +223,7 @@
         ::token/eof
         (panic (assoc origin ::errors (::errors parser)) "Unterminated set" ::token/eof) 
 
-        (let [parsed (parse-expr parser)]
+        (let [parsed (parse-expr parser #{::token/comma ::token/newline ::token/rbrace})]
           (recur parsed members (::ast parsed)))))))
 
 (defn- parse-block [origin]
