@@ -30,8 +30,7 @@
   (get-in parser [::ast ::ast/type]))
 
 ;; some forward declarations
-(declare parse-expr)
-(declare parse-word)
+(declare parse-expr parse-word)
 
 ;; handle some errors
 (def sync-on #{
