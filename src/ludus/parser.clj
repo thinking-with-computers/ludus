@@ -354,8 +354,33 @@
   (let [pattern (parse-pattern (advance parser))]
     (parse-assignment pattern)))
 
+(defn- parse-else [parser]
+  (let [ast (::ast parser)
+    else-kw (expect* ::token/else "Expected else clause after then" parser)
+    success (:success else-kw)
+    else-kw-parser (:parser else-kw)]
+    (if success
+      (let [expr (parse-expr else-kw-parser)
+        else-expr (::ast expr)]
+        (assoc expr ::ast (assoc ast :else else-expr)))
+      else-kw-parser)))
+
+(defn- parse-then [parser]
+  (let [ast (::ast parser)
+    then-kw (expect* ::token/then "Expected then clause after if" parser)
+    success (:success then-kw)
+    then-kw-parser (:parser then-kw)]
+    (if success
+      (let [expr (parse-expr then-kw-parser (conj sync-on ::token/else))
+        then-expr (::ast expr)]
+        (parse-else (accept ::token/newline (assoc expr ::ast (assoc ast :then then-expr)))))
+      then-kw-parser)))
+
 (defn- parse-if* [parser]
-  )
+  (let [if-expr (parse-expr (advance parser) #{::token/newline ::token/then})
+    ast (assoc if-expr ::ast {::ast/type ::ast/if :if (::ast if-expr)})]
+    (parse-then (accept ::token/newline ast))
+    ))
 
 ;; TODO: Fix failure case here 
 (defn- parse-if [parser]
@@ -410,9 +435,9 @@
   
         ::token/let (parse-let* parser)
   
-        ::token/if (parse-if parser)
+        ::token/if (parse-if* parser)
   
-        ::token/error (panic parser (:message token))
+        ::token/error (panic parser (:message token) sync-on)
   
         (::token/rparen ::token/rbrace ::token/rbracket)
         (panic parser (str "Unbalanced enclosure: " (::token/lexeme token)))
@@ -426,9 +451,7 @@
 
 (do
   (def pp pp/pprint)
-  (def source "if 
-    then bar 
-    else baz")
+  (def source "if {foo} then bar else baz")
   (def lexed (scanner/scan source))
   (def tokens (:tokens lexed))
   (def p (parser tokens))
@@ -440,7 +463,7 @@
   (println "*** *** NEW PARSE *** ***")
 
   (-> p
-    (parse-if)
+    (parse-script)
     (::ast)
     (pp)
     )
