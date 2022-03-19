@@ -342,14 +342,6 @@
       (parse-let-expr (:parser assignment) parser)
       (panic parser "Expected assignment"))))
 
-(defn- parse-let [parser]
-  (let [pattern (parse-pattern (advance parser))]
-    (if (poisoned? pattern)
-      (panic (advance parser) "Expected pattern")
-      (parse-assignment pattern)
-      )
-    ))
-
 (defn- parse-let* [parser]
   (let [pattern (parse-pattern (advance parser))]
     (parse-assignment pattern)))
@@ -380,26 +372,6 @@
   (let [if-expr (parse-expr (advance parser) #{::token/newline ::token/then})
         ast (assoc if-expr ::ast {::ast/type ::ast/if :if (::ast if-expr)})]
     (parse-then (accept ::token/newline ast))
-    ))
-
-;; TODO: Fix failure case here 
-(defn- parse-if [parser]
-  (let [
-        if-expr (parse-expr (advance parser) #{::token/then ::token/newline})
-        then (expect ::token/then "Expected then" (accept ::token/newline if-expr))
-        then-expr (parse-expr then)
-        else (expect ::token/else "Epected else" (accept ::token/newline then-expr))
-        else-expr (parse-expr else #{::token/else ::token/newline})
-        results (map #(get-in % [::ast ::ast/type]) [if-expr then then-expr else else-expr])
-        ]
-    (if (some #(= ::ast/poison %) results)
-      (println ::ast/poison) ;; TODO: FIX THIS
-      (assoc else-expr ::ast {
-                              ::ast/type ::ast/if
-                              :if-expr (::ast if-expr)
-                              :then-expr (::ast then-expr)
-                              :else-expr (::ast else-expr)
-                              }))
     ))
 
 (defn- parse-expr 
