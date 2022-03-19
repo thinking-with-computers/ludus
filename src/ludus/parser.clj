@@ -88,8 +88,8 @@
 
 (defn- expect* [tokens message parser]
   (let [curr (current parser)
-    tokens (if (set? tokens) tokens #{tokens})
-    type (::token/type curr)]
+        tokens (if (set? tokens) tokens #{tokens})
+        type (::token/type curr)]
     (if (contains? tokens type)
       {:success true :parser (advance parser)}
       {:success false :parser (panic (advance parser) message)}
@@ -337,7 +337,7 @@
 
 (defn- parse-assignment [parser]
   (let [assignment (expect* ::token/equals "Expected assignment" parser)
-      success (:success assignment)]
+        success (:success assignment)]
     (if success
       (parse-let-expr (:parser assignment) parser)
       (panic parser "Expected assignment"))))
@@ -356,29 +356,29 @@
 
 (defn- parse-else [parser]
   (let [ast (::ast parser)
-    else-kw (expect* ::token/else "Expected else clause after then" parser)
-    success (:success else-kw)
-    else-kw-parser (:parser else-kw)]
+        else-kw (expect* ::token/else "Expected else clause after then" parser)
+        success (:success else-kw)
+        else-kw-parser (:parser else-kw)]
     (if success
       (let [expr (parse-expr else-kw-parser)
-        else-expr (::ast expr)]
+            else-expr (::ast expr)]
         (assoc expr ::ast (assoc ast :else else-expr)))
       else-kw-parser)))
 
 (defn- parse-then [parser]
   (let [ast (::ast parser)
-    then-kw (expect* ::token/then "Expected then clause after if" parser)
-    success (:success then-kw)
-    then-kw-parser (:parser then-kw)]
+        then-kw (expect* ::token/then "Expected then clause after if" parser)
+        success (:success then-kw)
+        then-kw-parser (:parser then-kw)]
     (if success
       (let [expr (parse-expr then-kw-parser (conj sync-on ::token/else))
-        then-expr (::ast expr)]
+            then-expr (::ast expr)]
         (parse-else (accept ::token/newline (assoc expr ::ast (assoc ast :then then-expr)))))
       then-kw-parser)))
 
 (defn- parse-if* [parser]
   (let [if-expr (parse-expr (advance parser) #{::token/newline ::token/then})
-    ast (assoc if-expr ::ast {::ast/type ::ast/if :if (::ast if-expr)})]
+        ast (assoc if-expr ::ast {::ast/type ::ast/if :if (::ast if-expr)})]
     (parse-then (accept ::token/newline ast))
     ))
 
@@ -405,49 +405,49 @@
 (defn- parse-expr 
   ([parser] (parse-expr parser sync-on))
   ([parser sync-on] (let [token (current parser)]
-      (case (::token/type token)
+                      (case (::token/type token)
   
-        (::token/number ::token/string)
-        (parse-atom parser)
+                        (::token/number ::token/string)
+                        (parse-atom parser)
   
-        ::token/keyword (let [next (peek parser)
-                              type (::token/type next)]
-                          (if (= type ::token/lparen)
-                            (parse-synthetic parser)
-                            (parse-atom parser)))
+                        ::token/keyword (let [next (peek parser)
+                                              type (::token/type next)]
+                                          (if (= type ::token/lparen)
+                                            (parse-synthetic parser)
+                                            (parse-atom parser)))
   
-        ::token/word (let [next (peek parser)
-                           type (::token/type next)]
-                       (case type
-                         (::token/lparen ::token/keyword) (parse-synthetic parser)
-                         (parse-word parser)))
+                        ::token/word (let [next (peek parser)
+                                           type (::token/type next)]
+                                       (case type
+                                         (::token/lparen ::token/keyword) (parse-synthetic parser)
+                                         (parse-word parser)))
   
-        (::token/nil ::token/true ::token/false)
-        (parse-atomic-word parser)
+                        (::token/nil ::token/true ::token/false)
+                        (parse-atomic-word parser)
   
-        ::token/lparen (parse-tuple parser)
+                        ::token/lparen (parse-tuple parser)
   
-        ::token/lbracket (parse-list parser)
+                        ::token/lbracket (parse-list parser)
   
-        ::token/startset (parse-set parser)
+                        ::token/startset (parse-set parser)
   
-        ::token/lbrace (parse-block parser)
+                        ::token/lbrace (parse-block parser)
   
-        ::token/let (parse-let* parser)
+                        ::token/let (parse-let* parser)
   
-        ::token/if (parse-if* parser)
+                        ::token/if (parse-if* parser)
   
-        ::token/error (panic parser (:message token) sync-on)
+                        ::token/error (panic parser (:message token) sync-on)
   
-        (::token/rparen ::token/rbrace ::token/rbracket)
-        (panic parser (str "Unbalanced enclosure: " (::token/lexeme token)))
+                        (::token/rparen ::token/rbrace ::token/rbracket)
+                        (panic parser (str "Unbalanced enclosure: " (::token/lexeme token)))
   
-        (::token/semicolon ::token/comma)
-        (panic parser (str "Unexpected delimiter: " (::token/lexeme token)))
+                        (::token/semicolon ::token/comma)
+                        (panic parser (str "Unexpected delimiter: " (::token/lexeme token)))
   
-        (panic parser "Expected expression" sync-on)
+                        (panic parser "Expected expression" sync-on)
   
-        ))))
+                        ))))
 
 (do
   (def pp pp/pprint)
