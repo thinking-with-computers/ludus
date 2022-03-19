@@ -47,6 +47,7 @@
 	(merge ctx new-ctx))
 
 ;; TODO: get "if let" pattern working
+;; TODO: get typed exceptions to distinguish panics
 (defn- interpret-let [ast ctx]
 	(let [pattern (:pattern ast)
 		expr (:expr ast)
@@ -101,6 +102,8 @@
 
 		;; note that the runtime representations of collections is
 		;; unboxed in the tree-walk interpreter
+		;; tuples & lists are both vectors, the first element
+		;; distinguishes them
 		::ast/tuple
 		(let [members (:members ast)]
 			(into [::colls/tuple] (map #(interpret % ctx)) members))
