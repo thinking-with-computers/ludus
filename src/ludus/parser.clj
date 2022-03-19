@@ -30,7 +30,7 @@
   (get-in parser [::ast ::ast/type]))
 
 ;; some forward declarations
-(declare parse-expr parse-word)
+(declare parse-expr parse-word parse-pattern)
 
 ;; handle some errors
 (def sync-on #{
@@ -314,13 +314,47 @@
 
 (def sync-pattern (s/union sync-on #{::token/equals ::token/rarrow}))
 
+(defn- parse-tuple-pattern [origin]
+  (loop [
+         parser (accept-many #{::token/newline ::token/comma} (advance origin))
+         members []
+         current_member nil
+         ]
+    (let [curr (current parser)]
+      (case (token-type parser)
+        ::token/rparen (let [ms (add-member members current_member)]
+                         (assoc (advance parser) ::ast 
+                           {::ast/type ::ast/tuple
+                            :length (count ms)
+                            :members ms}))
+
+        (::token/comma ::token/newline)
+        (recur 
+          (accept-many #{::token/comma ::token/newline} parser) 
+          (add-member members current_member) nil)
+
+        (::token/rbrace ::token/rbracket)
+        (panic parser (str "Mismatched enclosure in tuple: " (::token/lexeme curr)))
+
+        ::token/eof
+        (panic (assoc origin ::errors (::errors parser)) "Unterminated tuple" ::token/eof) 
+
+        (let [parsed (parse-pattern parser)]
+          (recur parsed members (::ast parsed)))))))
+
 (defn- parse-pattern [parser]
   (let [curr (current parser)
         type (::token/type curr)]
     (case type
+      ::token/placeholder (-> parser 
+        (advance)
+        (assoc ::ast {::ast/type ::ast/placeholder}))
+
       ::token/word (parse-word parser)
 
       (::token/number ::token/string ::token/keyword) (parse-atom parser)
+
+      ::token/lparen (parse-tuple-pattern parser)
 
       ::token/error
       (panic parser (:message (current parser)) sync-pattern)
@@ -428,7 +462,7 @@
 
 (do
   (def pp pp/pprint)
-  (def source "42")
+  (def source "let () = ()")
   (def lexed (scanner/scan source))
   (def tokens (:tokens lexed))
   (def p (parser tokens))
@@ -441,7 +475,7 @@
 
   (-> p
     (parse-script)
-    ;;(::ast)
+    (::ast)
     (pp)
     )
   )

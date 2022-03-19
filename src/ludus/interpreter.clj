@@ -18,11 +18,39 @@
 				(recur word (::parent ctx))
 				(throw (new Exception (str "Unbound name: " word)))))))
 
-(declare interpret)
+(declare interpret match)
+
+(defn- match-tuple [pattern value ctx-atom]
+	(cond
+		(not (vector? value)) {:success false :reason "Could not match non-tuple value to tuple"}
+
+		(not (= ::colls/tuple (first value))) {:success false :reason "Could not match list to tuple"}
+
+		(not (= (:length pattern) (dec (count value))))
+		{:success false :reason "Cannot match tuples of different lengths"}
+
+		(= 0 (:length pattern) (dec (count value))) {:success true :ctx {}}
+
+		:else (let [members (:members pattern)]
+			(loop [i (dec (:length pattern))
+				ctx {}]
+				(if (= 0 i)
+					{:success true :ctx ctx}
+					(let [match? (match (nth members i) (nth value (inc i)) ctx-atom)]
+						(if (:success match?)
+							(recur (dec i) (merge ctx (:ctx match?)))
+							{:success false :reason (str "Could not match " pattern " with " value)}
+						))
+				)
+
+				))
+		))
 
 (defn- match [pattern value ctx-atom]
 	(let [ctx @ctx-atom]
 		(case (::ast/type pattern)
+			::ast/placeholder {:success true :ctx {}}
+
 			::ast/atom
 			(let [match-value (:value pattern)]
 				(if (= match-value value)
@@ -36,6 +64,8 @@
 					{:success false :reason (str "Name " word " is already bound")}
 					{:success true :ctx {word value}}
 					))
+
+			::ast/tuple (match-tuple pattern value ctx-atom)
 	
 			(do
 				(println "ERROR! Unexpected pattern:")
@@ -127,7 +157,7 @@
 (do
 
 (def source "
-	
+	let (:foo, 1, :bar) = (:foo, 1, :bar) 
 ")
 
 (println "")
