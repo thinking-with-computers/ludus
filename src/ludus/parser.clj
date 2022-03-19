@@ -225,6 +225,46 @@
         (let [parsed (parse-expr parser #{::token/comma ::token/newline ::token/rbrace})]
           (recur parsed members (::ast parsed)))))))
 
+(defn- parse-hash [origin]
+  (loop [
+         parser (accept-many #{::token/newline ::token/comma} (advance origin))
+         members {}
+         current_member nil
+         ]
+    (let [curr (current parser)]
+      (case (token-type parser)
+        ::token/rbrace (let [ms (add-member members current_member)]
+                         (assoc (advance parser) ::ast 
+                           {::ast/type ::ast/hash
+                            :members ms}))
+
+        (::token/comma ::token/newline)
+        (recur 
+          (accept-many #{::token/comma ::token/newline} parser) 
+          (add-member members current_member) nil)
+
+        (::token/rbracket ::token/rparen)
+        (panic parser (str "Mismatched enclosure in set: " (::token/lexeme curr)))
+
+        ::token/eof
+        (panic (assoc origin ::errors (::errors parser)) "Unterminated set" ::token/eof)
+
+        ::token/word
+        (if (not current_member) (let [parsed (parse-word parser) word (get-in parsed [::ast :word])]
+                  (recur parsed members {(keyword word) (::ast parsed)}))
+          (panic parser "Hashmap entries must be single words or keyword+expression pairs." #{::token/rbrace})
+        )
+
+        ::token/keyword
+        (if (not current_member) (let [kw (parse-atom parser) expr (parse-expr kw #{::token/comma ::token/newline ::token/rbrace})]
+                  (println "found keyword/expr pair:" (:value kw))
+                  (pp/pprint (::ast expr))
+                  (recur expr members {(:value (::ast kw)) (::ast expr)}))
+          (panic parser "Hashmap entries must be single words or keyword+expression pairs." #{::token/rbrace})
+        )
+
+        (panic parser "Hashmap entries must be single words or keyword+expression pairs" #{::token/rbrace})))))
+
 (defn- parse-block [origin]
   (loop [
          parser (accept-many #{::token/newline ::token/semicolon} (advance origin))
@@ -434,6 +474,8 @@
                         ::token/lbracket (parse-list parser)
   
                         ::token/startset (parse-set parser)
+
+                        ::token/starthash (parse-hash parser)
   
                         ::token/lbrace (parse-block parser)
   
@@ -462,7 +504,7 @@
 
 (do
   (def pp pp/pprint)
-  (def source "let () = ()")
+  (def source "#{:a :b, :c :d}")
   (def lexed (scanner/scan source))
   (def tokens (:tokens lexed))
   (def p (parser tokens))
