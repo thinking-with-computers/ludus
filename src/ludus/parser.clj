@@ -419,9 +419,16 @@
   
                         ))))
 
+(defn parse [lexed]
+  (-> lexed
+    (:tokens)
+    (parser)
+    (parse-script)
+))
+
 (do
   (def pp pp/pprint)
-  (def source "nil")
+  (def source "42")
   (def lexed (scanner/scan source))
   (def tokens (:tokens lexed))
   (def p (parser tokens))
@@ -434,7 +441,7 @@
 
   (-> p
     (parse-script)
-    (::ast)
+    ;;(::ast)
     (pp)
     )
   )
