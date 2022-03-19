@@ -236,7 +236,7 @@
       (case (token-type parser)
         ::token/rbrace (let [es (add-member exprs current_expr)]
                          (if (empty? es)
-                           (panic parser "Blocks must have at least one expression")
+                           (advance (panic parser "Blocks must have at least one expression"))
                            (assoc (advance parser) ::ast {
                                                           ::ast/type ::ast/block
                                                           :exprs es
