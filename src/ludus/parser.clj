@@ -446,6 +446,10 @@
     (parse-then (accept ::token/newline ast))
     ))
 
+(defn- parse-match-clause [parser])
+
+(defn- parse-match [parser])
+
 (defn- parse-expr 
   ([parser] (parse-expr parser sync-on))
   ([parser sync-on] (let [token (current parser)]
@@ -482,6 +486,10 @@
                         ::token/let (parse-let parser)
   
                         ::token/if (parse-if parser)
+
+                        ::token/match (parse-match parser)
+
+                        ::token/comment (advance parser)
   
                         ::token/error (panic parser (:message token) sync-on)
   
@@ -504,7 +512,11 @@
 
 (do
   (def pp pp/pprint)
-  (def source "#{:a :b, :c :d}")
+  (def source "
+    (1
+    2
+    &three
+    3)")
   (def lexed (scanner/scan source))
   (def tokens (:tokens lexed))
   (def p (parser tokens))

@@ -208,9 +208,10 @@
          comm (str char)]
     (let [char (current-char scanner)]
       (if (= \newline char)
-        (if (s/starts-with? comm "&&&")
-          (add-token (update scanner ::line inc) ::token/docstring)
-          (add-token (update scanner ::line inc) ::token/comment))
+        (update scanner ::line inc)
+        ;;(if (s/starts-with? comm "&&&")
+          ;;(add-token (update scanner ::line inc) ::token/docstring)
+          ;;(add-token (update scanner ::line inc) ::token/comment))
         (recur (advance scanner) (str comm char))))))
 
 (defn- scan-token [scanner]
