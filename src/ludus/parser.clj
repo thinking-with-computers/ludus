@@ -92,7 +92,7 @@
     type (::token/type curr)]
     (if (contains? tokens type)
       {:success true :parser (advance parser)}
-      {:success false :paser (panic (advance parser) message)}
+      {:success false :parser (panic (advance parser) message)}
       )))
 
 (defn- accept [tokens parser]
