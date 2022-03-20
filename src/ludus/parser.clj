@@ -273,13 +273,14 @@
          ]
     (let [curr (current parser)]
       (case (token-type parser)
-        ::token/rbrace (let [es (add-member exprs current_expr)]
-                         (if (empty? es)
-                           (advance (panic parser "Blocks must have at least one expression"))
-                           (assoc (advance parser) ::ast {
-                                                          ::ast/type ::ast/block
-                                                          :exprs es
-                                                          })))
+        ::token/rbrace 
+        (let [es (add-member exprs current_expr)]
+          (if (empty? es)
+            (advance (panic parser "Blocks must have at least one expression"))
+            (assoc (advance parser) ::ast {
+                                           ::ast/type ::ast/block
+                                           :exprs es
+                                           })))
 
         (::token/semicolon ::token/newline)
         (recur 
@@ -306,7 +307,8 @@
          current_expr nil
          ]
     (case (token-type parser)
-      ::token/eof (let [es (add-member exprs current_expr)]
+      ::token/eof 
+      (let [es (add-member exprs current_expr)]
                     (if (empty? es)
                       (panic parser "Scripts must have at least one expression")
                       (assoc parser ::ast {::ast/type ::ast/script :exprs es})))
@@ -341,10 +343,9 @@
         (let [parsed (parse-tuple parser)]
           (recur parsed (conj terms (::ast parsed))))
 
-        (-> parser 
-          (assoc ::ast {::ast/type ::ast/synthetic :terms terms})
+        (assoc parser ::ast {::ast/type ::ast/synthetic :terms terms})
 
-          )))))
+          ))))
 
 (defn- parse-word [parser]
   (let [curr (current parser)]
@@ -505,18 +506,30 @@
     (case (::token/type (current first))
       ::token/lparen
       (let [pattern (parse-tuple-pattern first)
-        arrow (expect* ::token/rarrow "Expected arrow after pattern" pattern)]
+            arrow (expect* ::token/rarrow "Expected arrow after pattern" pattern)]
         (if (:success arrow)
           (let [body (parse-expr (:parser arrow))]
             (assoc body ::ast {::ast/type ::ast/fn
-                          :clauses [{::ast/type ::ast/clause
-                            :pattern (::ast pattern)
-                            :body (::ast body)}]}))
-          ()
+                               :name "anonymous"
+                               :clauses [{::ast/type ::ast/clause
+                                          :pattern (::ast pattern)
+                                          :body (::ast body)}]}))
+          (panic pattern "Expected arrow after pattern in fn clause")
           )
         )
 
-      ::token/word ()
+      ;; TODO: finish this
+      ;; right now it's broke
+      ::token/word 
+      (let [name (parse-word first)
+            pattern (parse-tuple-pattern name)
+            arrow (expect* ::token/rarrow "Expected arrow after pattern" name)
+            body (parse-expr (:parser arrow))
+            ]
+        (
+
+          )
+        )
 
       (panic parser "Expected name or clause after fn")
       )))
@@ -636,6 +649,16 @@
   * Add treatment of ignored variables
   * Placeholders
 		* How much in parser, how much in analysis?
+
+  Some architectural changes:
+  * UGH, this code is just kind of a mess and hard to reason about
+  * Especially sequential forms
+  * Parsers are hard
+  * One idea:
+    * Refactor everything so that it returns a success or failure
+    * Because this is all stateless, in sequential forms, you can just do all the things
+    * This lets you do one let (with everything building up) and then a cond with bespoke errors/panics
+    * This also still lets you encapsulate parsererrors with poisoned nodes
 
 ")
 
