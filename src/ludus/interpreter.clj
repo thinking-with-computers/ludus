@@ -246,6 +246,20 @@
 
   (def source "
 
+    fn fib {
+      (0) -> 1
+      (1) -> 1
+      (n) -> add (
+        fib (sub (n, 1))
+        fib (sub (n, 2)))
+    }
+
+    fn fact {
+      (1) -> 1
+      (n) -> mult (n, fact (sub (n, 1)))
+    }
+
+    fact (6)
 
 	")
 
