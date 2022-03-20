@@ -209,7 +209,8 @@
 (do
 
   (def source "
-  	if false then :yay else print(:foo)
+  	fn foo () -> :foo
+    foo ()
 
 	")
 
