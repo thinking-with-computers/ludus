@@ -446,9 +446,35 @@
     (parse-then (accept ::token/newline ast))
     ))
 
-(defn- parse-match-clause [parser])
+(defn- parse-match-clause [parser]
+  (let [pattern (parse-pattern parser)
+    rarrow (expect* #{::token/rarrow} "Expected arrow in match clause" pattern)
+    ]
+    (if (:success rarrow)
+      (let [body (parse-expr (:parser rarrow))]
+        (assoc body ::ast {::ast/type ::ast/clause
+          :pattern (::ast pattern) :body (::ast body)})
+        )
+      (panic rarrow "Expected -> in match clause. Clauses must be in the form pattern -> expression")
+      )
+  ))
 
-(defn- parse-match [parser])
+(defn- parse-match [parser]
+  (let [match-expr (parse-expr (advance parser) #{::token/lbrace ::token/lparen})
+    match-header (expect* #{::token/with} "Expected with" match-expr)]
+    (if (:success match-header)
+      (let [clauses (:parser match-header)]
+        (if (= (token-type clauses) ::token/lbrace)
+          (println "one or many clauses")
+          (let [clause (parse-match-clause clauses)]
+            (assoc clause ::ast {::ast/type ::ast/match
+              :expr (::ast match-expr)
+              :clauses [(::ast clause)]})
+            )
+          ))
+
+    (panic parser "Expected with after match expression")
+    )))
 
 (defn- parse-expr 
   ([parser] (parse-expr parser sync-on))
@@ -512,11 +538,11 @@
 
 (do
   (def pp pp/pprint)
-  (def source "
-    (1
-    2
-    &three
-    3)")
+  (def source "match foo with (foo, bar, 0) -> {
+    let foo = bar
+    if foo then bar else baz
+    :foo
+    }")
   (def lexed (scanner/scan source))
   (def tokens (:tokens lexed))
   (def p (parser tokens))
@@ -528,7 +554,7 @@
   (println "*** *** NEW PARSE *** ***")
 
   (-> p
-    (parse-script)
+    (parse-match)
     (::ast)
     (pp)
     )
