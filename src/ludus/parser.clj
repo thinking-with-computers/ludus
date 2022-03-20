@@ -1,10 +1,10 @@
 (ns ludus.parser
-  (:require 
-    [ludus.token :as token]
-    [ludus.scanner :as scanner]
-    [ludus.ast :as ast]
-    [clojure.pprint :as pp]
-    [clojure.set :as s]))
+  (:require
+   [ludus.token :as token]
+   [ludus.scanner :as scanner]
+   [ludus.ast :as ast]
+   [clojure.pprint :as pp]
+   [clojure.set :as s]))
 
 ;; a parser map and some functions to work with them
 (defn- parser [tokens]
@@ -33,45 +33,37 @@
 (declare parse-expr parse-word parse-pattern)
 
 ;; handle some errors
-(def sync-on #{
-               ::token/newline
+(def sync-on #{::token/newline
                ::token/semicolon
                ::token/comma
                ::token/rparen
                ::token/rbracket
                ::token/rbrace
-               ::token/eof
-               })
+               ::token/eof})
 
 (defn- sync [parser message origin end]
-  (let [poison {
-                ::ast/type ::ast/poison
+  (let [poison {::ast/type ::ast/poison
                 :message message
                 :origin origin
-                :end end
-                }]
+                :end end}]
     (-> parser
-      (assoc ::ast poison)
-      (update ::errors conj poison))))
+        (assoc ::ast poison)
+        (update ::errors conj poison))))
 
 (defn- poisoned? [parser]
   (= ::ast/poison (get-in parser [::ast ::ast/type])))
 
-(defn- panic 
+(defn- panic
   ([parser message] (panic parser message sync-on))
   ([parser message sync-on]
    (println (str "PANIC!!! in the parser: " message))
-   (let [
-         sync-on (conj (if (set? sync-on) sync-on #{sync-on}) ::token/eof)
-         origin (current parser)
-         ]
+   (let [sync-on (conj (if (set? sync-on) sync-on #{sync-on}) ::token/eof)
+         origin (current parser)]
      (loop [parser parser]
-       (let [
-             curr (current parser)
-             type (::token/type curr)
-             ]
+       (let [curr (current parser)
+             type (::token/type curr)]
          (if (or (at-end? parser) (contains? sync-on type))
-           (sync parser message origin curr) 
+           (sync parser message origin curr)
            (recur (advance parser))))))))
 
 ;; some helper functions
@@ -82,8 +74,8 @@
     (if (contains? tokens type)
       (advance parser)
       (-> parser
-        (advance)
-        (panic message tokens)))))
+          (advance)
+          (panic message tokens)))))
 
 (defn- expect* [tokens message parser]
   (let [curr (current parser)
@@ -91,8 +83,7 @@
         type (::token/type curr)]
     (if (contains? tokens type)
       {:success true :parser (advance parser)}
-      {:success false :parser (panic (advance parser) message)}
-      )))
+      {:success false :parser (panic (advance parser) message)})))
 
 (defn- accept [tokens parser]
   (let [curr (current parser)
@@ -105,8 +96,7 @@
 (defn- accept-many [tokens parser]
   (let [tokens (if (set? tokens) tokens #{tokens})]
     (loop [parser parser]
-      (let [
-            curr (current parser)
+      (let [curr (current parser)
             type (::token/type curr)]
         (if (contains? tokens type)
           (recur (advance parser))
@@ -116,27 +106,23 @@
 (defn- parse-atom [parser]
   (let [token (current parser)]
     (-> parser
-      (advance)
-      (assoc ::ast {
-                    ::ast/type ::ast/atom 
-                    :token token
-                    :value (::token/literal token)}))))
+        (advance)
+        (assoc ::ast {::ast/type ::ast/atom
+                      :token token
+                      :value (::token/literal token)}))))
 
 ;; just a quick and dirty map to associate atomic words with values
-(def atomic-words {
-                   ::token/nil nil
+(def atomic-words {::token/nil nil
                    ::token/true true
                    ::token/false false})
 
 (defn parse-atomic-word [parser]
   (let [token (current parser)]
     (-> parser
-      (advance)
-      (assoc ::ast {
-                    ::ast/type ::ast/atom
-                    :token token
-                    :value (get atomic-words (::token/type token))}))))
-
+        (advance)
+        (assoc ::ast {::ast/type ::ast/atom
+                      :token token
+                      :value (get atomic-words (::token/type token))}))))
 
 (defn- add-member [members member]
   (if (nil? member)
@@ -144,104 +130,96 @@
     (conj members member)))
 
 (defn- parse-tuple [origin]
-  (loop [
-         parser (accept-many #{::token/newline ::token/comma} (advance origin))
+  (loop [parser (accept-many #{::token/newline ::token/comma} (advance origin))
          members []
-         current_member nil
-         ]
+         current_member nil]
     (let [curr (current parser)]
       (case (token-type parser)
         ::token/rparen (let [ms (add-member members current_member)]
-                         (assoc (advance parser) ::ast 
-                           {::ast/type ::ast/tuple
-                            :length (count ms)
-                            :members ms}))
+                         (assoc (advance parser) ::ast
+                                {::ast/type ::ast/tuple
+                                 :length (count ms)
+                                 :members ms}))
 
         (::token/comma ::token/newline)
-        (recur 
-          (accept-many #{::token/comma ::token/newline} parser) 
-          (add-member members current_member) nil)
+        (recur
+         (accept-many #{::token/comma ::token/newline} parser)
+         (add-member members current_member) nil)
 
         (::token/rbrace ::token/rbracket)
         (panic parser (str "Mismatched enclosure in tuple: " (::token/lexeme curr)))
 
         ::token/eof
-        (panic (assoc origin ::errors (::errors parser)) "Unterminated tuple" ::token/eof) 
+        (panic (assoc origin ::errors (::errors parser)) "Unterminated tuple" ::token/eof)
 
         (let [parsed (parse-expr parser #{::token/comma ::token/newline ::token/rparen})]
           (recur parsed members (::ast parsed)))))))
 
 (defn- parse-list [origin]
-  (loop [
-         parser (accept-many #{::token/newline ::token/comma} (advance origin))
+  (loop [parser (accept-many #{::token/newline ::token/comma} (advance origin))
          members []
-         current_member nil
-         ]
+         current_member nil]
     (let [curr (current parser)]
       (case (token-type parser)
         ::token/rbracket (let [ms (add-member members current_member)]
-                           (assoc (advance parser) ::ast 
-                             {::ast/type ::ast/list
-                              :members ms}))
+                           (assoc (advance parser) ::ast
+                                  {::ast/type ::ast/list
+                                   :members ms}))
 
         (::token/comma ::token/newline)
-        (recur 
-          (accept-many #{::token/comma ::token/newline} parser) 
-          (add-member members current_member) nil)
+        (recur
+         (accept-many #{::token/comma ::token/newline} parser)
+         (add-member members current_member) nil)
 
         (::token/rbrace ::token/rparen)
         (panic parser (str "Mismatched enclosure in list: " (::token/lexeme curr)))
 
         ::token/eof
-        (panic (assoc origin ::errors (::errors parser)) "Unterminated list" ::token/eof) 
+        (panic (assoc origin ::errors (::errors parser)) "Unterminated list" ::token/eof)
 
         (let [parsed (parse-expr parser #{::token/comma ::token/newline ::token/rbracket})]
           (recur parsed members (::ast parsed)))))))
 
 (defn- parse-set [origin]
-  (loop [
-         parser (accept-many #{::token/newline ::token/comma} (advance origin))
+  (loop [parser (accept-many #{::token/newline ::token/comma} (advance origin))
          members []
-         current_member nil
-         ]
+         current_member nil]
     (let [curr (current parser)]
       (case (token-type parser)
         ::token/rbrace (let [ms (add-member members current_member)]
-                         (assoc (advance parser) ::ast 
-                           {::ast/type ::ast/set
-                            :members ms}))
+                         (assoc (advance parser) ::ast
+                                {::ast/type ::ast/set
+                                 :members ms}))
 
         (::token/comma ::token/newline)
-        (recur 
-          (accept-many #{::token/comma ::token/newline} parser) 
-          (add-member members current_member) nil)
+        (recur
+         (accept-many #{::token/comma ::token/newline} parser)
+         (add-member members current_member) nil)
 
         (::token/rbracket ::token/rparen)
         (panic parser (str "Mismatched enclosure in set: " (::token/lexeme curr)))
 
         ::token/eof
-        (panic (assoc origin ::errors (::errors parser)) "Unterminated set" ::token/eof) 
+        (panic (assoc origin ::errors (::errors parser)) "Unterminated set" ::token/eof)
 
         (let [parsed (parse-expr parser #{::token/comma ::token/newline ::token/rbrace})]
           (recur parsed members (::ast parsed)))))))
 
 (defn- parse-hash [origin]
-  (loop [
-         parser (accept-many #{::token/newline ::token/comma} (advance origin))
+  (loop [parser (accept-many #{::token/newline ::token/comma} (advance origin))
          members {}
-         current_member nil
-         ]
+         current_member nil]
     (let [curr (current parser)]
       (case (token-type parser)
         ::token/rbrace (let [ms (add-member members current_member)]
-                         (assoc (advance parser) ::ast 
-                           {::ast/type ::ast/hash
-                            :members ms}))
+                         (assoc (advance parser) ::ast
+                                {::ast/type ::ast/hash
+                                 :members ms}))
 
         (::token/comma ::token/newline)
-        (recur 
-          (accept-many #{::token/comma ::token/newline} parser) 
-          (add-member members current_member) nil)
+        (recur
+         (accept-many #{::token/comma ::token/newline} parser)
+         (add-member members current_member) nil)
 
         (::token/rbracket ::token/rparen)
         (panic parser (str "Mismatched enclosure in set: " (::token/lexeme curr)))
@@ -252,40 +230,34 @@
         ::token/word
         (if (not current_member) (let [parsed (parse-word parser) word (get-in parsed [::ast :word])]
                                    (recur parsed members {(keyword word) (::ast parsed)}))
-          (panic parser "Hashmap entries must be single words or keyword+expression pairs." #{::token/rbrace})
-          )
+            (panic parser "Hashmap entries must be single words or keyword+expression pairs." #{::token/rbrace}))
 
         ::token/keyword
         (if (not current_member) (let [kw (parse-atom parser) expr (parse-expr kw #{::token/comma ::token/newline ::token/rbrace})]
                                    (println "found keyword/expr pair:" (:value kw))
                                    (pp/pprint (::ast expr))
                                    (recur expr members {(:value (::ast kw)) (::ast expr)}))
-          (panic parser "Hashmap entries must be single words or keyword+expression pairs." #{::token/rbrace})
-          )
+            (panic parser "Hashmap entries must be single words or keyword+expression pairs." #{::token/rbrace}))
 
         (panic parser "Hashmap entries must be single words or keyword+expression pairs" #{::token/rbrace})))))
 
 (defn- parse-block [origin]
-  (loop [
-         parser (accept-many #{::token/newline ::token/semicolon} (advance origin))
+  (loop [parser (accept-many #{::token/newline ::token/semicolon} (advance origin))
          exprs []
-         current_expr nil
-         ]
+         current_expr nil]
     (let [curr (current parser)]
       (case (token-type parser)
-        ::token/rbrace 
+        ::token/rbrace
         (let [es (add-member exprs current_expr)]
           (if (empty? es)
             (advance (panic parser "Blocks must have at least one expression"))
-            (assoc (advance parser) ::ast {
-                                           ::ast/type ::ast/block
-                                           :exprs es
-                                           })))
+            (assoc (advance parser) ::ast {::ast/type ::ast/block
+                                           :exprs es})))
 
         (::token/semicolon ::token/newline)
-        (recur 
-          (accept-many #{::token/newline ::token/semicolon} parser) 
-          (add-member exprs current_expr) nil)
+        (recur
+         (accept-many #{::token/newline ::token/semicolon} parser)
+         (add-member exprs current_expr) nil)
 
         (::token/rbracket ::token/rparen)
         (panic parser (str "Mismatched enclosure in block: " (::token/lexeme curr)))
@@ -293,38 +265,34 @@
         ::token/eof
         (panic (assoc origin ::errors (::errors parser)) "Unterminated block" ::token/eof)
 
-
-        (let [parsed 
+        (let [parsed
               (if current_expr
                 (panic parser "Expected end of expression" #{::token/semicolon ::token/newline})
                 (parse-expr parser))]
           (recur parsed exprs (::ast parsed)))))))
 
 (defn parse-script [parser]
-  (loop [
-         parser (accept-many #{::token/newline ::token/semicolon} parser)
+  (loop [parser (accept-many #{::token/newline ::token/semicolon} parser)
          exprs []
-         current_expr nil
-         ]
+         current_expr nil]
     (case (token-type parser)
-      ::token/eof 
+      ::token/eof
       (let [es (add-member exprs current_expr)]
-                    (if (empty? es)
-                      (panic parser "Scripts must have at least one expression")
-                      (assoc parser ::ast {::ast/type ::ast/script :exprs es})))
+        (if (empty? es)
+          (panic parser "Scripts must have at least one expression")
+          (assoc parser ::ast {::ast/type ::ast/script :exprs es})))
 
       (::token/semicolon ::token/newline)
-      (recur 
-        (accept-many #{::token/semicolon ::token/newline} parser) 
-        (add-member exprs current_expr)
-        nil)
+      (recur
+       (accept-many #{::token/semicolon ::token/newline} parser)
+       (add-member exprs current_expr)
+       nil)
 
       (let [parsed
             (if current_expr
               (panic parser "Expected end of expression" #{::token/semicolon ::token/newline})
-              (parse-expr parser)
-              )
-            ]
+              (parse-expr parser))]
+
         (recur parsed exprs (::ast parsed))))))
 
 (defn- parse-synthetic [parser]
@@ -333,52 +301,48 @@
     (let [curr (current parser)
           type (::token/type curr)]
       (case type
-        ::token/keyword 
+        ::token/keyword
         (recur (advance parser) (conj terms (::ast (parse-atom parser))))
 
-        ::token/word 
+        ::token/word
         (recur (advance parser) (conj terms (::ast (parse-word parser))))
 
         ::token/lparen
         (let [parsed (parse-tuple parser)]
           (recur parsed (conj terms (::ast parsed))))
 
-        (assoc parser ::ast {::ast/type ::ast/synthetic :terms terms})
-
-          ))))
+        (assoc parser ::ast {::ast/type ::ast/synthetic :terms terms})))))
 
 (defn- parse-word [parser]
   (let [curr (current parser)]
     (-> parser
-      (advance)
-      (assoc ::ast {::ast/type ::ast/word :word (::token/lexeme curr)}))))
+        (advance)
+        (assoc ::ast {::ast/type ::ast/word :word (::token/lexeme curr)}))))
 
 (def sync-pattern (s/union sync-on #{::token/equals ::token/rarrow}))
 
 (defn- parse-tuple-pattern [origin]
-  (loop [
-         parser (accept-many #{::token/newline ::token/comma} (advance origin))
+  (loop [parser (accept-many #{::token/newline ::token/comma} (advance origin))
          members []
-         current_member nil
-         ]
+         current_member nil]
     (let [curr (current parser)]
       (case (token-type parser)
         ::token/rparen (let [ms (add-member members current_member)]
-                         (assoc (advance parser) ::ast 
-                           {::ast/type ::ast/tuple
-                            :length (count ms)
-                            :members ms}))
+                         (assoc (advance parser) ::ast
+                                {::ast/type ::ast/tuple
+                                 :length (count ms)
+                                 :members ms}))
 
         (::token/comma ::token/newline)
-        (recur 
-          (accept-many #{::token/comma ::token/newline} parser) 
-          (add-member members current_member) nil)
+        (recur
+         (accept-many #{::token/comma ::token/newline} parser)
+         (add-member members current_member) nil)
 
         (::token/rbrace ::token/rbracket)
         (panic parser (str "Mismatched enclosure in tuple: " (::token/lexeme curr)))
 
         ::token/eof
-        (panic (assoc origin ::errors (::errors parser)) "Unterminated tuple" ::token/eof) 
+        (panic (assoc origin ::errors (::errors parser)) "Unterminated tuple" ::token/eof)
 
         (let [parsed (parse-pattern parser)]
           (recur parsed members (::ast parsed)))))))
@@ -387,9 +351,9 @@
   (let [curr (current parser)
         type (::token/type curr)]
     (case type
-      ::token/placeholder (-> parser 
-                            (advance)
-                            (assoc ::ast {::ast/type ::ast/placeholder}))
+      ::token/placeholder (-> parser
+                              (advance)
+                              (assoc ::ast {::ast/type ::ast/placeholder}))
 
       ::token/word (parse-word parser)
 
@@ -400,8 +364,7 @@
       ::token/error
       (panic parser (:message (current parser)) sync-pattern)
 
-      (panic parser "Expected pattern" sync-pattern)
-      )))
+      (panic parser "Expected pattern" sync-pattern))))
 
 (defn- parse-let-expr [parser pattern]
   (let [expr (parse-expr parser)]
@@ -444,25 +407,19 @@
 (defn- parse-if [parser]
   (let [if-expr (parse-expr (advance parser) #{::token/newline ::token/then})
         ast (assoc if-expr ::ast {::ast/type ::ast/if :if (::ast if-expr)})]
-    (parse-then (accept ::token/newline ast))
-    ))
+    (parse-then (accept ::token/newline ast))))
 
 (defn- parse-match-clause [parser]
   (let [pattern (parse-pattern parser)
-        rarrow (expect* #{::token/rarrow} "Expected arrow after pattern" pattern)
-        ]
+        rarrow (expect* #{::token/rarrow} "Expected arrow after pattern" pattern)]
     (if (:success rarrow)
       (let [body (parse-expr (:parser rarrow))]
         (assoc body ::ast {::ast/type ::ast/clause
-                           :pattern (::ast pattern) :body (::ast body)})
-        )
-      (panic pattern "Expected -> in match clause. Clauses must be in the form pattern -> expression" #{::token/newline ::token/rbrace})
-      )
-    ))
+                           :pattern (::ast pattern) :body (::ast body)}))
+      (panic pattern "Expected -> in match clause. Clauses must be in the form pattern -> expression" #{::token/newline ::token/rbrace}))))
 
 (defn- parse-match-clauses [parser]
-  (loop [
-         parser (accept-many #{::token/newline} (advance parser))
+  (loop [parser (accept-many #{::token/newline} (advance parser))
          clauses []]
     (let [curr (current parser)]
       (case (::token/type curr)
@@ -471,13 +428,9 @@
 
         ::token/newline
         (recur (accept-many #{::token/newline} parser) clauses)
-        
+
         (let [clause (parse-match-clause parser)]
-          (recur (accept-many #{::token/newline} clause) (conj clauses (::ast clause)))
-          )
-        )
-      )
-    ))
+          (recur (accept-many #{::token/newline} clause) (conj clauses (::ast clause))))))))
 
 (defn- parse-match [parser]
   (let [match-expr (parse-expr (advance parser) #{::token/with})
@@ -494,12 +447,9 @@
           (let [clause (parse-match-clause clauses)]
             (assoc clause ::ast {::ast/type ::ast/match
                                  :expr (::ast match-expr)
-                                 :clauses [(::ast clause)]})
-            )
-          ))
+                                 :clauses [(::ast clause)]}))))
 
-      (panic parser "Expected with after match expression")
-      )))
+      (panic parser "Expected with after match expression"))))
 
 (defn- parse-fn [parser]
   (let [first (advance parser)]
@@ -514,64 +464,57 @@
                                :clauses [{::ast/type ::ast/clause
                                           :pattern (::ast pattern)
                                           :body (::ast body)}]}))
-          (panic pattern "Expected arrow after pattern in fn clause")
-          )
-        )
+          (panic pattern "Expected arrow after pattern in fn clause")))
 
-      ;; TODO: finish this
+;; TODO: finish this
       ;; right now it's broke
-      ::token/word 
+      ::token/word
       (let [name (parse-word first)
             pattern (parse-tuple-pattern name)
             arrow (expect* ::token/rarrow "Expected arrow after pattern" name)
-            body (parse-expr (:parser arrow))
-            ]
-        (
+            body (parse-expr (:parser arrow))]
+        ())
 
-          )
-        )
+      (panic parser "Expected name or clause after fn"))))
 
-      (panic parser "Expected name or clause after fn")
-      )))
-
-(defn- parse-expr 
+(defn- parse-expr
   ([parser] (parse-expr parser sync-on))
-  ([parser sync-on] 
+  ([parser sync-on]
    (let [token (current parser)]
      (case (::token/type token)
-  
+
        (::token/number ::token/string)
        (parse-atom parser)
-  
-       ::token/keyword 
+
+       ::token/keyword
        (let [next (peek parser)
              type (::token/type next)]
          (if (= type ::token/lparen)
            (parse-synthetic parser)
            (parse-atom parser)))
-  
-       ::token/word 
+
+       ::token/word
        (let [next (peek parser)
              type (::token/type next)]
          (case type
            (::token/lparen ::token/keyword) (parse-synthetic parser)
            (parse-word parser)))
-  
+
        (::token/nil ::token/true ::token/false)
        (parse-atomic-word parser)
-  
+
        ::token/lparen (parse-tuple parser)
-  
+
        ::token/lbracket (parse-list parser)
-  
+
        ::token/startset (parse-set parser)
 
        ::token/starthash (parse-hash parser)
-  
+
        ::token/lbrace (parse-block parser)
-  
+
        ::token/let (parse-let parser)
-  
+
        ::token/if (parse-if parser)
 
        ::token/match (parse-match parser)
@@ -581,25 +524,22 @@
        ;; TODO: improve handling of comments?
        ;; Scanner now just skips comments
        ;; ::token/comment (advance parser)
-  
+
        ::token/error (panic parser (:message token) sync-on)
-  
+
        (::token/rparen ::token/rbrace ::token/rbracket)
        (panic parser (str "Unbalanced enclosure: " (::token/lexeme token)))
-  
+
        (::token/semicolon ::token/comma)
        (panic parser (str "Unexpected delimiter: " (::token/lexeme token)))
-  
-       (panic parser "Expected expression" sync-on)
-  
-       ))))
+
+       (panic parser "Expected expression" sync-on)))))
 
 (defn parse [lexed]
   (-> lexed
-    (:tokens)
-    (parser)
-    (parse-script)
-    ))
+      (:tokens)
+      (parser)
+      (parse-script)))
 
 (do
   (def pp pp/pprint)
@@ -617,11 +557,9 @@
   (println "*** *** NEW PARSE *** ***")
 
   (-> p
-    (parse-fn)
-    (::ast)
-    (pp)
-    )
-  )
+      (parse-fn)
+      (::ast)
+      (pp)))
 
 (comment "
 	Further thoughts/still to do:

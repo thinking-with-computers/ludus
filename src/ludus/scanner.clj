@@ -1,15 +1,14 @@
 (ns ludus.scanner
-  (:require 
-    [ludus.token :as token]
-    [clojure.pprint :as pp]
-    [clojure.edn :as edn]
-    [clojure.string :as s]))
+  (:require
+   [ludus.token :as token]
+   [clojure.pprint :as pp]
+   [clojure.edn :as edn]
+   [clojure.string :as s]))
 
 (def reserved-words
   "List of Ludus reserved words."
   ;; see ludus-spec repo for more info
-  {
-   "as" ::token/as
+  {"as" ::token/as
    "cond" ::token/cond
    "do" ::token/do
    "else" ::token/else
@@ -37,11 +36,9 @@
    "wait" ::token/wait
    "yield" ::token/yield
    ;; below here, possible
-   "when" ::token/when
-   })
+   "when" ::token/when})
 
-
-(defn- new-scanner 
+(defn- new-scanner
   "Creates a new scanner."
   [source]
   {::source source
@@ -52,34 +49,34 @@
    ::line 1
    ::tokens []})
 
-(defn- at-end? 
+(defn- at-end?
   "Tests if a scanner is at end of input."
   [scanner]
   (>= (::current scanner) (::length scanner)))
 
-(defn- current-char 
+(defn- current-char
   "Gets the current character of the scanner."
   [scanner]
   (nth (::source scanner) (::current scanner) nil))
 
-(defn- advance 
+(defn- advance
   "Advances the scanner by a single character."
   [scanner]
   (update scanner ::current inc))
 
-(defn- next-char 
+(defn- next-char
   "Gets the next character from the scanner."
   [scanner]
   (current-char (advance scanner)))
 
-(defn- current-lexeme 
+(defn- current-lexeme
   [scanner]
   (subs (::source scanner) (::start scanner) (::current scanner)))
 
 (defn- char-in-range? [start end char]
   (and char
-    (>= (int char) (int start))
-    (<= (int char) (int end))))
+       (>= (int char) (int start))
+       (<= (int char) (int end))))
 
 (defn- digit? [c]
   (char-in-range? \0 \9 c))
@@ -92,7 +89,6 @@
 ;; (defn- alpha? [c] (boolean (re-find #"\p{L}" (str c))))
 (defn- alpha? [c]
   (or (char-in-range? \a \z c) (char-in-range? \A \Z c)))
-
 
 ;; legal characters in words
 (def word-chars #{\_ \? \! \* \/})
@@ -112,32 +108,30 @@
   ([scanner token-type]
    (add-token scanner token-type nil))
   ([scanner token-type literal]
-   (update scanner ::tokens conj 
-     (token/token
-       token-type 
-       (current-lexeme scanner) 
-       literal 
-       (::line scanner) 
-       (::start scanner)))))
+   (update scanner ::tokens conj
+           (token/token
+            token-type
+            (current-lexeme scanner)
+            literal
+            (::line scanner)
+            (::start scanner)))))
 
 ;; TODO: errors should also be in the vector of tokens
 ;; The goal is to be able to be able to hand this to an LSP?
 ;; Do we need a different structure
 (defn- add-error [scanner msg]
-  (let [
-        token (token/token 
-                ::token/error
-                (current-lexeme scanner)
-                nil
-                (::line scanner)
-                (::start scanner))
-        err-token (assoc token :message msg)
-        ]
+  (let [token (token/token
+               ::token/error
+               (current-lexeme scanner)
+               nil
+               (::line scanner)
+               (::start scanner))
+        err-token (assoc token :message msg)]
     (-> scanner
-      (update ::errors conj err-token)
-      (update ::tokens conj err-token))))
+        (update ::errors conj err-token)
+        (update ::tokens conj err-token))))
 
-(defn- add-keyword 
+(defn- add-keyword
   [scanner]
   (loop [scanner scanner
          key ""]
@@ -166,7 +160,7 @@
 
 ;; TODO: add string interpolation
 ;; This still has to be devised
-(defn- add-string 
+(defn- add-string
   [scanner]
   (loop [scanner scanner
          string ""]
@@ -183,7 +177,7 @@
           (add-error scanner "Unterminated string.")
           (recur (advance scanner) (str string char)))))))
 
-(defn- add-word 
+(defn- add-word
   [char scanner]
   (loop [scanner scanner
          word (str char)]
@@ -268,7 +262,7 @@
 
       ;; placeholders
       ;; there's a flat _, and then ignored words
-      \_ (cond 
+      \_ (cond
            (terminates? next) (add-token scanner ::token/placeholder)
            (alpha? next) (add-ignored scanner)
            :else (add-error scanner (str "Expected placeholder: _. Got " char next)))
@@ -310,13 +304,11 @@
   (loop [scanner (new-scanner source)]
     (if (at-end? scanner)
       (let [scanner (add-token scanner ::token/eof)]
-        {:tokens (::tokens scanner) 
+        {:tokens (::tokens scanner)
          :errors (::errors scanner)})
       (recur (-> scanner (scan-token) (next-token))))))
-
 
 (do
   (def source "abc nil")
 
-  (pp/pprint (scan source))
-)
+  (pp/pprint (scan source)))

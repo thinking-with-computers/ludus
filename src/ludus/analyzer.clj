@@ -1,7 +1,7 @@
 (ns ludus.analyzer
-	(:require
-		[ludus.ast :as ast]
-		[ludus.token :as token]))
+  (:require
+   [ludus.ast :as ast]
+   [ludus.token :as token]))
 
 (defn analyze [ast] ast)
 

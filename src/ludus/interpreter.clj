@@ -1,11 +1,11 @@
 (ns ludus.interpreter
   (:require
-    [ludus.parser :as parser]
-    [ludus.scanner :as scanner]
-    [ludus.ast :as ast]
-    [ludus.collections :as colls]
-    [ludus.prelude :as prelude]
-    [clojure.pprint :as pp]))
+   [ludus.parser :as parser]
+   [ludus.scanner :as scanner]
+   [ludus.ast :as ast]
+   [ludus.collections :as colls]
+   [ludus.prelude :as prelude]
+   [clojure.pprint :as pp]))
 
 ;; right now this is not very efficient:
 ;; it's got runtime checking
@@ -51,23 +51,20 @@
       (let [match-value (:value pattern)]
         (if (= match-value value)
           {:success true :ctx {}}
-          {:success false 
+          {:success false
            :reason (str "No match: Could not match " match-value " with " value)}))
-	
+
       ::ast/word
       (let [word (:word pattern)]
         (if (contains? ctx word)
           {:success false :reason (str "Name " word " is already bound")}
-          {:success true :ctx {word value}}
-          ))
+          {:success true :ctx {word value}}))
 
       ::ast/tuple (match-tuple pattern value ctx-atom)
-	
+
       (do
         (println "ERROR! Unexpected pattern:")
-        (pp/pprint pattern)
-        )
-      )))
+        (pp/pprint pattern)))))
 
 (defn- update-ctx [ctx new-ctx]
   (println "Adding to context:")
@@ -85,8 +82,7 @@
     (if success
       (swap! ctx update-ctx (:ctx match))
       (throw (ex-info (:reason match) {})))
-    value
-    ))
+    value))
 
 (defn- interpret-if [ast ctx]
   (let [if-expr (:if ast)
@@ -95,8 +91,7 @@
         if-value (interpret if-expr ast)]
     (if if-value
       (interpret then-expr ctx)
-      (interpret else-expr ctx)
-      )))
+      (interpret else-expr ctx))))
 
 (defn- interpret-match [ast ctx]
   (let [match-expr (:expr ast)
@@ -112,15 +107,11 @@
               success (:success match?)
               clause-ctx (:ctx match?)]
           (if success
-            (do 
+            (do
               (swap! new-ctx #(merge % clause-ctx))
               (interpret body new-ctx))
-            (recur (first clauses) (rest clauses))
-            ))
-        (throw (ex-info "Match Error: No match found" {}))
-        ))
-    )
-  )
+            (recur (first clauses) (rest clauses))))
+        (throw (ex-info "Match Error: No match found" {}))))))
 
 (defn- interpret-called-kw [kw tuple ctx]
   (if (not (= 1 (:length tuple)))
@@ -128,30 +119,21 @@
     (throw (ex-info "Called keywords must be unary" {}))
     (let [kw (interpret kw ctx)
           map (second (interpret tuple ctx))]
-      (get map kw)
-      )
-    )
-  )
+      (get map kw))))
 
 (defn- call-fn [fn tuple ctx]
-	(let [passed (interpret tuple ctx)]
-	  (case (::ast/type fn)
-	  	::ast/clj (apply (:body fn) (next passed))
+  (let [passed (interpret tuple ctx)]
+    (case (::ast/type fn)
+      ::ast/clj (apply (:body fn) (next passed))
 
-	  	(throw (ex-info "I don't know how to call that" {:fn fn}))
-	  	)
-		))
+      (throw (ex-info "I don't know how to call that" {:fn fn})))))
 
 ;; TODO: add placeholder partial application
 (defn- interpret-synthetic-term [prev-value curr ctx]
   (let [type (::ast/type curr)]
     (if (= type ::ast/atom)
       (get prev-value (:value curr))
-      (call-fn prev-value curr ctx)
-      )
-    )
-  )
-
+      (call-fn prev-value curr ctx))))
 
 (defn- interpret-synthetic [ast ctx]
   (let [terms (:terms ast)
@@ -161,13 +143,10 @@
         first-term-type (::ast/type first)
         first-val (if (= first-term-type ::ast/atom)
                     (interpret-called-kw first second ctx)
-                    (interpret-synthetic-term (interpret first ctx) second ctx))
-        ]
-    (reduce #(interpret-synthetic-term %1 %2 ctx) first-val rest)
+                    (interpret-synthetic-term (interpret first ctx) second ctx))]
+    (reduce #(interpret-synthetic-term %1 %2 ctx) first-val rest)))
 
-    ))
-
-(defn- map-values [f] 
+(defn- map-values [f]
   (map (fn [kv]
          (let [[k v] kv]
            [k (f v)]))))
@@ -193,20 +172,17 @@
           last (peek exprs)
           ctx (atom {::parent ctx})]
       (run! #(interpret % ctx) inner)
-      (interpret last ctx)
-      )
+      (interpret last ctx))
 
     ::ast/script
     (let [exprs (:exprs ast)
           inner (pop exprs)
           last (peek exprs)
-          ctx (atom prelude/prelude)
-          ]
+          ctx (atom prelude/prelude)]
       (run! #(interpret % ctx) inner)
-      (interpret last ctx)
-      )
+      (interpret last ctx))
 
-    ;; note that the runtime representations of collections is
+;; note that the runtime representations of collections is
     ;; unboxed in the tree-walk interpreter
     ;; tuples & lists are both vectors, the first element
     ;; distinguishes them
@@ -226,12 +202,9 @@
     (let [members (:members ast)]
       (into {} (map-values #(interpret % ctx)) members))
 
-    (do 
+    (do
       (println "ERROR! Unexpected AST node:")
-      (pp/pprint ast)
-      )
-
-    ))
+      (pp/pprint ast))))
 
 (do
 
@@ -246,12 +219,11 @@
   (println "")
 
   (-> source
-    (scanner/scan)
-    (parser/parse) 
-    (::parser/ast)
-    (interpret {})
-    (pp/pprint)
-    ))
+      (scanner/scan)
+      (parser/parse)
+      (::parser/ast)
+      (interpret {})
+      (pp/pprint)))
 
 (comment "
 
