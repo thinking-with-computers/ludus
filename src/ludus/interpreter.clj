@@ -5,6 +5,7 @@
    [ludus.ast :as ast]
    [ludus.collections :as colls]
    [ludus.prelude :as prelude]
+   [ludus.data :as data]
    [clojure.pprint :as pp]))
 
 ;; right now this is not very efficient:
@@ -88,7 +89,7 @@
   (let [if-expr (:if ast)
         then-expr (:then ast)
         else-expr (:else ast)
-        if-value (interpret if-expr ast)]
+        if-value (interpret if-expr ctx)]
     (if if-value
       (interpret then-expr ctx)
       (interpret else-expr ctx))))
@@ -114,8 +115,8 @@
         (throw (ex-info "Match Error: No match found" {}))))))
 
 (defn- interpret-called-kw [kw tuple ctx]
+  ;; TODO: check this statically
   (if (not (= 1 (:length tuple)))
-    ;; TODO: check this statically
     (throw (ex-info "Called keywords must be unary" {}))
     (let [kw (interpret kw ctx)
           map (second (interpret tuple ctx))]
@@ -123,8 +124,27 @@
 
 (defn- call-fn [fn tuple ctx]
   (let [passed (interpret tuple ctx)]
-    (case (::ast/type fn)
-      ::ast/clj (apply (:body fn) (next passed))
+    (case (::data/type fn)
+      ::data/clj (apply (:body fn) (next passed))
+
+      ::data/fn
+      (let [clauses (:clauses fn)]
+        (loop [clause (first clauses)
+               clauses (rest clauses)]
+          (if clause
+            (let [pattern (:pattern clause)
+                  body (:body clause)
+                  new-ctx (atom {::parent ctx})
+                  match? (match pattern passed new-ctx)
+                  success (:success match?)
+                  clause-ctx (:ctx match?)]
+              (if success
+                (do
+                  (swap! new-ctx #(merge % clause-ctx))
+                  (interpret body new-ctx))
+                (recur (first clauses) (rest clauses))))
+
+            (throw (ex-info "Match Error: No match found" {:fn-name (:name fn)})))))
 
       (throw (ex-info "I don't know how to call that" {:fn fn})))))
 
@@ -146,6 +166,22 @@
                     (interpret-synthetic-term (interpret first ctx) second ctx))]
     (reduce #(interpret-synthetic-term %1 %2 ctx) first-val rest)))
 
+(defn- interpret-fn [ast ctx]
+  (let [name (:name ast)
+        clauses (:clauses ast)]
+    (if (= name ::ast/anon)
+      {::data/type ::data/fn
+       :name name
+       :clauses clauses}
+      (let [fn {::data/type ::data/fn
+                :name name
+                :clauses clauses}]
+        (if (contains? @ctx name)
+          (throw (ex-info (str "Name " name " is already bound") {}))
+          (do
+            (swap! ctx update-ctx {name fn})
+            fn))))))
+
 (defn- map-values [f]
   (map (fn [kv]
          (let [[k v] kv]
@@ -165,6 +201,8 @@
     ::ast/match (interpret-match ast ctx)
 
     ::ast/synthetic (interpret-synthetic ast ctx)
+
+    ::ast/fn (interpret-fn ast ctx)
 
     ::ast/block
     (let [exprs (:exprs ast)
@@ -209,8 +247,7 @@
 (do
 
   (def source "
-  	fn foo () -> :foo
-    foo ()
+
 
 	")
 

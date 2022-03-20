@@ -1,21 +1,21 @@
 (ns ludus.prelude
   (:require
-   [ludus.ast :as ast]))
+   [ludus.data :as data]))
 
 (def eq {:name "eq"
-         ::ast/type ::ast/clj
+         ::data/type ::data/clj
          :body =})
 
 (def add {:name "add"
-          ::ast/type ::ast/clj
+          ::data/type ::data/clj
           :body +})
 
 (def panic {:name "panic"
-            ::ast/type ::ast/clj
+            ::data/type ::data/clj
             :body (fn [& args] (throw (ex-info "Ludus panicked!" {:args args})))})
 
 (def print {:name "print"
-            ::ast/type ::ast/clj
+            ::data/type ::data/clj
             :body (fn [& args]
                     (println (str args))
                     :ok)})

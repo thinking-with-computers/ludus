@@ -487,7 +487,7 @@
 
       ::token/lbrace
       (let [clauses (parse-fn-clauses name)]
-        (assoc clauses ::ast {::ast/type ::ast/match
+        (assoc clauses ::ast {::ast/type ::ast/fn
                               :name (get-in name [::ast :word])
                               :clauses (get-in clauses [::ast :clauses])}))
 
@@ -499,7 +499,7 @@
       ::token/lparen
       (let [clause (parse-fn-clause first)]
         (assoc clause ::ast {::ast/type ::ast/fn
-                             :name "anonymous"
+                             :name ::ast/anon
                              :clauses [(::ast clause)]}))
 
       ::token/word (parse-named-fn first)
