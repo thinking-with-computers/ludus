@@ -4,6 +4,7 @@
     [ludus.scanner :as scanner]
     [ludus.ast :as ast]
     [ludus.collections :as colls]
+    [ludus.prelude :as prelude]
     [clojure.pprint :as pp]))
 
 ;; right now this is not very efficient:
@@ -132,26 +133,6 @@
     )
   )
 
-(def eq {
-	:name "eq"
-	::ast/type ::ast/clj
-	:body =
-	})
-
-(def add {
-	:name "add"
-	::ast/type ::ast/clj
-	:body +
-	})
-
-(def panic {
-	:name "panic"
-	::ast/type ::ast/clj
-	:body (fn [& args] (throw (ex-info "Ludus panicked!" {:args args})))
-	})
-
-(def prelude {"eq" eq "add" add "panic" panic})
-
 (defn- call-fn [fn tuple ctx]
 	(let [passed (interpret tuple ctx)]
 	  (case (::ast/type fn)
@@ -219,7 +200,7 @@
     (let [exprs (:exprs ast)
           inner (pop exprs)
           last (peek exprs)
-          ctx (atom prelude)
+          ctx (atom prelude/prelude)
           ]
       (run! #(interpret % ctx) inner)
       (interpret last ctx)
@@ -255,7 +236,7 @@
 (do
 
   (def source "
-  	if true then :yay else panic (\"whoops\")
+  	if false then :yay else print(:foo)
 
 	")
 
