@@ -466,7 +466,7 @@
     (let [curr (current parser)]
       (case (::token/type curr)
         ::token/rbrace
-        (assoc parser ::ast {::ast/type ::ast/clauses :clauses clauses})
+        (assoc (advance parser) ::ast {::ast/type ::ast/clauses :clauses clauses})
 
         ::token/newline
         (recur (accept-many #{::token/newline} parser) clauses)
@@ -566,10 +566,10 @@
 (do
   (def pp pp/pprint)
   (def source "match foo with {
-      _ -> foo
-      foo () -> bar
-      () -> baz
-    }")
+    0 -> foo
+  }
+  
+  ")
   (def lexed (scanner/scan source))
   (def tokens (:tokens lexed))
   (def p (parser tokens))
@@ -581,7 +581,7 @@
   (println "*** *** NEW PARSE *** ***")
 
   (-> p
-    (parse-match)
+    (parse-script)
     (::ast)
     (pp)
     )

@@ -97,6 +97,30 @@
       (interpret else-expr ctx)
       )))
 
+(defn- interpret-match [ast ctx]
+  (let [match-expr (:expr ast)
+        expr (interpret match-expr ctx)
+        clauses (:clauses ast)]
+    (loop [clause (first clauses)
+           clauses (rest clauses)]
+      (if clause
+        (let [pattern (:pattern clause)
+              body (:body clause)
+              new-ctx (atom {::parent ctx})
+              match? (match pattern expr new-ctx)
+              success (:success match?)
+              clause-ctx (:ctx match?)]
+          (if success
+            (do 
+              (swap! new-ctx #(merge % clause-ctx))
+              (interpret body new-ctx))
+            (recur (first clauses) (rest clauses))
+            ))
+        (throw (ex-info "Match Error: No match found" {}))
+        ))
+    )
+  )
+
 (defn interpret [ast ctx]
   (case (::ast/type ast)
 
@@ -107,6 +131,8 @@
     ::ast/let (interpret-let ast ctx)
 
     ::ast/if (interpret-if ast ctx)
+
+    ::ast/match (interpret-match ast ctx)
 
     ::ast/block
     (let [exprs (:exprs ast)
@@ -154,8 +180,12 @@
 (do
 
   (def source "
-	let (foo, (_, baz)) = (1, (2, 3))
-	baz
+	let foo = (1, 2)
+	match foo with {
+		0 -> :zero
+		(_, 3) -> :one
+		& baz -> baz
+	}
 ")
 
   (println "")
