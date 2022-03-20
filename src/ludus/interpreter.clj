@@ -147,7 +147,7 @@
 (def panic {
 	:name "panic"
 	::ast/type ::ast/clj
-	:body (fn [msg & _] (throw (ex-info msg {})))
+	:body (fn [& args] (throw (ex-info "Ludus panicked!" {:args args})))
 	})
 
 (def prelude {"eq" eq "add" add "panic" panic})
@@ -255,7 +255,7 @@
 (do
 
   (def source "
-  	add (1, 2, 3)
+  	if true then :yay else panic (\"whoops\")
 
 	")
 
