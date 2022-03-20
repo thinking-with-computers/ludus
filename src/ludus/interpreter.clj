@@ -62,13 +62,9 @@
 
       ::ast/tuple (match-tuple pattern value ctx-atom)
 
-      (do
-        (println "ERROR! Unexpected pattern:")
-        (pp/pprint pattern)))))
+      (throw (ex-info "Unknown pattern" {:pattern pattern})))))
 
 (defn- update-ctx [ctx new-ctx]
-  (println "Adding to context:")
-  (pp/pprint new-ctx)
   (merge ctx new-ctx))
 
 ;; TODO: get "if let" pattern working
@@ -238,9 +234,7 @@
     (let [members (:members ast)]
       (into {} (map-values #(interpret % ctx)) members))
 
-    (do
-      (println "ERROR! Unexpected AST node:")
-      (pp/pprint ast))))
+    (throw (ex-info "Unknown AST node type" {:node ast}))))
 
 (do
 
