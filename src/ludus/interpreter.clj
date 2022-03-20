@@ -121,6 +121,70 @@
     )
   )
 
+(defn- interpret-called-kw [kw tuple ctx]
+  (if (not (= 1 (:length tuple)))
+    ;; TODO: check this statically
+    (throw (ex-info "Called keywords must be unary" {}))
+    (let [kw (interpret kw ctx)
+          map (second (interpret tuple ctx))]
+      (get map kw)
+      )
+    )
+  )
+
+(def eq {
+	:name "eq"
+	::ast/type ::ast/clj
+	:body =
+	})
+
+(def add {
+	:name "add"
+	::ast/type ::ast/clj
+	:body +
+	})
+
+(def prelude {"eq" eq "add" add})
+
+(defn- call-fn [fn tuple ctx]
+	(let [passed (interpret tuple ctx)]
+	  (case (::ast/type fn)
+	  	::ast/clj (apply (:body fn) (next passed))
+
+	  	(throw (ex-info "I don't know how to call that" {:fn fn}))
+	  	)
+		))
+
+;; TODO: add placeholder partial application
+(defn- interpret-synthetic-term [prev-value curr ctx]
+  (let [type (::ast/type curr)]
+    (if (= type ::ast/atom)
+      (get prev-value (:value curr))
+      (call-fn prev-value curr ctx)
+      )
+    )
+  )
+
+
+(defn- interpret-synthetic [ast ctx]
+  (let [terms (:terms ast)
+        first (first terms)
+        second (second terms)
+        rest (rest (rest terms))
+        first-term-type (::ast/type first)
+        first-val (if (= first-term-type ::ast/atom)
+                    (interpret-called-kw first second ctx)
+                    (interpret-synthetic-term (interpret first ctx) second ctx))
+        ]
+    (reduce #(interpret-synthetic-term %1 %2 ctx) first-val rest)
+
+    ))
+
+(defn- map-values [f] 
+  (map (fn [kv]
+         (let [[k v] kv]
+           [k (f v)]))))
+
 (defn interpret [ast ctx]
   (case (::ast/type ast)
 
@@ -133,6 +197,8 @@
     ::ast/if (interpret-if ast ctx)
 
     ::ast/match (interpret-match ast ctx)
+
+    ::ast/synthetic (interpret-synthetic ast ctx)
 
     ::ast/block
     (let [exprs (:exprs ast)
@@ -147,7 +213,7 @@
     (let [exprs (:exprs ast)
           inner (pop exprs)
           last (peek exprs)
-          ctx (atom ctx)
+          ctx (atom prelude)
           ]
       (run! #(interpret % ctx) inner)
       (interpret last ctx)
@@ -169,6 +235,10 @@
     (let [members (:members ast)]
       (into #{} (map #(interpret % ctx)) members))
 
+    ::ast/hash
+    (let [members (:members ast)]
+      (into {} (map-values #(interpret % ctx)) members))
+
     (do 
       (println "ERROR! Unexpected AST node:")
       (pp/pprint ast)
@@ -176,16 +246,10 @@
 
     ))
 
-
 (do
 
   (def source "
-	let foo = (1, 2)
-	match foo with {
-		0 -> :zero
-		(_, 3) -> :one
-		& baz -> baz
-	}
+  	add (1, 2, 3)
 ")
 
   (println "")
