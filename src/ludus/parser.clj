@@ -594,12 +594,7 @@
 
 (comment "
 	Further thoughts/still to do:
-  * Functions
-    * anonymous, simple
-    * named, simple
-    * anonymous, complex?
-    * named, complex
-    * with docstrings?
+  * Functions docstrings
   * Cond expressions
   * Loops
   * Structs
