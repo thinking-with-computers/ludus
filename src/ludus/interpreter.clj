@@ -3,7 +3,6 @@
    [ludus.parser :as parser]
    [ludus.scanner :as scanner]
    [ludus.ast :as ast]
-   [ludus.collections :as colls]
    [ludus.prelude :as prelude]
    [ludus.data :as data]
    [clojure.pprint :as pp]))
@@ -26,7 +25,7 @@
   (cond
     (not (vector? value)) {:success false :reason "Could not match non-tuple value to tuple"}
 
-    (not (= ::colls/tuple (first value))) {:success false :reason "Could not match list to tuple"}
+    (not (= ::data/tuple (first value))) {:success false :reason "Could not match list to tuple"}
 
     (not (= (:length pattern) (dec (count value))))
     {:success false :reason "Cannot match tuples of different lengths"}
@@ -220,17 +219,16 @@
       (run! #(interpret % ctx) inner)
       (interpret last ctx))
 
-;; note that the runtime representations of collections is
-    ;; unboxed in the tree-walk interpreter
-    ;; tuples & lists are both vectors, the first element
-    ;; distinguishes them
+    ;; note that, excepting a tuple,
+    ;; runtime representations are bare
+    ;; tuples are vectors with a special first member
     ::ast/tuple
     (let [members (:members ast)]
-      (into [::colls/tuple] (map #(interpret % ctx)) members))
+      (into [::data/tuple] (map #(interpret % ctx)) members))
 
     ::ast/list
     (let [members (:members ast)]
-      (into [::colls/list] (map #(interpret % ctx)) members))
+      (into [] (map #(interpret % ctx)) members))
 
     ::ast/set
     (let [members (:members ast)]
