@@ -500,6 +500,27 @@
       (panic parser "Expected with after match expression")
       )))
 
+(defn- parse-fn [parser]
+  (let [first (advance parser)]
+    (case (::token/type (current first))
+      ::token/lparen
+      (let [pattern (parse-tuple-pattern first)
+        arrow (expect* ::token/rarrow "Expected arrow after pattern" pattern)]
+        (if (:success arrow)
+          (let [body (parse-expr (:parser arrow))]
+            (assoc body ::ast {::ast/type ::ast/fn
+                          :clauses [{::ast/type ::ast/clause
+                            :pattern (::ast pattern)
+                            :body (::ast body)}]}))
+          ()
+          )
+        )
+
+      ::token/word ()
+
+      (panic parser "Expected name or clause after fn")
+      )))
+
 (defn- parse-expr 
   ([parser] (parse-expr parser sync-on))
   ([parser sync-on] 
@@ -542,7 +563,11 @@
 
        ::token/match (parse-match parser)
 
-       ::token/comment (advance parser)
+       ::token/fn (parse-fn parser)
+
+       ;; TODO: improve handling of comments?
+       ;; Scanner now just skips comments
+       ;; ::token/comment (advance parser)
   
        ::token/error (panic parser (:message token) sync-on)
   
@@ -565,7 +590,7 @@
 
 (do
   (def pp pp/pprint)
-  (def source "match foo with _ -> foo
+  (def source "fn () -> :foo
   
   ")
   (def lexed (scanner/scan source))
@@ -579,7 +604,7 @@
   (println "*** *** NEW PARSE *** ***")
 
   (-> p
-    (parse-script)
+    (parse-fn)
     (::ast)
     (pp)
     )
