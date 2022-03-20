@@ -565,9 +565,7 @@
 
 (do
   (def pp pp/pprint)
-  (def source "match foo with {
-    0 -> foo
-  }
+  (def source "match foo with _ -> foo
   
   ")
   (def lexed (scanner/scan source))
@@ -589,18 +587,30 @@
 
 (comment "
 	Further thoughts/still to do:
+  * Functions
+    * anonymous, simple
+    * named, simple
+    * anonymous, complex?
+    * named, complex
+    * with docstrings?
+  * Cond expressions
+  * Loops
+  * Structs
+  * Namespaces
+  * Types (:|)
+  * Modules
+  * Add `as` clauses to patterns
+  * Add `when` clauses to patterns
+  * var/mut
+  * ref/swap
+  * Splats in lists, hashmaps, sets
   * AST nodes should include tokens/locations
     - at current, only atoms do this
   * Improve error handling in hashmap parsing
-  * 
-
-	Other quick thoughts:
-
-	* Placeholders
-
-		* Does this want to happen in parsing or in analysis?
-
-	For future correctness checks:
+  * Consider error handling in match expressions
+  * Add treatment of ignored variables
+  * Placeholders
+		* How much in parser, how much in analysis?
 
 ")
 

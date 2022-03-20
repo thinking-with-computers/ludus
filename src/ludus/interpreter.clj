@@ -83,7 +83,7 @@
         success (:success match)]
     (if success
       (swap! ctx update-ctx (:ctx match))
-      (throw (new Exception (:reason match))))
+      (throw (ex-info (:reason match) {})))
     value
     ))
 
@@ -144,7 +144,13 @@
 	:body +
 	})
 
-(def prelude {"eq" eq "add" add})
+(def panic {
+	:name "panic"
+	::ast/type ::ast/clj
+	:body (fn [msg & _] (throw (ex-info msg {})))
+	})
+
+(def prelude {"eq" eq "add" add "panic" panic})
 
 (defn- call-fn [fn tuple ctx]
 	(let [passed (interpret tuple ctx)]
@@ -250,7 +256,8 @@
 
   (def source "
   	add (1, 2, 3)
-")
+
+	")
 
   (println "")
   (println "****************************************")
@@ -264,3 +271,17 @@
     (interpret {})
     (pp/pprint)
     ))
+
+(comment "
+
+	Left to do:
+	* if-let pattern
+	* improve panics
+	* add location info for panics
+
+")
+
+
+
+
+
