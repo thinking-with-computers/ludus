@@ -451,29 +451,58 @@
 
       (panic parser "Expected with after match expression"))))
 
+(defn- parse-fn-clause [parser]
+  (if (not (= ::token/lparen (token-type parser)))
+    (panic parser "Function clauses must begin with tuple patterns")
+    (let [pattern (parse-tuple-pattern parser)
+          arrow (expect* #{::token/rarrow} "Expected arrow" pattern)
+          body (parse-expr (:parser arrow))]
+      (if (:success arrow)
+        (assoc body ::ast {::ast/type ::ast/clause
+                           :pattern (::ast pattern) :body (::ast body)})
+        (panic pattern "Expected -> in function clause. Clauses must be in the form of (pattern) -> expression")))))
+
+(defn- parse-fn-clauses [parser]
+  (loop [parser (accept-many #{::token/newline} (advance parser))
+         clauses []]
+    (let [curr (current parser)]
+      (case (::token/type curr)
+        ::token/rbrace
+        (assoc (advance parser) ::ast {::ast/type ::ast/clauses :clauses clauses})
+
+        ::token/newline
+        (recur (accept-many #{::token/newline} parser) clauses)
+
+        (let [clause (parse-fn-clause parser)]
+          (recur (accept-many #{::token/newline} clause) (conj clauses (::ast clause))))))))
+
+(defn- parse-named-fn [parser]
+  (let [name (parse-word parser)]
+    (case (token-type name)
+      ::token/lparen
+      (let [clause (parse-fn-clause name)]
+        (assoc clause ::ast {::ast/type ::ast/fn
+                             :name (get-in name [::ast :word])
+                             :clauses [(::ast clause)]}))
+
+      ::token/lbrace
+      (let [clauses (parse-fn-clauses name)]
+        (assoc clauses ::ast {::ast/type ::ast/match
+                              :name (get-in name [::ast :word])
+                              :clauses (get-in clauses [::ast :clauses])}))
+
+      (panic name "Expected one or more function clauses"))))
+
 (defn- parse-fn [parser]
   (let [first (advance parser)]
     (case (::token/type (current first))
       ::token/lparen
-      (let [pattern (parse-tuple-pattern first)
-            arrow (expect* ::token/rarrow "Expected arrow after pattern" pattern)]
-        (if (:success arrow)
-          (let [body (parse-expr (:parser arrow))]
-            (assoc body ::ast {::ast/type ::ast/fn
-                               :name "anonymous"
-                               :clauses [{::ast/type ::ast/clause
-                                          :pattern (::ast pattern)
-                                          :body (::ast body)}]}))
-          (panic pattern "Expected arrow after pattern in fn clause")))
+      (let [clause (parse-fn-clause first)]
+        (assoc clause ::ast {::ast/type ::ast/fn
+                             :name "anonymous"
+                             :clauses [(::ast clause)]}))
 
-;; TODO: finish this
-      ;; right now it's broke
-      ::token/word
-      (let [name (parse-word first)
-            pattern (parse-tuple-pattern name)
-            arrow (expect* ::token/rarrow "Expected arrow after pattern" name)
-            body (parse-expr (:parser arrow))]
-        ())
+      ::token/word (parse-named-fn first)
 
       (panic parser "Expected name or clause after fn"))))
 
@@ -543,7 +572,9 @@
 
 (do
   (def pp pp/pprint)
-  (def source "fn () -> :foo
+  (def source "fn foo {
+    (foo, bar, baz) -> {:foo}
+  }
   
   ")
   (def lexed (scanner/scan source))
