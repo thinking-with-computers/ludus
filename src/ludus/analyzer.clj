@@ -17,5 +17,6 @@
 	* Enforce single-member tuple after called keywords
 	* Placeholders may only appear in tuples in synthetic expressions
 	* Each of these may have zero or one placeholders
+	* Function arities are correct
 	* Arity of called keywords must be 1
 ")
