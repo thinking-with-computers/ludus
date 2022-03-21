@@ -253,7 +253,7 @@
       (n) -> mult (n, fact (sub (n, 1)))
     }
 
-    fact (6)
+    fib (1)
 
 	")
 
@@ -277,6 +277,16 @@
 	* add location info for panics
 
 ")
+
+(defn fib [n]
+  (case n
+    0 1
+
+    1 1
+
+    (+ (fib (- n 1)) (fib (- n 2)))))
+
+(fib 35)
 
 
 
