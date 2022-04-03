@@ -252,20 +252,8 @@
 
   (def source "
 
-    fn fib {
-      (0) -> 1
-      (1) -> 1
-      (n) -> add (
-        fib (sub (n, 1))
-        fib (sub (n, 2)))
-    }
-
-    fn fact {
-      (1) -> 1
-      (n) -> mult (n, fact (sub (n, 1)))
-    }
-
-    fib (1)
+    let s = @{:foo @{:baz 12}, :bar 23}
+    s :foo :baz
 
 	")
 
