@@ -1,11 +1,11 @@
 (ns ludus.interpreter
   (:require
-   [ludus.parser :as parser]
-   [ludus.scanner :as scanner]
-   [ludus.ast :as ast]
-   [ludus.prelude :as prelude]
-   [ludus.data :as data]
-   [clojure.pprint :as pp]))
+    [ludus.parser :as parser]
+    [ludus.scanner :as scanner]
+    [ludus.ast :as ast]
+    [ludus.prelude :as prelude]
+    [ludus.data :as data]
+    [clojure.pprint :as pp]))
 
 ;; right now this is not very efficient:
 ;; it's got runtime checking
@@ -115,7 +115,7 @@
     (throw (ex-info "Called keywords must be unary" {}))
     (let [kw (interpret kw ctx)
           map (second (interpret tuple ctx))]
-      (if (::ast/struct map)
+      (if (::data/struct map)
         (if (contains? map kw)
           (kw map)
           (throw (ex-info (str "Struct error: no member at " kw) {})))
@@ -145,14 +145,20 @@
                 (recur (first clauses) (rest clauses))))
 
             (throw (ex-info "Match Error: No match found" {:fn-name (:name fn)})))))
-
-      (throw (ex-info "I don't know how to call that" {:fn fn})))))
+      (if (= clojure.lang.Keyword (type fn))
+        (if (::data/struct passed)
+          (if (contains? map fn)
+            (fn map)
+            (throw (ex-info (str "Struct error: no member at " fn) {})))
+          (get map fn))
+        (throw (ex-info "I don't know how to call that" {:fn fn}))
+        ))))
 
 ;; TODO: add placeholder partial application
 (defn- interpret-synthetic-term [prev-value curr ctx]
   (let [type (::ast/type curr)]
     (if (= type ::ast/atom)
-      (if (::ast/struct prev-value)
+      (if (::data/struct prev-value)
         (if (contains? prev-value (:value curr))
           (get prev-value (:value curr))
           (throw (ex-info (str "Struct error: no member " (:value curr)) {}))))
@@ -244,7 +250,7 @@
 
     ::ast/struct
     (let [members (:members ast)]
-      (into {::ast/struct true} (map-values #(interpret % ctx)) members))
+      (into {::data/struct true} (map-values #(interpret % ctx)) members))
 
     (throw (ex-info "Unknown AST node type" {:node ast}))))
 
@@ -252,8 +258,9 @@
 
   (def source "
 
-    let s = @{:foo @{:baz 12}, :bar 23}
-    s :foo :baz
+    fn call (callable, target) -> callable (target)
+    fn id (x) -> x
+    call (:foo, 12)
 
 	")
 
@@ -263,11 +270,11 @@
   (println "")
 
   (-> source
-      (scanner/scan)
-      (parser/parse)
-      (::parser/ast)
-      (interpret {})
-      (pp/pprint)))
+    (scanner/scan)
+    (parser/parse)
+    (::parser/ast)
+    (interpret {})
+    (pp/pprint)))
 
 (comment "
 
