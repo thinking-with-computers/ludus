@@ -241,6 +241,42 @@
 
         (panic parser "Hashmap entries must be single words or keyword+expression pairs" #{::token/rbrace})))))
 
+(defn- parse-struct [origin]
+  (loop [parser (accept-many #{::token/newline ::token/comma} (advance origin))
+         members {}
+         current_member nil]
+    (let [curr (current parser)]
+      (case (token-type parser)
+        ::token/rbrace (let [ms (add-member members current_member)]
+                         (assoc (advance parser) ::ast
+                                {::ast/type ::ast/struct
+                                 :members ms}))
+
+        (::token/comma ::token/newline)
+        (recur
+         (accept-many #{::token/comma ::token/newline} parser)
+         (add-member members current_member) nil)
+
+        (::token/rbracket ::token/rparen)
+        (panic parser (str "Mismatched enclosure in struct: " (::token/lexeme curr)))
+
+        ::token/eof
+        (panic (assoc origin ::errors (::errors parser)) "Unterminated struct" ::token/eof)
+
+        ::token/word
+        (if (not current_member) (let [parsed (parse-word parser) word (get-in parsed [::ast :word])]
+                                   (recur parsed members {(keyword word) (::ast parsed)}))
+            (panic parser "Struct entries must be single words or keyword+expression pairs." #{::token/rbrace}))
+
+        ::token/keyword
+        (if (not current_member) (let [kw (parse-atom parser) expr (parse-expr kw #{::token/comma ::token/newline ::token/rbrace})]
+                                   (println "found keyword/expr pair:" (:value kw))
+                                   (pp/pprint (::ast expr))
+                                   (recur expr members {(:value (::ast kw)) (::ast expr)}))
+            (panic parser "Struct entries must be single words or keyword+expression pairs." #{::token/rbrace}))
+
+        (panic parser "Struct entries must be single words or keyword+expression pairs" #{::token/rbrace})))))
+
 (defn- parse-block [origin]
   (loop [parser (accept-many #{::token/newline ::token/semicolon} (advance origin))
          exprs []
