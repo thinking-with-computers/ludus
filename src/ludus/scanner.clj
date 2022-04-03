@@ -10,6 +10,7 @@
   ;; see ludus-spec repo for more info
   {"as" ::token/as
    "cond" ::token/cond
+   "data" ::token/data
    "do" ::token/do
    "else" ::token/else
    "false" ::token/false
@@ -21,6 +22,7 @@
    "mut" ::token/mut
    "nil" ::token/nil
    "panic!" ::token/panic
+   "ref" ::token/ref
    "then" ::token/then
    "true" ::token/true
    "var" ::token/var
@@ -260,6 +262,11 @@
            (add-token (advance scanner) ::token/startset)
            (add-error scanner (str "Expected beginning of set: ${. Got " char next)))
 
+      ;; struct @{
+      \@ (if (= next \{)
+            (add-token (advance scanner) ::token/startstruct)
+            (add-error scanner (str "Expected beginning of struct: @{. Got " char next)))
+
       ;; placeholders
       ;; there's a flat _, and then ignored words
       \_ (cond
@@ -270,14 +277,11 @@
       ;; comments
       ;; & starts an inline comment
       ;; TODO: include comments in scanned file
-      ;; TODO: add doc comments: &&&
+      ;; TODO, maybe: add doc comments: &&& (or perhaps a docstring in an fn?)
       \& (add-comment char scanner)
 
       ;; keywords
-      ;; TODO: instead of a separate token, scan a whole type keyword
-      ;;    e.g. ::string, ::number
       \: (cond
-           ;;(= \: next) (add-token (advance scanner) ::token/doublecolon))
            (alpha? next) (add-keyword scanner)
            :else (add-error scanner (str "Expected keyword. Got " char next)))
 
