@@ -115,7 +115,12 @@
     (throw (ex-info "Called keywords must be unary" {}))
     (let [kw (interpret kw ctx)
           map (second (interpret tuple ctx))]
-      (get map kw))))
+      (if (::ast/struct map)
+        (if (contains? map kw)
+          (kw map)
+          (throw (ex-info (str "Struct error: no member at " kw) {})))
+        (get map kw))
+      )))
 
 (defn- call-fn [fn tuple ctx]
   (let [passed (interpret tuple ctx)]
@@ -147,7 +152,10 @@
 (defn- interpret-synthetic-term [prev-value curr ctx]
   (let [type (::ast/type curr)]
     (if (= type ::ast/atom)
-      (get prev-value (:value curr))
+      (if (::ast/struct prev-value)
+        (if (contains? prev-value (:value curr))
+          (get prev-value (:value curr))
+          (throw (ex-info (str "Struct error: no member " (:value curr)) {}))))
       (call-fn prev-value curr ctx))))
 
 (defn- interpret-synthetic [ast ctx]
@@ -233,6 +241,10 @@
     ::ast/hash
     (let [members (:members ast)]
       (into {} (map-values #(interpret % ctx)) members))
+
+    ::ast/struct
+    (let [members (:members ast)]
+      (into {::ast/struct true} (map-values #(interpret % ctx)) members))
 
     (throw (ex-info "Unknown AST node type" {:node ast}))))
 
