@@ -576,6 +576,8 @@
 
        ::token/starthash (parse-hash parser)
 
+       ::token/startstruct (parse-struct parser)
+
        ::token/lbrace (parse-block parser)
 
        ::token/let (parse-let parser)
