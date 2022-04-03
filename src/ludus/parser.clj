@@ -222,10 +222,10 @@
          (add-member members current_member) nil)
 
         (::token/rbracket ::token/rparen)
-        (panic parser (str "Mismatched enclosure in set: " (::token/lexeme curr)))
+        (panic parser (str "Mismatched enclosure in hashmap: " (::token/lexeme curr)))
 
         ::token/eof
-        (panic (assoc origin ::errors (::errors parser)) "Unterminated set" ::token/eof)
+        (panic (assoc origin ::errors (::errors parser)) "Unterminated hashmap" ::token/eof)
 
         ::token/word
         (if (not current_member) (let [parsed (parse-word parser) word (get-in parsed [::ast :word])]
@@ -234,8 +234,6 @@
 
         ::token/keyword
         (if (not current_member) (let [kw (parse-atom parser) expr (parse-expr kw #{::token/comma ::token/newline ::token/rbrace})]
-                                   (println "found keyword/expr pair:" (:value kw))
-                                   (pp/pprint (::ast expr))
                                    (recur expr members {(:value (::ast kw)) (::ast expr)}))
             (panic parser "Hashmap entries must be single words or keyword+expression pairs." #{::token/rbrace}))
 
@@ -270,8 +268,6 @@
 
         ::token/keyword
         (if (not current_member) (let [kw (parse-atom parser) expr (parse-expr kw #{::token/comma ::token/newline ::token/rbrace})]
-                                   (println "found keyword/expr pair:" (:value kw))
-                                   (pp/pprint (::ast expr))
                                    (recur expr members {(:value (::ast kw)) (::ast expr)}))
             (panic parser "Struct entries must be single words or keyword+expression pairs." #{::token/rbrace}))
 
@@ -610,11 +606,7 @@
 
 (do
   (def pp pp/pprint)
-  (def source "fn foo {
-    (foo, bar, baz) -> {:foo}
-  }
-  
-  ")
+  (def source "@{:foo :bar, :bar 42}")
   (def lexed (scanner/scan source))
   (def tokens (:tokens lexed))
   (def p (parser tokens))
@@ -626,7 +618,7 @@
   (println "*** *** NEW PARSE *** ***")
 
   (-> p
-      (parse-fn)
+      (parse-expr)
       (::ast)
       (pp)))
 
