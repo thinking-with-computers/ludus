@@ -145,14 +145,16 @@
                 (recur (first clauses) (rest clauses))))
 
             (throw (ex-info "Match Error: No match found" {:fn-name (:name fn)})))))
+
+      ;; TODO: clean this up
+      ;; TODO: error with a passed tuple longer than 1
       (if (= clojure.lang.Keyword (type fn))
-        (if (::data/struct passed)
-          (if (contains? map fn)
-            (fn map)
+        (if (::data/struct (second passed))
+          (if (contains? (second passed) fn)
+            (fn (second passed))
             (throw (ex-info (str "Struct error: no member at " fn) {})))
-          (get map fn))
-        (throw (ex-info "I don't know how to call that" {:fn fn}))
-        ))))
+          (get (second passed) fn))
+        (throw (ex-info "I don't know how to call that" {:fn fn}))))))
 
 ;; TODO: add placeholder partial application
 (defn- interpret-synthetic-term [prev-value curr ctx]
@@ -229,7 +231,7 @@
       (run! #(interpret % ctx) inner)
       (interpret last ctx))
 
-    ;; note that, excepting a tuple,
+    ;; note that, excepting tuples and structs,
     ;; runtime representations are bare
     ;; tuples are vectors with a special first member
     ::ast/tuple
@@ -258,9 +260,9 @@
 
   (def source "
 
-    fn call (callable, target) -> callable (target)
+    fn call (callable, target, thing) -> callable (target, thing)
     fn id (x) -> x
-    call (:foo, 12)
+    call (:foo, nil, nil)
 
 	")
 
@@ -282,6 +284,8 @@
 	* if-let pattern
 	* improve panics
 	* add location info for panics
+  * refactor calling keywords
+  * refactor accessing structs vs. hashes
 
 ")
 
