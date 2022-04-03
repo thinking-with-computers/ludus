@@ -149,11 +149,14 @@
       ;; TODO: clean this up
       ;; TODO: error with a passed tuple longer than 1
       (if (= clojure.lang.Keyword (type fn))
-        (if (::data/struct (second passed))
-          (if (contains? (second passed) fn)
-            (fn (second passed))
-            (throw (ex-info (str "Struct error: no member at " fn) {})))
-          (get (second passed) fn))
+        (if (= 2 (count passed))
+          (let [target (second passed) kw fn]
+            (if (::data/struct target)
+            (if (contains? target kw)
+              (kw target)
+              (throw (ex-info (str "Struct error: no member at " kw) {})))
+            (kw target)))
+          (throw (ex-info "Called keywords take a single argument" {})))
         (throw (ex-info "I don't know how to call that" {:fn fn}))))))
 
 ;; TODO: add placeholder partial application
@@ -260,9 +263,9 @@
 
   (def source "
 
-    fn call (callable, target, thing) -> callable (target, thing)
-    fn id (x) -> x
-    call (:foo, nil, nil)
+    fn call (f, t) -> f (t)
+
+    call (:foo, #{:foo 23})
 
 	")
 

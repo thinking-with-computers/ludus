@@ -606,7 +606,14 @@
 
 (do
   (def pp pp/pprint)
-  (def source "@{:foo :bar, :bar 42}")
+  (def source "
+
+fn maybe_foo (mf) -> if eq (mf, :foo)
+      then (:ok, :foo)
+      else (:error, mf)
+
+
+    ")
   (def lexed (scanner/scan source))
   (def tokens (:tokens lexed))
   (def p (parser tokens))
@@ -618,7 +625,7 @@
   (println "*** *** NEW PARSE *** ***")
 
   (-> p
-      (parse-expr)
+      (parse-script)
       (::ast)
       (pp)))
 
