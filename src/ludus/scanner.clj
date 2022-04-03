@@ -313,6 +313,6 @@
       (recur (-> scanner (scan-token) (next-token))))))
 
 (do
-  (def source "abc nil")
+  (def source "@{")
 
   (pp/pprint (scan source)))
