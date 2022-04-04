@@ -19,7 +19,7 @@
         (recur word (::parent ctx))
         (throw (ex-info (str "Unbound name: " word) {}))))))
 
-(declare interpret match)
+(declare interpret-ast match)
 
 (defn- match-tuple [pattern value ctx-atom]
   (cond
@@ -72,7 +72,7 @@
 (defn- interpret-let [ast ctx]
   (let [pattern (:pattern ast)
         expr (:expr ast)
-        value (interpret expr ctx)
+        value (interpret-ast expr ctx)
         match (match pattern value ctx)
         success (:success match)]
     (if success
@@ -84,14 +84,14 @@
   (let [if-expr (:if ast)
         then-expr (:then ast)
         else-expr (:else ast)
-        if-value (interpret if-expr ctx)]
+        if-value (interpret-ast if-expr ctx)]
     (if if-value
-      (interpret then-expr ctx)
-      (interpret else-expr ctx))))
+      (interpret-ast then-expr ctx)
+      (interpret-ast else-expr ctx))))
 
 (defn- interpret-match [ast ctx]
   (let [match-expr (:expr ast)
-        expr (interpret match-expr ctx)
+        expr (interpret-ast match-expr ctx)
         clauses (:clauses ast)]
     (loop [clause (first clauses)
            clauses (rest clauses)]
@@ -105,7 +105,7 @@
           (if success
             (do
               (swap! new-ctx #(merge % clause-ctx))
-              (interpret body new-ctx))
+              (interpret-ast body new-ctx))
             (recur (first clauses) (rest clauses))))
         (throw (ex-info "Match Error: No match found" {}))))))
 
@@ -113,8 +113,8 @@
   ;; TODO: check this statically
   (if (not (= 1 (:length tuple)))
     (throw (ex-info "Called keywords must be unary" {}))
-    (let [kw (interpret kw ctx)
-          map (second (interpret tuple ctx))]
+    (let [kw (interpret-ast kw ctx)
+          map (second (interpret-ast tuple ctx))]
       (if (::data/struct map)
         (if (contains? map kw)
           (kw map)
@@ -123,7 +123,7 @@
       )))
 
 (defn- call-fn [fn tuple ctx]
-  (let [passed (interpret tuple ctx)]
+  (let [passed (interpret-ast tuple ctx)]
     (case (::data/type fn)
       ::data/clj (apply (:body fn) (next passed))
 
@@ -141,7 +141,7 @@
               (if success
                 (do
                   (swap! new-ctx #(merge % clause-ctx))
-                  (interpret body new-ctx))
+                  (interpret-ast body new-ctx))
                 (recur (first clauses) (rest clauses))))
 
             (throw (ex-info "Match Error: No match found" {:fn-name (:name fn)})))))
@@ -166,7 +166,8 @@
       (if (::data/struct prev-value)
         (if (contains? prev-value (:value curr))
           (get prev-value (:value curr))
-          (throw (ex-info (str "Struct error: no member " (:value curr)) {}))))
+          (throw (ex-info (str "Struct error: no member " (:value curr)) {})))
+        (get prev-value (:value curr)))
       (call-fn prev-value curr ctx))))
 
 (defn- interpret-synthetic [ast ctx]
@@ -177,7 +178,7 @@
         first-term-type (::ast/type first)
         first-val (if (= first-term-type ::ast/atom)
                     (interpret-called-kw first second ctx)
-                    (interpret-synthetic-term (interpret first ctx) second ctx))]
+                    (interpret-synthetic-term (interpret-ast first ctx) second ctx))]
     (reduce #(interpret-synthetic-term %1 %2 ctx) first-val rest)))
 
 (defn- interpret-fn [ast ctx]
@@ -201,7 +202,7 @@
          (let [[k v] kv]
            [k (f v)]))))
 
-(defn interpret [ast ctx]
+(defn interpret-ast [ast ctx]
   (case (::ast/type ast)
 
     ::ast/atom (:value ast)
@@ -223,49 +224,57 @@
           inner (pop exprs)
           last (peek exprs)
           ctx (atom {::parent ctx})]
-      (run! #(interpret % ctx) inner)
-      (interpret last ctx))
+      (run! #(interpret-ast % ctx) inner)
+      (interpret-ast last ctx))
 
     ::ast/script
     (let [exprs (:exprs ast)
           inner (pop exprs)
           last (peek exprs)
           ctx (atom prelude/prelude)]
-      (run! #(interpret % ctx) inner)
-      (interpret last ctx))
+      (run! #(interpret-ast % ctx) inner)
+      (interpret-ast last ctx))
 
     ;; note that, excepting tuples and structs,
     ;; runtime representations are bare
     ;; tuples are vectors with a special first member
     ::ast/tuple
     (let [members (:members ast)]
-      (into [::data/tuple] (map #(interpret % ctx)) members))
+      (into [::data/tuple] (map #(interpret-ast % ctx)) members))
 
     ::ast/list
     (let [members (:members ast)]
-      (into [] (map #(interpret % ctx)) members))
+      (into [] (map #(interpret-ast % ctx)) members))
 
     ::ast/set
     (let [members (:members ast)]
-      (into #{} (map #(interpret % ctx)) members))
+      (into #{} (map #(interpret-ast % ctx)) members))
 
     ::ast/hash
     (let [members (:members ast)]
-      (into {} (map-values #(interpret % ctx)) members))
+      (into {} (map-values #(interpret-ast % ctx)) members))
 
     ::ast/struct
     (let [members (:members ast)]
-      (into {::data/struct true} (map-values #(interpret % ctx)) members))
+      (into {::data/struct true} (map-values #(interpret-ast % ctx)) members))
 
     (throw (ex-info "Unknown AST node type" {:node ast}))))
 
-(do
+(defn interpret [parsed]
+  (interpret-ast (::parser/ast parsed) {}))
+
+(comment
 
   (def source "
 
     fn call (f, t) -> f (t)
 
     call (:foo, #{:foo 23})
+
+    let my_map = #{:foo 42, :bar 23, :baz \"frobulate\"}
+
+    my_map :foo
+
 
 	")
 
@@ -277,8 +286,7 @@
   (-> source
     (scanner/scan)
     (parser/parse)
-    (::parser/ast)
-    (interpret {})
+    (interpret)
     (pp/pprint)))
 
 (comment "

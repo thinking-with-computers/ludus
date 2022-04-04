@@ -312,7 +312,7 @@
          :errors (::errors scanner)})
       (recur (-> scanner (scan-token) (next-token))))))
 
-(do
+(comment
   (def source "@{")
 
   (pp/pprint (scan source)))

@@ -1,33 +1,33 @@
 (ns ludus.core
   "A tree-walk interpreter for the Ludus language."
   (:require
-   [ludus.scanner :as scanner]))
-
-(defn- report [line, where, message]
-  (println (str "[line " line "] Error" where ": " message)))
-
-(defn- error [line, message]
-  (report line "" message))
+    [ludus.scanner :as scanner]
+    [ludus.parser :as parser]
+    [ludus.interpreter :as interpreter]
+    [clojure.pprint :as pp]))
 
 (defn- run [source]
-  (let [tokens (scanner/scan source)]
-    (run! println tokens)))
-
-(defn- run-file [path]
-  (let [source (slurp path)]
-    (run source)))
-
-(defn- run-prompt []
-  (loop [_ ""]
-    (print "Ludus >> ")
-    (flush)
-    (when-let [line (read-line)]
-      (recur (run line)))))
+  (let [scanned (scanner/scan source)]
+    (if (not-empty (:errors scanned))
+      (do
+        (println "I found some scanning errors!")
+        (pp/pprint (:errors scanned))
+        (System/exit 65))
+      (let [parsed (parser/parse scanned)]
+        (if (not-empty (:errors parsed))
+          (do
+            (println "I found some parsing errors!")
+            (pp/pprint (:errors parsed))
+            (System/exit 66))
+          (let [interpreted (interpreter/interpret parsed)]
+            (println "   *** *** ***")
+            (println "I ran your script; here's the output: ")
+            (pp/pprint interpreted)
+            (System/exit 0)))))))
 
 (defn -main [& args]
   (cond
-    (> (count args) 1) (do
-                         (println "Usage: ludus [script]")
-                         (System/exit 64))
-    (= (count args) 1) (run-file (first args))
-    :else (run-prompt)))
+    (= (count args) 1) (run (slurp (first args)))
+    :else (do
+            (println "Usage: ludus [script]")
+            (System/exit 64))))
