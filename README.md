@@ -1,22 +1,10 @@
-# cludus
+# Ludus, in Clojure
+## Or, CLudus
 
-A Clojure library designed to ... well, that part is up to you.
+A reference implementation of an interpreter for the Ludus programming language. It's written in Clojure. It's a tree-walk interpreter, very slow. (We are following the Nystrom path from _Crafting Interpreters_.)
 
-## Usage
-
-FIXME
-
-## License
-
-Copyright © 2021 FIXME
-
-This program and the accompanying materials are made available under the
-terms of the Eclipse Public License 2.0 which is available at
-http://www.eclipse.org/legal/epl-2.0.
-
-This Source Code may also be made available under the following Secondary
-Licenses when the conditions for such availability set forth in the Eclipse
-Public License, v. 2.0 are satisfied: GNU General Public License as published by
-the Free Software Foundation, either version 2 of the License, or (at your
-option) any later version, with the GNU Classpath Exception which is available
-at https://www.gnu.org/software/classpath/license.html.
+### Use
+* Clone this repo.
+* Have Clojure and Leiningen installed.
+* `lein run {script}`, it runs your script in Ludus!
+* Ludus is very much a work in progress; see [the ludus-spec repo for progress notes](https://github.com/thinking-with-computers/ludus-spec).
