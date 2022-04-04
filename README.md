@@ -7,4 +7,4 @@ A reference implementation of an interpreter for the Ludus programming language.
 * Clone this repo.
 * Have Clojure and Leiningen installed.
 * `lein run {script}`, it runs your script in Ludus!
-* Ludus is very much a work in progress; see [the ludus-spec repo for progress notes](https://github.com/thinking-with-computers/ludus-spec).
+* Ludus is very much a work in progress; see [the ludus-spec repo for progress notes](https://github.com/thinking-with-computers/ludus-spec/blob/main/todo.md).
