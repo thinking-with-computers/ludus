@@ -267,14 +267,7 @@
 
   (def source "
 
-    fn call (f, t) -> f (t)
-
-    call (:foo, #{:foo 23})
-
-    let my_map = #{:foo 42, :bar 23, :baz \"frobulate\"}
-
-    my_map :foo
-
+    panic! (\"whoops\")
 
 	")
 
