@@ -17,7 +17,7 @@
       (get ctx word)
       (if (contains? ctx ::parent)
         (recur word (::parent ctx))
-        (throw (new Exception (str "Unbound name: " word)))))))
+        (throw (ex-info (str "Unbound name: " word) {}))))))
 
 (declare interpret match)
 
