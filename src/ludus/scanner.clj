@@ -21,7 +21,7 @@
    "match" ::token/match
    "mut" ::token/mut
    "nil" ::token/nil
-   "panic!" ::token/panic
+   ;; "panic!" ::token/panic
    "ref" ::token/ref
    "then" ::token/then
    "true" ::token/true
