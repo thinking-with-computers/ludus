@@ -1,1 +1,1 @@
-print ("foo, bar, and baz")
+print("Hello, world.")

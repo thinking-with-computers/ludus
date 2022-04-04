@@ -11,7 +11,7 @@
 ;; it's got runtime checking
 ;; we should be able to do these checks statically
 ;; that's for later, tho
-(defn- resolve [word ctx-atom]
+(defn- resolve-word[word ctx-atom]
   (let [ctx @ctx-atom]
     (if (contains? ctx word)
       (get ctx word)
@@ -207,7 +207,7 @@
 
     ::ast/atom (:value ast)
 
-    ::ast/word (resolve (:word ast) ctx)
+    ::ast/word (resolve-word(:word ast) ctx)
 
     ::ast/let (interpret-let ast ctx)
 

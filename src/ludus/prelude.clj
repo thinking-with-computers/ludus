@@ -22,11 +22,11 @@
           ::data/type ::data/clj
           :body /})
 
-(def inc {:name "inc"
+(def inc- {:name "inc"
           ::data/type ::data/clj
           :body inc})
 
-(def dec {:name "dec"
+(def dec- {:name "dec"
           ::data/type ::data/clj
           :body dec})
 
@@ -38,7 +38,7 @@
              ::data/type ::data/clj
              :body (fn [& args] (throw (ex-info "Ludus panicked!" {:args args})))})
 
-(def print {:name "print"
+(def print- {:name "print"
             ::data/type ::data/clj
             :body (fn [& args]
                     (println (str args))
@@ -47,10 +47,10 @@
 (def prelude {"eq" eq
               "add" add
               "panic!" panic!
-              "print" print
+              "print" print-
               "sub" sub
               "mult" mult
               "div" div
-              "inc" inc
-              "dec" dec
+              "inc" inc-
+              "dec" dec-
               "not" not})

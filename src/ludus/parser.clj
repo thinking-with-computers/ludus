@@ -13,7 +13,7 @@
 (defn- current [parser]
   (nth (::tokens parser) (::token parser) nil))
 
-(defn- peek [parser]
+(defn- ppeek [parser]
   (nth (::tokens parser) (inc (::token parser)) nil))
 
 (defn- at-end? [parser]
@@ -41,7 +41,7 @@
                ::token/rbrace
                ::token/eof})
 
-(defn- sync [parser message origin end]
+(defn- psync [parser message origin end]
   (let [poison {::ast/type ::ast/poison
                 :message message
                 :origin origin
@@ -63,7 +63,7 @@
        (let [curr (current parser)
              type (::token/type curr)]
          (if (or (at-end? parser) (contains? sync-on type))
-           (sync parser message origin curr)
+           (psync parser message origin curr)
            (recur (advance parser))))))))
 
 ;; some helper functions
@@ -548,14 +548,14 @@
        (parse-atom parser)
 
        ::token/keyword
-       (let [next (peek parser)
+       (let [next (ppeek parser)
              type (::token/type next)]
          (if (= type ::token/lparen)
            (parse-synthetic parser)
            (parse-atom parser)))
 
        ::token/word
-       (let [next (peek parser)
+       (let [next (ppeek parser)
              type (::token/type next)]
          (case type
            (::token/lparen ::token/keyword) (parse-synthetic parser)
