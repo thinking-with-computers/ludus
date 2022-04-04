@@ -41,7 +41,7 @@
 (def print- {:name "print"
             ::data/type ::data/clj
             :body (fn [& args]
-                    (println (str args))
+                    (println (apply str args))
                     :ok)})
 
 (def prelude {"eq" eq
