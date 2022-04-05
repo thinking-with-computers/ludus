@@ -12,21 +12,20 @@
    "cond" ::token/cond
    "data" ::token/data
    "do" ::token/do
-   "else" ::token/else
-   "false" ::token/false
-   "fn" ::token/fn
-   "if" ::token/if
+   "else" ::token/else ;; impl
+   "false" ::token/false ;; impl
+   "fn" ::token/fn ;; impl
+   "if" ::token/if ;; impl
    "import" ::token/import
-   "let" ::token/let
-   "match" ::token/match
+   "let" ::token/let ;; impl
+   "match" ::token/match ;; impl
    "mut" ::token/mut
-   "nil" ::token/nil
-   ;; "panic!" ::token/panic
+   "nil" ::token/nil ;; impl
    "ref" ::token/ref
-   "then" ::token/then
-   "true" ::token/true
+   "then" ::token/then ;; impl
+   "true" ::token/true ;; impl
    "var" ::token/var
-   "with" ::token/with
+   "with" ::token/with ;; impl
    ;; below here, probable
    "defer" ::token/defer
    "gen" ::token/gen
@@ -227,6 +226,7 @@
       \newline (add-token (update scanner ::line inc) ::token/newline)
       \\ (add-token scanner ::token/backslash)
       \= (add-token scanner ::token/equals)
+      \> (add-token scanner ::token/pipeline)
 
       ;; two-character tokens
       ;; ->
@@ -243,9 +243,9 @@
 
       ;; |>
       ;; Consider => , with =>> for bind
-      \| (if (= next \>)
-           (add-token (advance scanner) ::token/pipeline)
-           (add-error scanner (str "Expected |>. Got " char next)))
+      ; \| (if (= next \>)
+      ;      (add-token (advance scanner) ::token/pipeline)
+      ;      (add-error scanner (str "Expected |>. Got " char next)))
 
       ;; possible additional operator: bind/result
       ;; possible additional operator: bind/some
