@@ -542,14 +542,9 @@
   (let [first (advance parser)]
     (loop [parser first
            exprs []]
-      (println "parsing do")
-      (pp/pprint parser)
-      (pp/pprint exprs)
       (let [expr (parse-expr parser)
             expr+newline (accept ::token/newline expr)
             next (token-type expr+newline)]
-        (println "current ast " (::ast expr))
-        (println "next token " next)     
         (if (= ::token/pipeline next)
           (recur (advance expr+newline) (conj exprs (::ast expr)))
           (assoc expr ::ast {::ast/type ::ast/pipeline
