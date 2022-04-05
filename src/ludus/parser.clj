@@ -129,6 +129,45 @@
     members
     (conj members member)))
 
+(defn- contains-placeholder? [members]
+  (< 0 (count (filter #(= ::ast/placeholder (::ast/type %1)) members))))
+
+(defn- parse-fn-tuple [origin]
+  (loop [parser (accept-many #{::token/newline ::token/comma} (advance origin))
+         members []
+         current_member nil]
+    (let [curr (current parser)]
+      (case (token-type parser)
+        ::token/rparen (let [ms (add-member members current_member)]
+                         (assoc (advance parser) ::ast
+                           {::ast/type ::ast/tuple
+                            :length (count ms)
+                            :members ms
+                            :partially-applied (contains-placeholder? ms)}))
+
+        (::token/comma ::token/newline)
+        (recur
+          (accept-many #{::token/comma ::token/newline} parser)
+          (add-member members current_member) nil)
+
+        (::token/rbrace ::token/rbracket)
+        (panic parser (str "Mismatched enclosure in tuple: " (::token/lexeme curr)))
+
+        ::token/placeholder
+        (if (contains-placeholder? members)
+          (recur 
+            (advance parser)
+            members
+            (panic parser "Partially applied functions must be unary. (Only one placeholder allowed in partial application.)" curr))
+          (recur
+            (advance parser) members {::ast/type ::ast/placeholder}))
+
+        ::token/eof
+        (panic (assoc origin ::errors (::errors parser)) "Unterminated tuple" ::token/eof)
+
+        (let [parsed (parse-expr parser #{::token/comma ::token/newline ::token/rparen})]
+          (recur parsed members (::ast parsed)))))))
+
 (defn- parse-tuple [origin]
   (loop [parser (accept-many #{::token/newline ::token/comma} (advance origin))
          members []
@@ -148,6 +187,12 @@
 
         (::token/rbrace ::token/rbracket)
         (panic parser (str "Mismatched enclosure in tuple: " (::token/lexeme curr)))
+
+        ::token/placeholder
+        (recur 
+            (advance parser)
+            members
+            (panic parser "Placeholders in tuples may only be in function calls." curr))
 
         ::token/eof
         (panic (assoc origin ::errors (::errors parser)) "Unterminated tuple" ::token/eof)
@@ -340,7 +385,7 @@
         (recur (advance parser) (conj terms (::ast (parse-word parser))))
 
         ::token/lparen
-        (let [parsed (parse-tuple parser)]
+        (let [parsed (parse-fn-tuple parser)]
           (recur parsed (conj terms (::ast parsed))))
 
         (assoc parser ::ast {::ast/type ::ast/synthetic :terms terms})))))
@@ -619,12 +664,10 @@
     (parser)
     (parse-script)))
 
-(comment
+(do
   (def pp pp/pprint)
-  (def source "do foo 
-                > bar 
-                > baz
-                foo 
+  (def source "foo (1, 2, _)
+
     ")
   (def lexed (scanner/scan source))
   (def tokens (:tokens lexed))
@@ -637,7 +680,7 @@
   (println "*** *** NEW PARSE *** ***")
 
   (-> p
-    (parse-script)
+    (parse-expr)
     (::ast)
     (pp)))
 
