@@ -274,7 +274,10 @@
 
   (def source "
 
+    let foo = do 1 > inc > inc 
+      > inc
 
+    foo
 
 	")
 
