@@ -664,7 +664,7 @@
     (parser)
     (parse-script)))
 
-(do
+(comment
   (def pp pp/pprint)
   (def source "foo (1, 2, _)
 
