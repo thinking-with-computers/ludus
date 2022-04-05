@@ -123,41 +123,40 @@
       )))
 
 (defn- call-fn [fn tuple ctx]
-  (let [passed (interpret-ast tuple ctx)]
-    (case (::data/type fn)
-      ::data/clj (apply (:body fn) (next passed))
+  (case (::data/type fn)
+    ::data/clj (apply (:body fn) (next tuple))
 
-      ::data/fn
-      (let [clauses (:clauses fn)]
-        (loop [clause (first clauses)
-               clauses (rest clauses)]
-          (if clause
-            (let [pattern (:pattern clause)
-                  body (:body clause)
-                  new-ctx (atom {::parent ctx})
-                  match? (match pattern passed new-ctx)
-                  success (:success match?)
-                  clause-ctx (:ctx match?)]
-              (if success
-                (do
-                  (swap! new-ctx #(merge % clause-ctx))
-                  (interpret-ast body new-ctx))
-                (recur (first clauses) (rest clauses))))
+    ::data/fn
+    (let [clauses (:clauses fn)]
+      (loop [clause (first clauses)
+             clauses (rest clauses)]
+        (if clause
+          (let [pattern (:pattern clause)
+                body (:body clause)
+                new-ctx (atom {::parent ctx})
+                match? (match pattern tuple new-ctx)
+                success (:success match?)
+                clause-ctx (:ctx match?)]
+            (if success
+              (do
+                (swap! new-ctx #(merge % clause-ctx))
+                (interpret-ast body new-ctx))
+              (recur (first clauses) (rest clauses))))
 
-            (throw (ex-info "Match Error: No match found" {:fn-name (:name fn)})))))
+          (throw (ex-info "Match Error: No match found" {:fn-name (:name fn)})))))
 
-      ;; TODO: clean this up
-      ;; TODO: error with a passed tuple longer than 1
-      (if (= clojure.lang.Keyword (type fn))
-        (if (= 2 (count passed))
-          (let [target (second passed) kw fn]
-            (if (::data/struct target)
+    ;; TODO: clean this up
+    ;; TODO: error with a passed tuple longer than 1
+    (if (= clojure.lang.Keyword (type fn))
+      (if (= 2 (count tuple))
+        (let [target (second tuple) kw fn]
+          (if (::data/struct target)
             (if (contains? target kw)
               (kw target)
               (throw (ex-info (str "Struct error: no member at " kw) {})))
             (kw target)))
-          (throw (ex-info "Called keywords take a single argument" {})))
-        (throw (ex-info "I don't know how to call that" {:fn fn}))))))
+        (throw (ex-info "Called keywords take a single argument" {})))
+      (throw (ex-info "I don't know how to call that" {:fn fn})))))
 
 ;; TODO: add placeholder partial application
 (defn- interpret-synthetic-term [prev-value curr ctx]
@@ -168,7 +167,7 @@
           (get prev-value (:value curr))
           (throw (ex-info (str "Struct error: no member " (:value curr)) {})))
         (get prev-value (:value curr)))
-      (call-fn prev-value curr ctx))))
+      (call-fn prev-value (interpret-ast curr ctx) ctx))))
 
 (defn- interpret-synthetic [ast ctx]
   (let [terms (:terms ast)
@@ -197,6 +196,12 @@
             (swap! ctx update-ctx {name fn})
             fn))))))
 
+(defn- interpret-do [ast ctx]
+  (let [exprs (:exprs ast)
+        origin (interpret-ast (first exprs) ctx)
+        fns (rest exprs)]
+    (reduce #(call-fn (interpret-ast %2 ctx) [::data/tuple %1] ctx) origin fns)))
+
 (defn- map-values [f]
   (map (fn [kv]
          (let [[k v] kv]
@@ -218,6 +223,8 @@
     ::ast/synthetic (interpret-synthetic ast ctx)
 
     ::ast/fn (interpret-fn ast ctx)
+
+    ::ast/pipeline (interpret-do ast ctx)
 
     ::ast/block
     (let [exprs (:exprs ast)
@@ -267,7 +274,7 @@
 
   (def source "
 
-    panic! (\"whoops\")
+
 
 	")
 
