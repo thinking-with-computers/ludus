@@ -109,6 +109,23 @@
             (recur (first clauses) (rest clauses))))
         (throw (ex-info "Match Error: No match found" {}))))))
 
+(defn- interpret-cond [ast ctx]
+  (let [clauses (:clauses ast)]
+    (loop [clause (first clauses)
+      clauses (rest clauses)]
+      (if (not clause)
+        (throw (ex-info "Cond Error: No match found" {}))
+        (let [test-expr (:test clause)
+          body (:body clause)
+          truthy? (boolean (interpret-ast test-expr ctx))]
+          (if truthy?
+            (interpret-ast body ctx)
+            (recur (first clauses) (rest clauses))
+            )
+          )
+        )
+      )))
+
 (defn- interpret-called-kw [kw tuple ctx]
   ;; TODO: check this statically
   (if (not (= 1 (:length tuple)))
@@ -228,6 +245,8 @@
 
     ::ast/match (interpret-match ast ctx)
 
+    ::ast/cond (interpret-cond ast ctx)
+
     ::ast/synthetic (interpret-synthetic ast ctx)
 
     ::ast/fn (interpret-fn ast ctx)
@@ -286,10 +305,13 @@
 
   (def source "
 
-    fn square (x) -> mult (x, x)
+    let foo = 2
 
-    let foo = square (_)
-
+    match foo with {
+      1 -> :one
+      2 -> :two
+      else -> :oops
+    }
 
 	")
 

@@ -487,7 +487,9 @@
     (parse-then (accept ::token/newline ast))))
 
 (defn- parse-match-clause [parser]
-  (let [pattern (parse-pattern parser)
+  (let [pattern (if (= ::token/else (token-type parser))
+                  (-> parser (advance) (assoc ::ast {::ast/type ::ast/placeholder}))
+                  (parse-pattern parser))
         rarrow (expect* #{::token/rarrow} "Expected arrow after pattern" pattern)]
     (if (:success rarrow)
       (let [body (parse-expr (:parser rarrow))]
@@ -531,7 +533,13 @@
       (panic parser "Expected with after match expression"))))
 
 (defn- parse-cond-clause [parser]
-  (let [expr (parse-expr parser)
+  (let [expr (if (= ::token/else (token-type parser))
+               (-> parser
+                 (advance)
+                 (assoc ::ast {::ast/type ::ast/atom
+                               :token ::token/else
+                               :value true}))
+               (parse-expr parser))
         rarrow (expect* #{::token/rarrow} "Expected arrow after expression in cond clause" expr)]
     (if (:success rarrow)
       (let [body (parse-expr (:parser rarrow))]
@@ -543,7 +551,6 @@
   (loop [parser (accept-many #{::token/newline} parser)
          clauses []]
     (let [curr (current parser)]
-      (println "parsing a clause: " curr)
       (case (::token/type curr)
         ::token/rbrace
         (if (< 0 (count clauses))        
@@ -562,7 +569,6 @@
         (expect* #{::token/lbrace} "Expected { after cond" (advance parser))]
     (if (:success header)
       (let [clauses (parse-cond-clauses (:parser header))]
-        (println "Found all the clauses")
         (assoc clauses ::ast {::ast/type ::ast/cond
                               :clauses (get-in clauses [::ast :clauses])})
         )
@@ -711,9 +717,12 @@
     (parser)
     (parse-script)))
 
-(do
+(comment
   (def pp pp/pprint)
-  (def source "cond {}
+  (def source "match foo with {
+    1 -> :foo
+    else -> bar
+  }
 
     ")
   (def lexed (scanner/scan source))
