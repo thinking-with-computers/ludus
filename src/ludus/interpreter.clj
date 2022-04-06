@@ -122,12 +122,21 @@
         (get map kw))
       )))
 
-(defn- call-fn [fn tuple ctx]
-  (case (::data/type fn)
-    ::data/clj (apply (:body fn) (next tuple))
+(defn- call-fn [lfn tuple ctx]
+  (cond
+    (= ::data/partial (first tuple))
+    {::data/type ::data/clj
+       :name (str (:name lfn) "{partial}")
+       :body (fn [arg] 
+        (call-fn 
+          lfn 
+          (concat [::data/tuple] (replace {::data/placeholder arg} (rest tuple))) 
+          ctx))}
 
-    ::data/fn
-    (let [clauses (:clauses fn)]
+    (= (::data/type lfn) ::data/clj) (apply (:body lfn) (next tuple))
+
+    (= (::data/type lfn) ::data/fn)
+        (let [clauses (:clauses lfn)]
       (loop [clause (first clauses)
              clauses (rest clauses)]
         (if clause
@@ -143,20 +152,19 @@
                 (interpret-ast body new-ctx))
               (recur (first clauses) (rest clauses))))
 
-          (throw (ex-info "Match Error: No match found" {:fn-name (:name fn)})))))
+          (throw (ex-info "Match Error: No match found" {:fn-name (:name lfn)})))))
 
-    ;; TODO: clean this up
-    ;; TODO: error with a passed tuple longer than 1
-    (if (= clojure.lang.Keyword (type fn))
-      (if (= 2 (count tuple))
-        (let [target (second tuple) kw fn]
+    (= clojure.lang.Keyword (type lfn))
+    (if (= 2 (count tuple))
+        (let [target (second tuple) kw lfn]
           (if (::data/struct target)
             (if (contains? target kw)
               (kw target)
               (throw (ex-info (str "Struct error: no member at " kw) {})))
             (kw target)))
         (throw (ex-info "Called keywords take a single argument" {})))
-      (throw (ex-info "I don't know how to call that" {:fn fn})))))
+
+    :else (throw (ex-info "I don't know how to call that" {:fn lfn}))))
 
 ;; TODO: add placeholder partial application
 (defn- interpret-synthetic-term [prev-value curr ctx]
@@ -226,6 +234,8 @@
 
     ::ast/pipeline (interpret-do ast ctx)
 
+    ::ast/placeholder ::data/placeholder
+
     ::ast/block
     (let [exprs (:exprs ast)
           inner (pop exprs)
@@ -247,7 +257,9 @@
     ;; tuples are vectors with a special first member
     ::ast/tuple
     (let [members (:members ast)]
-      (into [::data/tuple] (map #(interpret-ast % ctx)) members))
+      (into 
+        [(if (:partial ast) ::data/partial ::data/tuple)] 
+        (map #(interpret-ast % ctx)) members))
 
     ::ast/list
     (let [members (:members ast)]
@@ -270,14 +282,18 @@
 (defn interpret [parsed]
   (interpret-ast (::parser/ast parsed) {}))
 
-(comment
+(do
 
   (def source "
 
-    let foo = do 1 > inc > inc 
-      > inc
+    fn square (x) -> mult (x, x)
 
-    foo
+    do 12
+      > square
+      > div (_, 2)
+      > inc
+      > print
+
 
 	")
 
