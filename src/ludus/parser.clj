@@ -143,7 +143,7 @@
                            {::ast/type ::ast/tuple
                             :length (count ms)
                             :members ms
-                            :partially-applied (contains-placeholder? ms)}))
+                            :partial (contains-placeholder? ms)}))
 
         (::token/comma ::token/newline)
         (recur
