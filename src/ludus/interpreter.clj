@@ -282,17 +282,13 @@
 (defn interpret [parsed]
   (interpret-ast (::parser/ast parsed) {}))
 
-(do
+(comment
 
   (def source "
 
     fn square (x) -> mult (x, x)
 
-    do 12
-      > square
-      > div (_, 2)
-      > inc
-      > print
+    let foo = square (_)
 
 
 	")
