@@ -190,9 +190,9 @@
 
         ::token/placeholder
         (recur 
-            (advance parser)
-            members
-            (panic parser "Placeholders in tuples may only be in function calls." curr))
+          (advance parser)
+          members
+          (panic parser "Placeholders in tuples may only be in function calls." curr))
 
         ::token/eof
         (panic (assoc origin ::errors (::errors parser)) "Unterminated tuple" ::token/eof)
@@ -501,7 +501,9 @@
     (let [curr (current parser)]
       (case (::token/type curr)
         ::token/rbrace
-        (assoc (advance parser) ::ast {::ast/type ::ast/clauses :clauses clauses})
+        (if (< 0 (count clauses))        
+          (assoc (advance parser) ::ast {::ast/type ::ast/clauses :clauses clauses})
+          (panic parser "Expected one or more clauses" #{::rbrace}))
 
         ::token/newline
         (recur (accept-many #{::token/newline} parser) clauses)
@@ -528,6 +530,47 @@
 
       (panic parser "Expected with after match expression"))))
 
+(defn- parse-cond-clause [parser]
+  (let [expr (parse-expr parser)
+        rarrow (expect* #{::token/rarrow} "Expected arrow after expression in cond clause" expr)]
+    (if (:success rarrow)
+      (let [body (parse-expr (:parser rarrow))]
+        (assoc body ::ast {::ast/type ::ast/clause
+                           :test (::ast expr) :body (::ast body)}))
+      (panic expr "Expected -> in cond clause. Clauses must be in the form test_expression -> result_expression" #{::token/newline ::token/rbrace}))))
+
+(defn- parse-cond-clauses [parser]
+  (loop [parser (accept-many #{::token/newline} parser)
+         clauses []]
+    (let [curr (current parser)]
+      (println "parsing a clause: " curr)
+      (case (::token/type curr)
+        ::token/rbrace
+        (if (< 0 (count clauses))        
+          (assoc (advance parser) ::ast {::ast/type ::ast/clauses :clauses clauses})
+          (panic parser "Expected one or more clauses" #{::rbrace}))
+
+
+        ::token/newline
+        (recur (accept-many #{::token/newline} parser) clauses)
+
+        (let [clause (parse-cond-clause parser)]
+          (recur (accept-many #{::token/newline} clause) (conj clauses (::ast clause))))))))
+
+(defn- parse-cond [parser]
+  (let [header 
+        (expect* #{::token/lbrace} "Expected { after cond" (advance parser))]
+    (if (:success header)
+      (let [clauses (parse-cond-clauses (:parser header))]
+        (println "Found all the clauses")
+        (assoc clauses ::ast {::ast/type ::ast/cond
+                              :clauses (get-in clauses [::ast :clauses])})
+        )
+      (panic parser "Expected { after cond")
+      )
+    )
+  )
+
 (defn- parse-fn-clause [parser]
   (if (not (= ::token/lparen (token-type parser)))
     (panic parser "Function clauses must begin with tuple patterns")
@@ -545,7 +588,9 @@
     (let [curr (current parser)]
       (case (::token/type curr)
         ::token/rbrace
-        (assoc (advance parser) ::ast {::ast/type ::ast/clauses :clauses clauses})
+        (if (< 0 (count clauses))        
+          (assoc (advance parser) ::ast {::ast/type ::ast/clauses :clauses clauses})
+          (panic parser "Expected one or more function clauses" #{::token/rbrace}))
 
         ::token/newline
         (recur (accept-many #{::token/newline} parser) clauses)
@@ -593,7 +638,7 @@
         (if (= ::token/pipeline next)
           (recur (advance expr+newline) (conj exprs (::ast expr)))
           (assoc expr ::ast {::ast/type ::ast/pipeline
-            :exprs (conj exprs (::ast expr))})
+                             :exprs (conj exprs (::ast expr))})
           )))))
 
 (defn- parse-expr
@@ -644,6 +689,8 @@
 
        ::token/do (parse-do parser)
 
+       ::token/cond (parse-cond parser)
+
        ;; TODO: improve handling of comments?
        ;; Scanner now just skips comments
        ;; ::token/comment (advance parser)
@@ -664,9 +711,9 @@
     (parser)
     (parse-script)))
 
-(comment
+(do
   (def pp pp/pprint)
-  (def source "foo (1, 2, _)
+  (def source "cond {}
 
     ")
   (def lexed (scanner/scan source))
@@ -680,7 +727,7 @@
   (println "*** *** NEW PARSE *** ***")
 
   (-> p
-    (parse-expr)
+    (parse-script)
     (::ast)
     (pp)))
 
