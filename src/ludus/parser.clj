@@ -318,8 +318,8 @@
 
       (panic parser "Struct entries must be single words or keyword+expression pairs" #{::token/rbrace})))))
 
-(defn- parse-ns [parser]
-  (let [name (expect* #{::token/word} "Expected ns name" (advance parser))
+(defn- parse-ns [ns-root]
+  (let [name (expect* #{::token/word} "Expected ns name" (advance ns-root))
     origin (expect* #{::token/lbrace} "Expected { after ns name" (:parser name))]
     (cond 
       (not (:success name)) (panic parser "Expected ns name" #{::token/newline})
@@ -327,7 +327,7 @@
       (not (:success origin)) (panic (:parser name) "Expected { after ns name")
 
       :else 
-      (loop [parser (accept-many #{::token/newline ::token/comma} (advance (:parser name)))
+      (loop [parser (accept-many #{::token/newline ::token/comma} (:parser origin))
        members {}
        current_member nil]
        (let [curr (current parser)]
@@ -335,7 +335,7 @@
           ::token/rbrace (let [ms (add-member members current_member)]
            (assoc (advance parser) ::ast
              {::ast/type ::ast/ns
-              :name (::ast name)
+              :name (get-in (parse-word (advance ns-root)) [::ast :word])
               :members ms}))
 
           (::token/comma ::token/newline)
