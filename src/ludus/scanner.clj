@@ -9,9 +9,9 @@
   "List of Ludus reserved words."
   ;; see ludus-spec repo for more info
   {"as" ::token/as
-   "cond" ::token/cond
+   "cond" ::token/cond ;; impl
    "data" ::token/data
-   "do" ::token/do
+   "do" ::token/do ;; impl
    "else" ::token/else ;; impl
    "false" ::token/false ;; impl
    "fn" ::token/fn ;; impl
