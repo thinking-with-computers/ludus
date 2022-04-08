@@ -471,7 +471,7 @@
   (let [curr (current parser)
     type (::token/type curr)]
     (case type
-      ::token/placeholder (-> parser
+      (::token/placeholder ::token/ignored) (-> parser
         (advance)
         (assoc ::ast {::ast/type ::ast/placeholder}))
 
@@ -762,12 +762,9 @@
     (parser)
     (parse-script)))
 
-(comment
+(do
   (def pp pp/pprint)
-  (def source "ns foo {
-    :bar 42
-    :baz 23
-  }
+  (def source "let _foo = 42
 
   ")
   (def lexed (scanner/scan source))
