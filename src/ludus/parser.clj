@@ -690,6 +690,31 @@
          :exprs (conj exprs (::ast expr))})
         )))))
 
+(defn- parse-import [parser]
+  (let [path (parse-atom (advance parser))
+    as (expect* #{::token/as} "Expected as after path" path)
+    named? (if (:success as)
+      (expect* #{::token/word} "Expected name binding after as" (:parser as))
+      nil)
+    name (if (:success named?)
+      (parse-word (:parser as))
+      nil
+      )]
+    (cond
+      (not= ::token/string (token-type (advance parser)))
+      (panic parser "Expected path after import" #{::token/newline})
+
+      (not (:success as))
+      (panic parser "Expected as after path" #{::token/newline})
+
+      (not (:success named?))
+      (panic parser "Expected name binding after as")
+
+      :else
+      (assoc name ::ast {::ast/type ::ast/import
+        :path (get-in path [::ast :value])
+        :name (get-in name [::ast :word])}))))
+
 (defn- parse-expr
   ([parser] (parse-expr parser sync-on))
   ([parser sync-on]
@@ -742,6 +767,8 @@
 
        ::token/ns (parse-ns parser)
 
+       ::token/import (parse-import parser)
+
        ;; TODO: improve handling of comments?
        ;; Scanner now just skips comments
        ;; ::token/comment (advance parser)
@@ -762,9 +789,9 @@
     (parser)
     (parse-script)))
 
-(do
+(comment
   (def pp pp/pprint)
-  (def source "let _foo = 42
+  (def source "import \"f\" as foo
 
   ")
   (def lexed (scanner/scan source))
