@@ -19,7 +19,7 @@
         (recur word (::parent ctx))
         (throw (ex-info (str "Unbound name: " word) {}))))))
 
-(declare interpret-ast match)
+(declare interpret-ast match interpret)
 
 (defn- match-tuple [pattern value ctx-atom]
   (cond
@@ -236,7 +236,7 @@
   (let [members (:members ast) 
         name (:name ast)]
     (if (contains? @ctx name)
-      (throw (ex-info (str "ns name " name "is already bound") {}))
+      (throw (ex-info (str "ns name " name " is already bound") {}))
       (let [ns (into
         {::data/struct true ::data/type ::data/ns ::data/name name}
         (map-values #(interpret-ast % ctx))
@@ -244,6 +244,21 @@
       (do
         (swap! ctx update-ctx {name ns})
         ns)))))
+
+(defn- interpret-import [ast ctx]
+  (let [path (:path ast)
+    name (:name ast)]
+    (if (contains? @ctx name)
+      (throw (ex-info (str "Name " name " is alrady bound") {}))
+  (let [result  ;; TODO: add any error handling at all   
+    (-> path
+          (slurp)
+          (scanner/scan)
+          (parser/parse)
+          (interpret))]
+    (swap! ctx update-ctx {name result})
+    result
+    ))))
 
 (defn interpret-ast [ast ctx]
   (case (::ast/type ast)
@@ -269,6 +284,8 @@
     ::ast/placeholder ::data/placeholder
 
     ::ast/ns (interpret-ns ast ctx)
+
+    ::ast/import (interpret-import ast ctx)
 
     ::ast/block
     (let [exprs (:exprs ast)
