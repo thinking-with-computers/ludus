@@ -576,11 +576,12 @@
       (panic parser "Expected with after match expression"))))
 
 (defn- parse-cond-clause [parser]
-  (let [expr (if (= ::token/else (token-type parser))
+  (let [expr (if 
+    (contains? #{::token/else ::token/placeholder} (token-type parser))
    (-> parser
      (advance)
      (assoc ::ast {::ast/type ::ast/atom
-       :token ::token/else
+       :token (current parser)
        :value true}))
    (parse-expr parser))
   rarrow (expect* #{::token/rarrow} "Expected arrow after expression in cond clause" expr)]
@@ -789,9 +790,9 @@
     (parser)
     (parse-script)))
 
-(comment
+(do
   (def pp pp/pprint)
-  (def source "import \"f\" as foo
+  (def source "cond { _ -> :foo }
 
   ")
   (def lexed (scanner/scan source))
