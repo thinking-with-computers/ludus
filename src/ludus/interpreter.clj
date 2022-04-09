@@ -257,7 +257,7 @@
           (parser/parse)
           (interpret))]
     (swap! ctx update-ctx {name result})
-    result
+    result ;; TODO: test this!
     ))))
 
 (defn interpret-ast [ast ctx]
