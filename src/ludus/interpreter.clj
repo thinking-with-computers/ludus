@@ -171,7 +171,7 @@
 
         (throw (ex-info "Match Error: No match found" {:fn-name (:name lfn)})))))
 
-     (= clojure.lang.Keyword (type lfn))
+     (keyword? lfn)
      (if (= 2 (count tuple))
       (let [target (second tuple) kw lfn]
         (if (::data/struct target)
