@@ -11,8 +11,8 @@
 ;; it's got runtime checking
 ;; we should be able to do these checks statically
 ;; that's for later, tho
-(defn- resolve-word[word ctx-atom]
-  (let [ctx @ctx-atom]
+(defn- resolve-word[word ctx-vol]
+  (let [ctx @ctx-vol]
     (if (contains? ctx word)
       (get ctx word)
       (if (contains? ctx ::parent)
@@ -21,7 +21,7 @@
 
 (declare interpret-ast match interpret)
 
-(defn- match-tuple [pattern value ctx-atom]
+(defn- match-tuple [pattern value ctx-vol]
   (cond
     (not (vector? value)) {:success false :reason "Could not match non-tuple value to tuple"}
 
@@ -37,13 +37,13 @@
        ctx {}]
        (if (= 0 i)
         {:success true :ctx ctx}
-        (let [match? (match (nth members (dec i)) (nth value i) ctx-atom)]
+        (let [match? (match (nth members (dec i)) (nth value i) ctx-vol)]
           (if (:success match?)
             (recur (dec i) (merge ctx (:ctx match?)))
             {:success false :reason (str "Could not match " pattern " with " value)})))))))
 
-(defn- match [pattern value ctx-atom]
-  (let [ctx @ctx-atom]
+(defn- match [pattern value ctx-vol]
+  (let [ctx @ctx-vol]
     (case (::ast/type pattern)
       ::ast/placeholder {:success true :ctx {}}
 
@@ -60,7 +60,7 @@
           {:success false :reason (str "Name " word " is already bound")}
           {:success true :ctx {word value}}))
 
-      ::ast/tuple (match-tuple pattern value ctx-atom)
+      ::ast/tuple (match-tuple pattern value ctx-vol)
 
       (throw (ex-info "Unknown pattern" {:pattern pattern})))))
 
@@ -76,7 +76,7 @@
     match (match pattern value ctx)
     success (:success match)]
     (if success
-      (swap! ctx update-ctx (:ctx match))
+      (vswap! ctx update-ctx (:ctx match))
       (throw (ex-info (:reason match) {})))
     value))
 
@@ -98,13 +98,13 @@
      (if clause
       (let [pattern (:pattern clause)
         body (:body clause)
-        new-ctx (atom {::parent ctx})
+        new-ctx (volatile! {::parent ctx})
         match? (match pattern expr new-ctx)
         success (:success match?)
         clause-ctx (:ctx match?)]
         (if success
           (do
-            (swap! new-ctx #(merge % clause-ctx))
+            (vswap! new-ctx #(merge % clause-ctx))
             (interpret-ast body new-ctx))
           (recur (first clauses) (rest clauses))))
       (throw (ex-info "Match Error: No match found" {}))))))
@@ -159,13 +159,13 @@
        (if clause
         (let [pattern (:pattern clause)
           body (:body clause)
-          new-ctx (atom {::parent ctx})
+          new-ctx (volatile! {::parent ctx})
           match? (match pattern tuple new-ctx)
           success (:success match?)
           clause-ctx (:ctx match?)]
           (if success
             (do
-              (swap! new-ctx #(merge % clause-ctx))
+              (vswap! new-ctx #(merge % clause-ctx))
               (interpret-ast body new-ctx))
             (recur (first clauses) (rest clauses))))
 
@@ -218,7 +218,7 @@
         (if (contains? @ctx name)
           (throw (ex-info (str "Name " name " is already bound") {}))
           (do
-            (swap! ctx update-ctx {name fn})
+            (vswap! ctx update-ctx {name fn})
             fn))))))
 
 (defn- interpret-do [ast ctx]
@@ -242,7 +242,7 @@
         (map-values #(interpret-ast % ctx))
         members)]
       (do
-        (swap! ctx update-ctx {name ns})
+        (vswap! ctx update-ctx {name ns})
         ns)))))
 
 (defn- interpret-import [ast ctx]
@@ -256,7 +256,7 @@
           (scanner/scan)
           (parser/parse)
           (interpret))]
-    (swap! ctx update-ctx {name result})
+    (vswap! ctx update-ctx {name result})
     result ;; TODO: test this!
     ))))
 
@@ -291,7 +291,7 @@
     (let [exprs (:exprs ast)
       inner (pop exprs)
       last (peek exprs)
-      ctx (atom {::parent ctx})]
+      ctx (volatile! {::parent ctx})]
       (run! #(interpret-ast % ctx) inner)
       (interpret-ast last ctx))
 
@@ -299,7 +299,7 @@
     (let [exprs (:exprs ast)
       inner (pop exprs)
       last (peek exprs)
-      ctx (atom prelude/prelude)]
+      ctx (volatile! prelude/prelude)]
       (run! #(interpret-ast % ctx) inner)
       (interpret-ast last ctx))
 
@@ -333,7 +333,7 @@
 (defn interpret [parsed]
   (interpret-ast (::parser/ast parsed) {}))
 
-(comment
+(do
 
   (def source "
 
