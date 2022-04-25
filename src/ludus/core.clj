@@ -20,8 +20,6 @@
             (pp/pprint (:errors parsed))
             (System/exit 66))
           (let [interpreted (interpreter/interpret parsed)]
-            ;;(println "   *** *** ***")
-            ;;(println "I ran your script; here's the output: ")
             (pp/pprint interpreted)
             (System/exit 0)))))))
 
