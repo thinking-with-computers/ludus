@@ -333,7 +333,7 @@
 (defn interpret [parsed]
   (interpret-ast (::parser/ast parsed) {}))
 
-(do
+(comment
 
   (def source "
 

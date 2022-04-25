@@ -790,7 +790,7 @@
     (parser)
     (parse-script)))
 
-(do
+(comment
   (def pp pp/pprint)
   (def source "cond { _ -> :foo }
 
