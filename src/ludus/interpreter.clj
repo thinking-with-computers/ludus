@@ -135,7 +135,9 @@
       (if (::data/struct map)
         (if (contains? map kw)
           (kw map)
-          (throw (ex-info (str "Struct error: no member at " kw) {})))
+          (if (= (::data/type map) ::data/ns)
+            (throw (ex-info (str "Namespace error: no member " kw " in ns " (::data/name map)) {}))
+            (throw (ex-info (str "Struct error: no member at " kw) {}))))
         (get map kw))
       )))
 
@@ -177,20 +179,25 @@
         (if (::data/struct target)
           (if (contains? target kw)
             (kw target)
-            (throw (ex-info (str "Struct error: no member at " kw) {})))
+            (if (= (::data/type target) ::data/ns)
+              (throw (ex-info (str "Namespace error: no member " kw " in ns" (::data/name target)) {}))
+              (throw (ex-info (str "Struct error: no member at " kw) {}))
+              )
+            )
           (kw target)))
       (throw (ex-info "Called keywords take a single argument" {})))
 
      :else (throw (ex-info "I don't know how to call that" {:fn lfn}))))
 
-;; TODO: add placeholder partial application
 (defn- interpret-synthetic-term [prev-value curr ctx]
   (let [type (::ast/type curr)]
     (if (= type ::ast/atom)
       (if (::data/struct prev-value)
         (if (contains? prev-value (:value curr))
           (get prev-value (:value curr))
-          (throw (ex-info (str "Struct error: no member " (:value curr)) {})))
+          (if (= (::data/type prev-value) ::data/ns) 
+            (throw (ex-info (str "Namespace error: no member " (:value curr) " in ns " (::data/name prev-value)) {})) 
+            (throw (ex-info (str "Struct error: no member " (:value curr)) {}))))
         (get prev-value (:value curr)))
       (call-fn prev-value (interpret-ast curr ctx) ctx))))
 
