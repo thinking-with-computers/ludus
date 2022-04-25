@@ -1,7 +1,7 @@
-import "bar.ld" as Bar
+import "bar.ld" as Bart
 
-print ("Bar :foo should be :foo. It is ", Bar :foo)
+print ("Bar :foo should be :foo. It is ", Bart :foo)
 
-print ("But if I do something naughty, Ludus will panic")
+print ("But if I do something naughty like accessing something that isn't in an ns, Ludus will panic")
 
-panic! ("oops", :foo, 42)
+Bart :quux
