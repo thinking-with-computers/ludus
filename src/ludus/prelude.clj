@@ -36,7 +36,7 @@
 
 (def panic! {:name "panic!"
              ::data/type ::data/clj
-             :body (fn [& args] (throw (ex-info "Ludus panicked!" {:args args})))})
+             :body (fn [& args] (throw (ex-info (apply str (interpose " " args)) {})))})
 
 (def print- {:name "print"
             ::data/type ::data/clj
