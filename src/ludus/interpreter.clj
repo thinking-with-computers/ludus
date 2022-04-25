@@ -331,7 +331,13 @@
     (throw (ex-info "Unknown AST node type" {:node ast}))))
 
 (defn interpret [parsed]
-  (interpret-ast (::parser/ast parsed) {}))
+  (try 
+    (interpret-ast (::parser/ast parsed) {})
+    (catch clojure.lang.ExceptionInfo e
+      (println "Ludus panicked!")
+      (println (ex-message e))
+      (pp/pprint (ex-data e))
+      (System/exit 67))))
 
 (comment
 
