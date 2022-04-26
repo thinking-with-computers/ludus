@@ -1,6 +1,7 @@
 (ns ludus.prelude
   (:require
-   [ludus.data :as data]))
+   [ludus.data :as data]
+   [ludus.show]))
 
 (def eq {:name "eq"
          ::data/type ::data/clj
@@ -44,6 +45,17 @@
                     (println (apply str args))
                     :ok)})
 
+(declare show)
+
+(defn- show-vector [v]
+  (if (= (first v) ::data/tuple)
+    (str "(" (apply str (into [] (comp (map (:body show)) (interpose ", ")) (next v))) ")")
+    (str "[" (apply str (into [] (comp (map (:body show)) (interpose ", ")) v)) "]")))
+
+(def show {:name "show"
+  ::data/type ::data/clj
+  :body ludus.show/show})
+
 (def prelude {"eq" eq
               "add" add
               "panic!" panic!
@@ -53,4 +65,5 @@
               "div" div
               "inc" inc-
               "dec" dec-
-              "not" not})
+              "not" not
+              "show" show})
