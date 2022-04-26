@@ -10,7 +10,6 @@
     (str "(" (apply str (into [] show-linear (next v))) ")")
     (str "[" (apply str (into [] show-linear v)) "]")))
 
-;; TODO: 
 (defn- show-map [v]
   (cond
   	(or (= (::data/type v) ::data/fn)
