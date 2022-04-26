@@ -4,6 +4,7 @@
     [ludus.scanner :as scanner]
     [ludus.parser :as parser]
     [ludus.interpreter :as interpreter]
+    [ludus.show :as show]
     [clojure.pprint :as pp]))
 
 (defn- run [source]
@@ -20,7 +21,7 @@
             (pp/pprint (:errors parsed))
             (System/exit 66))
           (let [interpreted (interpreter/interpret parsed)]
-            (pp/pprint interpreted)
+            (println (show/show interpreted))
             (System/exit 0)))))))
 
 (defn -main [& args]
