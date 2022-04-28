@@ -1,10 +1,8 @@
-fn fib {
-	(0) -> 1
-	(1) -> 1
-	(n) -> add (
-		fib (sub (n, 1)), 
-		fib (sub (n, 2)))
-}
+fn fib (n) -> if eq (n, 0)
+	then 1
+	else if eq (n, 1)
+		then 1
+		else add (fib (sub (n, 1)), fib (sub (n, 2)))
 
 fn fact {
 	(n) -> fact (n, 1)
@@ -17,4 +15,4 @@ ns Recursive {
 	fib
 }
 
-:factl (Recursive) (6)
+Recursive :fib (25)
