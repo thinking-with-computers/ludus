@@ -5,7 +5,8 @@
     [ludus.parser :as parser]
     [ludus.interpreter :as interpreter]
     [ludus.show :as show]
-    [clojure.pprint :as pp]))
+    [clojure.pprint :as pp])
+  (:gen-class))
 
 (defn- run [source]
   (let [scanned (scanner/scan source)]
