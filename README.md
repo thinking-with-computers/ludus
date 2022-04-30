@@ -14,7 +14,7 @@ Pre-alpha, still under active development. See [the ludus-spec repo for progress
 * Have Clojure and Leiningen installed.
 	- On a Mac: `brew install clojure leiningen`
 * `lein run {script}`, it runs your script.
-* Alternately, download a binary on the [releases page](https://github.com/thinking-with-computers/cludus/releases).
+* Alternately, download a binary on the [releases page](https://github.com/thinking-with-computers/ludus/releases).
 
 ### `Hello, world!`
 Ludus is a scripting language. At current it does not have a REPL (our aim is to get interactive coding absolutely correct).
