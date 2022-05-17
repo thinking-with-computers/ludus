@@ -16,24 +16,24 @@
    "false" ::token/false ;; impl
    "fn" ::token/fn ;; impl
    "if" ::token/if ;; impl
-   "import" ::token/import
+   "import" ::token/import ;; impl
    "let" ::token/let ;; impl
+   "loop" ::token/loop
    "match" ::token/match ;; impl
-   "mut" ::token/mut
    "nil" ::token/nil ;; impl
+   "ns" ::token/ns ;; impl
+   "recur" ::token/recur
    "ref" ::token/ref
    "then" ::token/then ;; impl
    "true" ::token/true ;; impl
-   "var" ::token/var
    "with" ::token/with ;; impl
    ;; below here, probable
    "defer" ::token/defer
    "gen" ::token/gen
-   "loop" ::token/loop
-   "ns" ::token/ns
-   "recur" ::token/recur
+   "mut" ::token/mut
    "repeat" ::token/repeat
    "test" ::token/test
+   "var" ::token/var
    "wait" ::token/wait
    "yield" ::token/yield
    ;; below here, possible
