@@ -502,6 +502,25 @@
   (let [pattern (parse-pattern (advance parser))]
     (parse-assignment pattern)))
 
+(defn- parse-ref-expr [parser name]
+  (let [expr (parse-expr parser)]
+    (assoc expr ::ast {::ast/type ::ast/ref
+      :name name :expr (::ast expr)})))
+
+(defn- parse-ref-assignment [parser name]
+  (let [assignment (expect* ::token/equals "Expected assignment" (advance parser))
+    success (:success assignment)]
+    (if success
+      (parse-ref-expr (:parser assignment) name)
+      (panic parser "Expected assignment")))
+  )
+
+(defn- parse-ref [parser]
+  (let [name (advance parser)]
+  (if (= ::token/word (token-type name))
+    (parse-ref-assignment name (::token/lexeme (current name)))
+    (panic parser "Expected reference name"))))
+
 (defn- parse-else [parser]
   (let [ast (::ast parser)
     else-kw (expect* ::token/else "Expected else clause after then" parser)
@@ -770,6 +789,8 @@
 
        ::token/import (parse-import parser)
 
+       ::token/ref (parse-ref parser)
+
        ;; TODO: improve handling of comments?
        ;; Scanner now just skips comments
        ;; ::token/comment (advance parser)
@@ -790,9 +811,9 @@
     (parser)
     (parse-script)))
 
-(comment
+(do
   (def pp pp/pprint)
-  (def source "cond { _ -> :foo }
+  (def source "ref foo = 42
 
   ")
   (def lexed (scanner/scan source))
