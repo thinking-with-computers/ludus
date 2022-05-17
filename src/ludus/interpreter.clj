@@ -33,14 +33,14 @@
     (= 0 (:length pattern) (dec (count value))) {:success true :ctx {}}
 
     :else (let [members (:members pattern)]
-      (loop [i (:length pattern)
-       ctx {}]
-       (if (= 0 i)
-        {:success true :ctx ctx}
-        (let [match? (match (nth members (dec i)) (nth value i) ctx-vol)]
-          (if (:success match?)
-            (recur (dec i) (merge ctx (:ctx match?)))
-            {:success false :reason (str "Could not match " pattern " with " value)})))))))
+            (loop [i (:length pattern)
+                   ctx {}]
+              (if (= 0 i)
+                {:success true :ctx ctx}
+                (let [match? (match (nth members (dec i)) (nth value i) ctx-vol)]
+                  (if (:success match?)
+                    (recur (dec i) (merge ctx (:ctx match?)))
+                    {:success false :reason (str "Could not match " pattern " with " value)})))))))
 
 (defn- match [pattern value ctx-vol]
   (let [ctx @ctx-vol]
@@ -71,10 +71,10 @@
 ;; TODO: get typed exceptions to distinguish panics
 (defn- interpret-let [ast ctx]
   (let [pattern (:pattern ast)
-    expr (:expr ast)
-    value (interpret-ast expr ctx)
-    match (match pattern value ctx)
-    success (:success match)]
+        expr (:expr ast)
+        value (interpret-ast expr ctx)
+        match (match pattern value ctx)
+        success (:success match)]
     (if success
       (vswap! ctx update-ctx (:ctx match))
       (throw (ex-info (:reason match) {})))
@@ -82,42 +82,42 @@
 
 (defn- interpret-if [ast ctx]
   (let [if-expr (:if ast)
-    then-expr (:then ast)
-    else-expr (:else ast)
-    if-value (interpret-ast if-expr ctx)]
+        then-expr (:then ast)
+        else-expr (:else ast)
+        if-value (interpret-ast if-expr ctx)]
     (if if-value
       (interpret-ast then-expr ctx)
       (interpret-ast else-expr ctx))))
 
 (defn- interpret-match [ast ctx]
   (let [match-expr (:expr ast)
-    expr (interpret-ast match-expr ctx)
-    clauses (:clauses ast)]
+        expr (interpret-ast match-expr ctx)
+        clauses (:clauses ast)]
     (loop [clause (first clauses)
-     clauses (rest clauses)]
-     (if clause
-      (let [pattern (:pattern clause)
-        body (:body clause)
-        new-ctx (volatile! {::parent ctx})
-        match? (match pattern expr new-ctx)
-        success (:success match?)
-        clause-ctx (:ctx match?)]
-        (if success
-          (do
-            (vswap! new-ctx #(merge % clause-ctx))
-            (interpret-ast body new-ctx))
-          (recur (first clauses) (rest clauses))))
-      (throw (ex-info "Match Error: No match found" {}))))))
+           clauses (rest clauses)]
+      (if clause
+        (let [pattern (:pattern clause)
+              body (:body clause)
+              new-ctx (volatile! {::parent ctx})
+              match? (match pattern expr new-ctx)
+              success (:success match?)
+              clause-ctx (:ctx match?)]
+          (if success
+            (do
+              (vswap! new-ctx #(merge % clause-ctx))
+              (interpret-ast body new-ctx))
+            (recur (first clauses) (rest clauses))))
+        (throw (ex-info "Match Error: No match found" {}))))))
 
 (defn- interpret-cond [ast ctx]
   (let [clauses (:clauses ast)]
     (loop [clause (first clauses)
-      clauses (rest clauses)]
+           clauses (rest clauses)]
       (if (not clause)
         (throw (ex-info "Cond Error: No match found" {}))
         (let [test-expr (:test clause)
-          body (:body clause)
-          truthy? (boolean (interpret-ast test-expr ctx))]
+              body (:body clause)
+              truthy? (boolean (interpret-ast test-expr ctx))]
           (if truthy?
             (interpret-ast body ctx)
             (recur (first clauses) (rest clauses))
@@ -131,7 +131,7 @@
   (if (not (= 1 (:length tuple)))
     (throw (ex-info "Called keywords must be unary" {}))
     (let [kw (interpret-ast kw ctx)
-      map (second (interpret-ast tuple ctx))]
+          map (second (interpret-ast tuple ctx))]
       (if (::data/struct map)
         (if (contains? map kw)
           (kw map)
@@ -147,34 +147,34 @@
     {::data/type ::data/clj
      :name (str (:name lfn) "{partial}")
      :body (fn [arg] 
-      (call-fn 
-        lfn 
-        (concat [::data/tuple] (replace {::data/placeholder arg} (rest tuple))) 
-        ctx))}
+             (call-fn 
+               lfn 
+               (concat [::data/tuple] (replace {::data/placeholder arg} (rest tuple))) 
+               ctx))}
 
-     (= (::data/type lfn) ::data/clj) (apply (:body lfn) (next tuple))
+    (= (::data/type lfn) ::data/clj) (apply (:body lfn) (next tuple))
 
-     (= (::data/type lfn) ::data/fn)
-     (let [clauses (:clauses lfn)]
+    (= (::data/type lfn) ::data/fn)
+    (let [clauses (:clauses lfn)]
       (loop [clause (first clauses)
-       clauses (rest clauses)]
-       (if clause
-        (let [pattern (:pattern clause)
-          body (:body clause)
-          new-ctx (volatile! {::parent ctx})
-          match? (match pattern tuple new-ctx)
-          success (:success match?)
-          clause-ctx (:ctx match?)]
-          (if success
-            (do
-              (vswap! new-ctx #(merge % clause-ctx))
-              (interpret-ast body new-ctx))
-            (recur (first clauses) (rest clauses))))
+             clauses (rest clauses)]
+        (if clause
+          (let [pattern (:pattern clause)
+                body (:body clause)
+                new-ctx (volatile! {::parent ctx})
+                match? (match pattern tuple new-ctx)
+                success (:success match?)
+                clause-ctx (:ctx match?)]
+            (if success
+              (do
+                (vswap! new-ctx #(merge % clause-ctx))
+                (interpret-ast body new-ctx))
+              (recur (first clauses) (rest clauses))))
 
-        (throw (ex-info "Match Error: No match found" {:fn-name (:name lfn)})))))
+          (throw (ex-info "Match Error: No match found" {:fn-name (:name lfn)})))))
 
-     (keyword? lfn)
-     (if (= 2 (count tuple))
+    (keyword? lfn)
+    (if (= 2 (count tuple))
       (let [target (second tuple) kw lfn]
         (if (::data/struct target)
           (if (contains? target kw)
@@ -187,7 +187,7 @@
           (kw target)))
       (throw (ex-info "Called keywords take a single argument" {})))
 
-     :else (throw (ex-info "I don't know how to call that" {:fn lfn}))))
+    :else (throw (ex-info "I don't know how to call that" {:fn lfn}))))
 
 (defn- interpret-synthetic-term [prev-value curr ctx]
   (let [type (::ast/type curr)]
@@ -203,25 +203,25 @@
 
 (defn- interpret-synthetic [ast ctx]
   (let [terms (:terms ast)
-    first (first terms)
-    second (second terms)
-    rest (rest (rest terms))
-    first-term-type (::ast/type first)
-    first-val (if (= first-term-type ::ast/atom)
-      (interpret-called-kw first second ctx)
-      (interpret-synthetic-term (interpret-ast first ctx) second ctx))]
+        first (first terms)
+        second (second terms)
+        rest (rest (rest terms))
+        first-term-type (::ast/type first)
+        first-val (if (= first-term-type ::ast/atom)
+                    (interpret-called-kw first second ctx)
+                    (interpret-synthetic-term (interpret-ast first ctx) second ctx))]
     (reduce #(interpret-synthetic-term %1 %2 ctx) first-val rest)))
 
 (defn- interpret-fn [ast ctx]
   (let [name (:name ast)
-    clauses (:clauses ast)]
+        clauses (:clauses ast)]
     (if (= name ::ast/anon)
       {::data/type ::data/fn
        :name name
        :clauses clauses}
-       (let [fn {::data/type ::data/fn
-        :name name
-        :clauses clauses}]
+      (let [fn {::data/type ::data/fn
+                :name name
+                :clauses clauses}]
         (if (contains? @ctx name)
           (throw (ex-info (str "Name " name " is already bound") {}))
           (do
@@ -230,14 +230,14 @@
 
 (defn- interpret-do [ast ctx]
   (let [exprs (:exprs ast)
-    origin (interpret-ast (first exprs) ctx)
-    fns (rest exprs)]
+        origin (interpret-ast (first exprs) ctx)
+        fns (rest exprs)]
     (reduce #(call-fn (interpret-ast %2 ctx) [::data/tuple %1] ctx) origin fns)))
 
 (defn- map-values [f]
   (map (fn [kv]
-   (let [[k v] kv]
-     [k (f v)]))))
+         (let [[k v] kv]
+           [k (f v)]))))
 
 (defn- interpret-ns [ast ctx]
   (let [members (:members ast) 
@@ -245,27 +245,37 @@
     (if (contains? @ctx name)
       (throw (ex-info (str "ns name " name " is already bound") {}))
       (let [ns (into
-        {::data/struct true ::data/type ::data/ns ::data/name name}
-        (map-values #(interpret-ast % ctx))
-        members)]
-      (do
-        (vswap! ctx update-ctx {name ns})
-        ns)))))
+                 {::data/struct true ::data/type ::data/ns ::data/name name}
+                 (map-values #(interpret-ast % ctx))
+                 members)]
+        (do
+          (vswap! ctx update-ctx {name ns})
+          ns)))))
 
 (defn- interpret-import [ast ctx]
   (let [path (:path ast)
-    name (:name ast)]
+        name (:name ast)]
     (if (contains? @ctx name)
       (throw (ex-info (str "Name " name " is alrady bound") {}))
-  (let [result  ;; TODO: add any error handling at all   
-    (-> path
-          (slurp)
-          (scanner/scan)
-          (parser/parse)
-          (interpret))]
-    (vswap! ctx update-ctx {name result})
-    result ;; TODO: test this!
-    ))))
+      (let [result  ;; TODO: add any error handling at all   
+            (-> path
+              (slurp)
+              (scanner/scan)
+              (parser/parse)
+              (interpret))]
+        (vswap! ctx update-ctx {name result})
+        result ;; TODO: test this!
+        ))))
+
+(defn- interpret-ref [ast ctx]
+  (let [name (:name ast) expr (:expr ast)]
+    (if (contains? @ctx name)
+      (throw (ex-info (str "Name " name " is already bound") {})))
+    (let [value (interpret-ast expr ctx)
+          box (atom value)
+          ref {::data/ref true ::data/value box ::data/name name}]
+      (vswap! ctx update-ctx {name ref})
+      ref)))
 
 (defn interpret-ast [ast ctx]
   (case (::ast/type ast)
@@ -294,19 +304,21 @@
 
     ::ast/import (interpret-import ast ctx)
 
+    ::ast/ref (interpret-ref ast ctx)
+
     ::ast/block
     (let [exprs (:exprs ast)
-      inner (pop exprs)
-      last (peek exprs)
-      ctx (volatile! {::parent ctx})]
+          inner (pop exprs)
+          last (peek exprs)
+          ctx (volatile! {::parent ctx})]
       (run! #(interpret-ast % ctx) inner)
       (interpret-ast last ctx))
 
     ::ast/script
     (let [exprs (:exprs ast)
-      inner (pop exprs)
-      last (peek exprs)
-      ctx (volatile! prelude/prelude)]
+          inner (pop exprs)
+          last (peek exprs)
+          ctx (volatile! prelude/prelude)]
       (run! #(interpret-ast % ctx) inner)
       (interpret-ast last ctx))
 
@@ -346,23 +358,28 @@
       (pp/pprint (ex-data e))
       (System/exit 67))))
 
-(comment
+(defn interpret-safe [parsed]
+  (try 
+    (interpret-ast (::parser/ast parsed) {})
+    (catch clojure.lang.ExceptionInfo e
+      (println "Ludus panicked!")
+      (println (ex-message e))
+      (pp/pprint (ex-data e)))))
+
+(do
 
   (def source "
 
-    let foo = 2
-
-    match foo with {
-      1 -> :one
-      2 -> :two
-      else -> :oops
+    fn swap! (r, f) -> {
+      let val = deref (r)
+      let new = f (val)
+      set! (r, new)
     }
 
-    ns bar {
-      foo
-    }
+    ref foo = 0
 
-    bar :foo
+    swap! (foo, inc)
+    swap! (foo, inc)
 
     ")
 
@@ -374,7 +391,7 @@
   (-> source
     (scanner/scan)
     (parser/parse)
-    (interpret)
+    (interpret-safe)
     (pp/pprint)))
 
 (comment "
