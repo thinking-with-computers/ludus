@@ -1,6 +1,7 @@
 (ns ludus.prelude
   (:require
    [ludus.data :as data]
+   [ludus.interpreter :as interp]
    [ludus.show]))
 
 (def eq {:name "eq"
@@ -45,6 +46,22 @@
                     (println (apply str args))
                     :ok)})
 
+(def deref- {:name "deref"
+  ::data/type ::data/clj
+  :body (fn [ref] 
+    (if (::data/ref ref)
+      (deref (::data/value ref))
+      (throw (ex-info "Cannot deref something that is not a ref" {}))
+      ))})
+
+(def set!- {:name "set!"
+  ::data/type ::data/clj
+  :body (fn [ref value] 
+    (if (::data/ref ref)
+      (reset! (::data/value ref) value)
+      (throw (ex-info "Cannot set! something that is not a ref" {}))
+      ))})
+
 (declare show)
 
 (defn- show-vector [v]
@@ -66,4 +83,7 @@
               "inc" inc-
               "dec" dec-
               "not" not
-              "show" show})
+              "show" show
+              "deref" deref-
+              "set!" set!-
+              })
