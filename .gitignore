@@ -17,3 +17,4 @@ pom.xml.asc
 .clj-kondo/
 .cpcache/
 **/.DS_Store
+/sandbox
