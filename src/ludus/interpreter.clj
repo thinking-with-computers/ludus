@@ -248,9 +248,8 @@
                  {::data/struct true ::data/type ::data/ns ::data/name name}
                  (map-values #(interpret-ast % ctx))
                  members)]
-        (do
-          (vswap! ctx update-ctx {name ns})
-          ns)))))
+        (vswap! ctx update-ctx {name ns})
+        ns))))
 
 (defn- interpret-import [ast ctx]
   (let [path (:path ast)
@@ -276,6 +275,33 @@
           ref {::data/ref true ::data/value box ::data/name name}]
       (vswap! ctx update-ctx {name ref})
       ref)))
+
+(defn- interpret-loop [ast ctx]
+  (let [tuple (interpret-ast (:expr ast) ctx)
+        clauses (:clauses ast)]
+    (loop [input tuple]
+      (let [output (loop [clause (first clauses)
+                          clauses (rest clauses)]
+                     (if clause
+                       (let [pattern (:pattern clause)
+                             body (:body clause)
+                             new-ctx (volatile! {::parent ctx})
+                             match? (match pattern input new-ctx)
+                             success (:success match?)
+                             clause-ctx (:ctx match?)]
+                         (if success
+                           (do
+                             (vswap! new-ctx #(merge % clause-ctx))
+                             (interpret-ast body new-ctx))
+                           (recur (first clauses) (rest clauses))))
+      
+                       (throw (ex-info (str "Match Error: No match found in loop for " input) {}))))]
+        (if (::data/recur output)
+          (recur (:tuple output))
+          output
+          ))
+      ))
+  )
 
 (defn interpret-ast [ast ctx]
   (case (::ast/type ast)
@@ -305,6 +331,11 @@
     ::ast/import (interpret-import ast ctx)
 
     ::ast/ref (interpret-ref ast ctx)
+
+    ::ast/recur
+    {::data/recur true :tuple (interpret-ast (:tuple ast) ctx)}
+
+    ::ast/loop (interpret-loop ast ctx)
 
     ::ast/block
     (let [exprs (:exprs ast)
@@ -366,14 +397,9 @@
       (println (ex-message e))
       (pp/pprint (ex-data e)))))
 
-(do
+(comment
 
   (def source "
-
-    ref foo = nil
-    ref bar = nil
-
-    eq (foo, bar)
 
     ")
 
