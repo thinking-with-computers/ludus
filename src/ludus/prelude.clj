@@ -1,7 +1,6 @@
 (ns ludus.prelude
   (:require
    [ludus.data :as data]
-   [ludus.interpreter :as interp]
    [ludus.show]))
 
 (def eq {:name "eq"
