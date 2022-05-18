@@ -624,7 +624,7 @@
 (defn- parse-loop [parser]
   (let [next (advance parser)]
     (if (= ::token/lparen (token-type next))
-    (let [loop-tup (parse-tuple (advance next))
+    (let [loop-tup (parse-tuple next)
           loop-header (expect* #{::token/with} "Expected with" loop-tup)]
       (if (:success loop-header)
         (let [clauses (:parser loop-header)]
@@ -647,7 +647,7 @@
 (defn- parse-recur [parser]
   (let [next (advance parser)]
     (if (= ::token/lparen (token-type next))
-      (let [tuple (parse-tuple (advance next))]
+      (let [tuple (parse-tuple next)]
         (assoc tuple ::ast {::ast/type ::ast/recur
                             :tuple (::ast tuple)})
         )
@@ -655,7 +655,6 @@
       )
     )
   )
-
 
 (defn- parse-cond-clause [parser]
   (let [expr (if 
@@ -878,7 +877,7 @@
     (parser)
     (parse-script)))
 
-(comment
+(do
   (def pp pp/pprint)
   (def source "loop (10) with {
     (0) -> print (:boom)
