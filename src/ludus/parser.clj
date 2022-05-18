@@ -878,7 +878,7 @@
     (parser)
     (parse-script)))
 
-(do
+(comment
   (def pp pp/pprint)
   (def source "loop (10) with {
     (0) -> print (:boom)
