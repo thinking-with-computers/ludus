@@ -12,17 +12,20 @@
 
 (defn- show-map [v]
   (cond
-  	(or (= (::data/type v) ::data/fn)
-  		(= (::data/type v) ::data/clj))
-	(str "fn " (:name v))
+    (or (= (::data/type v) ::data/fn)
+      (= (::data/type v) ::data/clj))
+    (str "fn " (:name v))
 
     (= (::data/type v) ::data/ns)
     (str "ns " (::data/name v) " {"
-    	(apply str (into [] show-keyed (dissoc v ::data/struct ::data/type ::data/name)))
-    	"}")
+      (apply str (into [] show-keyed (dissoc v ::data/struct ::data/type ::data/name)))
+      "}")
 
     (::data/struct v) 
     (str "@{" (apply str (into [] show-keyed (dissoc v ::data/struct))) "}")
+
+    (::data/ref v) ;; TODO: reconsider this
+    (str "ref:" (::data/name v) " <" (deref (::data/value v))">")
 
     :else
     (str "#{" (apply str (into [] show-keyed v)) "}")
