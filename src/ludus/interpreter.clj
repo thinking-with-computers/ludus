@@ -370,16 +370,10 @@
 
   (def source "
 
-    fn swap! (r, f) -> {
-      let val = deref (r)
-      let new = f (val)
-      set! (r, new)
-    }
+    ref foo = nil
+    ref bar = nil
 
-    ref foo = 0
-
-    swap! (foo, inc)
-    swap! (foo, inc)
+    eq (foo, bar)
 
     ")
 
