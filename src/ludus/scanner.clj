@@ -1,16 +1,16 @@
 (ns ludus.scanner
   (:require
-   [ludus.token :as token]
-   [clojure.pprint :as pp]
-   [clojure.edn :as edn]
-   [clojure.string :as s]))
+    [ludus.token :as token]
+    [clojure.pprint :as pp]
+    [clojure.edn :as edn]
+    [clojure.string :as s]))
 
 (def reserved-words
   "List of Ludus reserved words."
   ;; see ludus-spec repo for more info
-  {"as" ::token/as
+  {
+   "as" ::token/as ;; impl for `import`; not yet for patterns
    "cond" ::token/cond ;; impl
-   "data" ::token/data
    "do" ::token/do ;; impl
    "else" ::token/else ;; impl
    "false" ::token/false ;; impl
@@ -23,21 +23,28 @@
    "nil" ::token/nil ;; impl
    "ns" ::token/ns ;; impl
    "recur" ::token/recur
-   "ref" ::token/ref
+   "ref" ::token/ref ;; impl
    "then" ::token/then ;; impl
    "true" ::token/true ;; impl
    "with" ::token/with ;; impl
    ;; below here, probable
-   "defer" ::token/defer
-   "gen" ::token/gen
-   "mut" ::token/mut
+   "data" ::token/data
+   "receive" ::token/receive
    "repeat" ::token/repeat
+   "self" ::token/self
+   "send" ::token/send
+   "spawn" ::token/spawn
    "test" ::token/test
+   "to" ::token/to
+   "when" ::token/when
+   ;; below here, possible
+   "gen" ::token/gen
+   "defer" ::token/defer
+   "mut" ::token/mut
    "var" ::token/var
    "wait" ::token/wait
    "yield" ::token/yield
-   ;; below here, possible
-   "when" ::token/when})
+   })
 
 (defn- new-scanner
   "Creates a new scanner."
@@ -76,8 +83,8 @@
 
 (defn- char-in-range? [start end char]
   (and char
-       (>= (int char) (int start))
-       (<= (int char) (int end))))
+    (>= (int char) (int start))
+    (<= (int char) (int end))))
 
 (defn- digit? [c]
   (char-in-range? \0 \9 c))
@@ -110,27 +117,27 @@
    (add-token scanner token-type nil))
   ([scanner token-type literal]
    (update scanner ::tokens conj
-           (token/token
-            token-type
-            (current-lexeme scanner)
-            literal
-            (::line scanner)
-            (::start scanner)))))
+     (token/token
+       token-type
+       (current-lexeme scanner)
+       literal
+       (::line scanner)
+       (::start scanner)))))
 
 ;; TODO: errors should also be in the vector of tokens
 ;; The goal is to be able to be able to hand this to an LSP?
 ;; Do we need a different structure
 (defn- add-error [scanner msg]
   (let [token (token/token
-               ::token/error
-               (current-lexeme scanner)
-               nil
-               (::line scanner)
-               (::start scanner))
+                ::token/error
+                (current-lexeme scanner)
+                nil
+                (::line scanner)
+                (::start scanner))
         err-token (assoc token :message msg)]
     (-> scanner
-        (update ::errors conj err-token)
-        (update ::tokens conj err-token))))
+      (update ::errors conj err-token)
+      (update ::tokens conj err-token))))
 
 (defn- add-keyword
   [scanner]
@@ -205,8 +212,8 @@
       (if (= \newline char)
         (update scanner ::line inc)
         ;;(if (s/starts-with? comm "&&&")
-          ;;(add-token (update scanner ::line inc) ::token/docstring)
-          ;;(add-token (update scanner ::line inc) ::token/comment))
+        ;;(add-token (update scanner ::line inc) ::token/docstring)
+        ;;(add-token (update scanner ::line inc) ::token/comment))
         (recur (advance scanner) (str comm char))))))
 
 (defn- scan-token [scanner]
@@ -264,8 +271,8 @@
 
       ;; struct @{
       \@ (if (= next \{)
-            (add-token (advance scanner) ::token/startstruct)
-            (add-error scanner (str "Expected beginning of struct: @{. Got " char next)))
+           (add-token (advance scanner) ::token/startstruct)
+           (add-error scanner (str "Expected beginning of struct: @{. Got " char next)))
 
       ;; placeholders
       ;; there's a flat _, and then ignored words
