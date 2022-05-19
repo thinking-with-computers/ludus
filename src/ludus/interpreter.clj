@@ -78,7 +78,7 @@
         success (:success match)]
     (if success
       (vswap! ctx update-ctx (:ctx match))
-      (throw (ex-info (:reason match) {})))
+      (throw (ex-info (:reason match) {:ast ast})))
     value))
 
 (defn- interpret-if [ast ctx]
@@ -198,8 +198,8 @@
         (if (contains? prev-value (:value curr))
           (get prev-value (:value curr))
           (if (= (::data/type prev-value) ::data/ns) 
-            (throw (ex-info (str "Namespace error: no member " (:value curr) " in ns " (::data/name prev-value)) {})) 
-            (throw (ex-info (str "Struct error: no member " (:value curr)) {}))))
+            (throw (ex-info (str "Namespace error: no member " (:value curr) " in ns " (::data/name prev-value)) {:ast curr})) 
+            (throw (ex-info (str "Struct error: no member " (:value curr)) {:ast curr}))))
         (get prev-value (:value curr)))
       (call-fn prev-value (interpret-ast curr ctx) ctx))))
 
@@ -406,22 +406,9 @@
 
   (def source "
 
-    let mytest = {
-      fn even {
-        (0) -> true
-        (n) -> odd (dec (n))
-      }
+    let :foo = :bar
 
-      fn odd {
-        (0) -> false
-        (n) -> even (dec (n))
-      }
-
-      @{odd, even}
-    }
-
-    mytest :odd (1)
-    mytest :even (955)
+    
 
     ")
 
