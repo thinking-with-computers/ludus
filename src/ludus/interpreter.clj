@@ -12,7 +12,7 @@
 ;; it's got runtime checking
 ;; we should be able to do these checks statically
 ;; that's for later, tho
-(defn- resolve-word[word ctx-vol]
+(defn- resolve-word [word ctx-vol]
   (let [ctx @ctx-vol]
     (if (contains? ctx word)
       (get ctx word)
@@ -405,9 +405,22 @@
 
   (def source "
 
-    let foo = :bar
+    let mytest = {
+      fn even {
+        (0) -> true
+        (n) -> odd (dec (n))
+      }
 
-    fn foof () -> panic! (:oops)
+      fn odd {
+        (0) -> false
+        (n) -> even (dec (n))
+      }
+
+      @{odd, even}
+    }
+
+    mytest :odd (1)
+    mytest :even (955)
 
     ")
 
