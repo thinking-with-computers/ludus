@@ -211,7 +211,7 @@
         ::token/rbracket (let [ms (add-member members current_member)]
                            (assoc (advance parser) ::ast
                              {::ast/type ::ast/list
-                              :token origin
+                              :token (current origin)
                               :members ms}))
 
         (::token/comma ::token/newline)
