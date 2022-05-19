@@ -74,7 +74,7 @@
 
 (def prelude {"eq" eq
               "add" add
-              "panic!" panic!
+              ;;"panic!" panic!
               "print" print-
               "sub" sub
               "mult" mult
