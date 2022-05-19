@@ -63,7 +63,7 @@
 
       ::ast/tuple (match-tuple pattern value ctx-vol)
 
-      (throw (ex-info "Unknown pattern" {:pattern pattern})))))
+      (throw (ex-info "Unknown pattern on line " {:pattern pattern})))))
 
 (defn- update-ctx [ctx new-ctx]
   (merge ctx new-ctx))
@@ -108,14 +108,14 @@
               (vswap! new-ctx #(merge % clause-ctx))
               (interpret-ast body new-ctx))
             (recur (first clauses) (rest clauses))))
-        (throw (ex-info "Match Error: No match found" {}))))))
+        (throw (ex-info "Match Error: No match found" {:ast ast}))))))
 
 (defn- interpret-cond [ast ctx]
   (let [clauses (:clauses ast)]
     (loop [clause (first clauses)
            clauses (rest clauses)]
       (if (not clause)
-        (throw (ex-info "Cond Error: No match found" {}))
+        (throw (ex-info "Cond Error: No match found" {:ast ast}))
         (let [test-expr (:test clause)
               body (:body clause)
               truthy? (boolean (interpret-ast test-expr ctx))]
@@ -130,15 +130,15 @@
 (defn- interpret-called-kw [kw tuple ctx]
   ;; TODO: check this statically
   (if (not (= 1 (:length tuple)))
-    (throw (ex-info "Called keywords must be unary" {}))
+    (throw (ex-info "Called keywords must be unary" {:ast kw}))
     (let [kw (interpret-ast kw ctx)
           map (second (interpret-ast tuple ctx))]
       (if (::data/struct map)
         (if (contains? map kw)
           (kw map)
           (if (= (::data/type map) ::data/ns)
-            (throw (ex-info (str "Namespace error: no member " kw " in ns " (::data/name map)) {}))
-            (throw (ex-info (str "Struct error: no member at " kw) {}))))
+            (throw (ex-info (str "Namespace error: no member " kw " in ns " (::data/name map)) {:ast kw}))
+            (throw (ex-info (str "Struct error: no member at " kw) {:ast kw}))))
         (get map kw))
       )))
 
@@ -173,7 +173,7 @@
                 (interpret-ast body fn-ctx))
               (recur (first clauses) (rest clauses))))
 
-          (throw (ex-info "Match Error: No match found" {:fn-name (:name lfn)})))))
+          (throw (ex-info "Match Error: No match found" {:ast (:ast lfn)})))))
 
     (keyword? lfn)
     (if (= 2 (count tuple))
@@ -182,14 +182,14 @@
           (if (contains? target kw)
             (kw target)
             (if (= (::data/type target) ::data/ns)
-              (throw (ex-info (str "Namespace error: no member " kw " in ns" (::data/name target)) {}))
-              (throw (ex-info (str "Struct error: no member at " kw) {}))
+              (throw (ex-info (str "Namespace error: no member " kw " in ns" (::data/name target)) {:ast kw}))
+              (throw (ex-info (str "Struct error: no member at " kw) {:ast kw}))
               )
             )
           (kw target)))
-      (throw (ex-info "Called keywords take a single argument" {})))
+      (throw (ex-info "Called keywords take a single argument" {:ast lfn})))
 
-    :else (throw (ex-info "I don't know how to call that" {:fn lfn}))))
+    :else (throw (ex-info "I don't know how to call that" {:ast lfn}))))
 
 (defn- interpret-synthetic-term [prev-value curr ctx]
   (let [type (::ast/type curr)]
@@ -220,6 +220,7 @@
     (if (= name ::ast/anon)
       {::data/type ::data/fn
        :name name
+       :ast ast
        :clauses clauses
        :ctx ctx}
       (let [fn {::data/type ::data/fn
@@ -227,7 +228,7 @@
                 :clauses clauses
                 :ctx ctx}]
         (if (contains? @ctx name)
-          (throw (ex-info (str "Name " name " is already bound") {}))
+          (throw (ex-info (str "Name " name " is already bound") {:ast ast}))
           (do
             (vswap! ctx update-ctx {name fn})
             fn))))))
@@ -247,7 +248,7 @@
   (let [members (:members ast) 
         name (:name ast)]
     (if (contains? @ctx name)
-      (throw (ex-info (str "ns name " name " is already bound") {}))
+      (throw (ex-info (str "ns name " name " is already bound") {:ast ast}))
       (let [ns (into
                  {::data/struct true ::data/type ::data/ns ::data/name name}
                  (map-values #(interpret-ast % ctx))
@@ -273,7 +274,7 @@
 (defn- interpret-ref [ast ctx]
   (let [name (:name ast) expr (:expr ast)]
     (if (contains? @ctx name)
-      (throw (ex-info (str "Name " name " is already bound") {})))
+      (throw (ex-info (str "Name " name " is already bound") {:ast ast})))
     (let [value (interpret-ast expr ctx)
           box (atom value)
           ref {::data/ref true ::data/value box ::data/name name}]
@@ -299,7 +300,7 @@
                              (interpret-ast body new-ctx))
                            (recur (first clauses) (rest clauses))))
       
-                       (throw (ex-info (str "Match Error: No match found in loop for " input) {}))))]
+                       (throw (ex-info (str "Match Error: No match found in loop for " input) {:ast ast}))))]
         (if (::data/recur output)
           (recur (:tuple output))
           output
@@ -382,7 +383,7 @@
     (let [members (:members ast)]
       (into {::data/struct true} (map-values #(interpret-ast % ctx)) members))
 
-    (throw (ex-info "Unknown AST node type" {:node ast}))))
+    (throw (ex-info "Unknown AST node type" {:ast ast}))))
 
 (defn interpret [parsed]
   (try 
