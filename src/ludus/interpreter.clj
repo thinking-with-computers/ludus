@@ -43,6 +43,28 @@
                     (recur (dec i) (merge ctx (:ctx match?)))
                     {:success false :reason (str "Could not match " pattern " with " value)})))))))
 
+(defn- match-list [pattern value ctx-vol]
+  (cond
+    (not (vector? value)) {:success false :reason "Could not match non-list value to list"}
+
+    (= ::data/tuple (first value)) {:success false :reason "Could not match tuple value to list pattern"}
+
+    ;; TODO: fix this with splats
+    (not (= (count (:members pattern)) (count value)))
+    {:success false :reason "Cannot match lists of different lengths"}
+
+    (= 0 (count (:members pattern)) (count value)) {:success true :ctx {}}
+
+    :else (let [members (:members pattern)]
+            (loop [i (dec (count members))
+                   ctx {}]
+              (if (> 0 i)
+                {:success true :ctx ctx}
+                (let [match? (match (nth members i) (nth value i) ctx-vol)]
+                  (if (:success match?)
+                    (recur (dec i) (merge ctx (:ctx match?)))
+                    {:success false :reason (str "Could not match " pattern " with " value)})))))))
+
 (defn- match [pattern value ctx-vol]
   (let [ctx @ctx-vol]
     (case (::ast/type pattern)
@@ -62,6 +84,8 @@
           {:success true :ctx {word value}}))
 
       ::ast/tuple (match-tuple pattern value ctx-vol)
+
+      ::ast/list (match-list pattern value ctx-vol)
 
       (throw (ex-info "Unknown pattern on line " {:pattern pattern})))))
 
@@ -407,10 +431,13 @@
       (println (ex-message e))
       (pp/pprint (ex-data e)))))
 
-(comment
+(do
 
   (def source "
 
+    let [1, 2, x] = [1, 2, 3]
+
+    x
 
     ")
 
