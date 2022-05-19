@@ -405,37 +405,9 @@
 
   (def source "
 
-    fn swap! (rf, f) -> {
-      let val = deref (rf)
-      let new = f (val)
-      set! (rf, new)
-    }
+    let foo = :bar
 
-    let counter = {
-      ref i = 0
-
-      fn next () -> {
-        let n = deref (i)
-        if eq (n, 3)
-          then (:done, nil)
-          else {
-            swap! (i, inc)
-            (:value, n)
-          }
-      }
-
-      ns Counter {next}
-    }
-
-    print (counter :next ())
-    print (counter :next ())
-    print (counter :next ())
-    print (counter :next ())
-    print (counter :next ())
-
-    let foo = nil
-
-    counter
+    fn foof () -> panic! (:oops)
 
     ")
 
