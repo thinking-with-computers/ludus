@@ -27,8 +27,11 @@
     (::data/ref v) ;; TODO: reconsider this
     (str "ref:" (::data/name v) " <" (deref (::data/value v))">")
 
+    (::data/hashmap v)
+    (str "#{" (apply str (into [] show-keyed (dissoc v ::data/hashmap))) "}")
+
     :else
-    (str "#{" (apply str (into [] show-keyed v)) "}")
+    (pp/pprint v)
 
     ))
 

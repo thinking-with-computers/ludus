@@ -65,6 +65,16 @@
                     (recur (dec i) (merge ctx (:ctx match?)))
                     {:success false :reason (str "Could not match " pattern " with " value)})))))))
 
+(defn- match-hashmap [pattern value ctx-vol]
+  (cond
+    (not (map? value))
+    {:success false :reason "Could not match non-hashmap value to hashmap pattern"}
+
+    (not)
+
+    )
+  )
+
 (defn- match [pattern value ctx-vol]
   (let [ctx @ctx-vol]
     (case (::ast/type pattern)
@@ -406,7 +416,7 @@
 
     ::ast/hash
     (let [members (:members ast)]
-      (into {} (map-values #(interpret-ast % ctx)) members))
+      (into {::data/hashmap true} (map-values #(interpret-ast % ctx)) members))
 
     ::ast/struct
     (let [members (:members ast)]
@@ -435,9 +445,7 @@
 
   (def source "
 
-    let [1, 2, x] = [1, 2, 3]
 
-    x
 
     ")
 
@@ -451,7 +459,8 @@
     (parser/parse)
     (interpret-safe)
     (show/show)
-    (println)))
+    ;;(println)
+    ))
 
 (comment "
 
