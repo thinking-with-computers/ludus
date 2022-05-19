@@ -5,6 +5,7 @@
     [ludus.ast :as ast]
     [ludus.prelude :as prelude]
     [ludus.data :as data]
+    [ludus.show :as show]
     [clojure.pprint :as pp]))
 
 ;; right now this is not very efficient:
@@ -155,20 +156,21 @@
     (= (::data/type lfn) ::data/clj) (apply (:body lfn) (next tuple))
 
     (= (::data/type lfn) ::data/fn)
-    (let [clauses (:clauses lfn)]
+    (let [clauses (:clauses lfn)
+      closed-over (:ctx lfn)]
       (loop [clause (first clauses)
              clauses (rest clauses)]
         (if clause
           (let [pattern (:pattern clause)
                 body (:body clause)
-                new-ctx (volatile! {::parent ctx})
-                match? (match pattern tuple new-ctx)
+                fn-ctx (volatile! {::parent closed-over})
+                match? (match pattern tuple fn-ctx)
                 success (:success match?)
                 clause-ctx (:ctx match?)]
             (if success
               (do
-                (vswap! new-ctx #(merge % clause-ctx))
-                (interpret-ast body new-ctx))
+                (vswap! fn-ctx #(merge % clause-ctx))
+                (interpret-ast body fn-ctx))
               (recur (first clauses) (rest clauses))))
 
           (throw (ex-info "Match Error: No match found" {:fn-name (:name lfn)})))))
@@ -218,10 +220,12 @@
     (if (= name ::ast/anon)
       {::data/type ::data/fn
        :name name
-       :clauses clauses}
+       :clauses clauses
+       :ctx ctx}
       (let [fn {::data/type ::data/fn
                 :name name
-                :clauses clauses}]
+                :clauses clauses
+                :ctx ctx}]
         (if (contains? @ctx name)
           (throw (ex-info (str "Name " name " is already bound") {}))
           (do
@@ -397,9 +401,17 @@
       (println (ex-message e))
       (pp/pprint (ex-data e)))))
 
-(comment
+(do
 
   (def source "
+
+    let foo = {
+      let x = :f00
+
+      fn foo () -> x
+    }
+
+    foo ()
 
     ")
 
@@ -412,7 +424,8 @@
     (scanner/scan)
     (parser/parse)
     (interpret-safe)
-    (pp/pprint)))
+    (show/show)
+    (println)))
 
 (comment "
 
