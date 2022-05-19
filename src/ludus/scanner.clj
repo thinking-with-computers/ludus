@@ -22,6 +22,7 @@
    "match" ::token/match ;; impl
    "nil" ::token/nil ;; impl
    "ns" ::token/ns ;; impl
+   "panic!" ::token/ns
    "recur" ::token/recur ;; impl
    "ref" ::token/ref ;; impl
    "then" ::token/then ;; impl
