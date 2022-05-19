@@ -18,32 +18,40 @@
    "if" ::token/if ;; impl
    "import" ::token/import ;; impl
    "let" ::token/let ;; impl
-   "loop" ::token/loop
+   "loop" ::token/loop ;; impl
    "match" ::token/match ;; impl
    "nil" ::token/nil ;; impl
    "ns" ::token/ns ;; impl
-   "recur" ::token/recur
+   "recur" ::token/recur ;; impl
    "ref" ::token/ref ;; impl
    "then" ::token/then ;; impl
    "true" ::token/true ;; impl
    "with" ::token/with ;; impl
+
    ;; below here, probable
-   "data" ::token/data
+   ;; actor model/concurrency
    "receive" ::token/receive
-   "repeat" ::token/repeat
    "self" ::token/self
    "send" ::token/send
    "spawn" ::token/spawn
-   "test" ::token/test
    "to" ::token/to
+   ;; type system
+   "data" ::token/data 
+   ;; others
+   "repeat" ::token/repeat ;; syntax sugar over "loop"
+   "test" ::token/test
    "when" ::token/when
-   ;; below here, possible
+   
+   ;; below here, possibly not
+   ;; generators (sugar over actors?)
    "gen" ::token/gen
+   "yield" ::token/yield
+   ;; event loop/concurrency
    "defer" ::token/defer
+   "wait" ::token/wait
+   ;; vars
    "mut" ::token/mut
    "var" ::token/var
-   "wait" ::token/wait
-   "yield" ::token/yield
    })
 
 (defn- new-scanner
