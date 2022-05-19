@@ -143,6 +143,7 @@
                            {::ast/type ::ast/tuple
                             :length (count ms)
                             :members ms
+                            :token (current origin)
                             :partial (contains-placeholder? ms)}))
 
         (::token/comma ::token/newline)
@@ -160,7 +161,7 @@
             members
             (panic parser "Partially applied functions must be unary. (Only one placeholder allowed in partial application.)" curr))
           (recur
-            (advance parser) members {::ast/type ::ast/placeholder}))
+            (advance parser) members {::ast/type ::ast/placeholder :token curr}))
 
         ::token/eof
         (panic (assoc origin ::errors (::errors parser)) "Unterminated tuple" ::token/eof)
@@ -177,6 +178,7 @@
         ::token/rparen (let [ms (add-member members current_member)]
                          (assoc (advance parser) ::ast
                            {::ast/type ::ast/tuple
+                            :token (current origin)
                             :length (count ms)
                             :members ms}))
 
@@ -209,6 +211,7 @@
         ::token/rbracket (let [ms (add-member members current_member)]
                            (assoc (advance parser) ::ast
                              {::ast/type ::ast/list
+                              :token origin
                               :members ms}))
 
         (::token/comma ::token/newline)
@@ -234,6 +237,7 @@
         ::token/rbrace (let [ms (add-member members current_member)]
                          (assoc (advance parser) ::ast
                            {::ast/type ::ast/set
+                            :token (current origin)
                             :members ms}))
 
         (::token/comma ::token/newline)
@@ -259,6 +263,7 @@
         ::token/rbrace (let [ms (add-member members current_member)]
                          (assoc (advance parser) ::ast
                            {::ast/type ::ast/hash
+                            :token (current origin)
                             :members ms}))
 
         (::token/comma ::token/newline)
@@ -293,6 +298,7 @@
         ::token/rbrace (let [ms (add-member members current_member)]
                          (assoc (advance parser) ::ast
                            {::ast/type ::ast/struct
+                            :token (current origin)
                             :members ms}))
 
         (::token/comma ::token/newline)
@@ -335,6 +341,7 @@
             ::token/rbrace (let [ms (add-member members current_member)]
                              (assoc (advance parser) ::ast
                                {::ast/type ::ast/ns
+                                :token (current ns-root)
                                 :name (get-in (parse-word (advance ns-root)) [::ast :word])
                                 :members ms}))
 
@@ -372,6 +379,7 @@
           (if (empty? es)
             (advance (panic parser "Blocks must have at least one expression"))
             (assoc (advance parser) ::ast {::ast/type ::ast/block
+                                           :token (current origin)
                                            :exprs es})))
 
         (::token/semicolon ::token/newline)
@@ -391,8 +399,8 @@
                 (parse-expr parser))]
           (recur parsed exprs (::ast parsed)))))))
 
-(defn parse-script [parser]
-  (loop [parser (accept-many #{::token/newline ::token/semicolon} parser)
+(defn parse-script [origin]
+  (loop [parser (accept-many #{::token/newline ::token/semicolon} origin)
          exprs []
          current_expr nil]
     (case (token-type parser)
@@ -400,7 +408,8 @@
       (let [es (add-member exprs current_expr)]
         (if (empty? es)
           (panic parser "Scripts must have at least one expression")
-          (assoc parser ::ast {::ast/type ::ast/script :exprs es})))
+          (assoc parser ::ast {::ast/type ::ast/script 
+                               :token (current origin) :exprs es})))
 
       (::token/semicolon ::token/newline)
       (recur
@@ -431,13 +440,13 @@
         (let [parsed (parse-fn-tuple parser)]
           (recur parsed (conj terms (::ast parsed))))
 
-        (assoc parser ::ast {::ast/type ::ast/synthetic :terms terms})))))
+        (assoc parser ::ast {::ast/type ::ast/synthetic :token (current parser) :terms terms})))))
 
 (defn- parse-word [parser]
   (let [curr (current parser)]
     (-> parser
       (advance)
-      (assoc ::ast {::ast/type ::ast/word :word (::token/lexeme curr)}))))
+      (assoc ::ast {::ast/type ::ast/word :token (current parser) :word (::token/lexeme curr)}))))
 
 (def sync-pattern (s/union sync-on #{::token/equals ::token/rarrow}))
 
@@ -450,6 +459,7 @@
         ::token/rparen (let [ms (add-member members current_member)]
                          (assoc (advance parser) ::ast
                            {::ast/type ::ast/tuple
+                            :token (current origin)
                             :length (count ms)
                             :members ms}))
 
@@ -471,9 +481,10 @@
   (let [curr (current parser)
         type (::token/type curr)]
     (case type
-      (::token/placeholder ::token/ignored) (-> parser
-                                              (advance)
-                                              (assoc ::ast {::ast/type ::ast/placeholder}))
+      (::token/placeholder ::token/ignored) 
+      (-> parser
+        (advance)
+        (assoc ::ast {::ast/type ::ast/placeholder :token curr}))
 
       ::token/word (parse-word parser)
 
@@ -489,6 +500,7 @@
 (defn- parse-let-expr [parser pattern]
   (let [expr (parse-expr parser)]
     (assoc expr ::ast {::ast/type ::ast/let
+                       :token (current parser)
                        :pattern (::ast pattern) :expr (::ast expr)})))
 
 (defn- parse-assignment [parser]
@@ -505,6 +517,7 @@
 (defn- parse-ref-expr [parser name]
   (let [expr (parse-expr parser)]
     (assoc expr ::ast {::ast/type ::ast/ref
+                       :token (current parser)
                        :name name :expr (::ast expr)})))
 
 (defn- parse-ref-assignment [parser name]
@@ -545,17 +558,18 @@
 
 (defn- parse-if [parser]
   (let [if-expr (parse-expr (advance parser) #{::token/newline ::token/then})
-        ast (assoc if-expr ::ast {::ast/type ::ast/if :if (::ast if-expr)})]
+        ast (assoc if-expr ::ast {::ast/type ::ast/if :token (current parser) :if (::ast if-expr)})]
     (parse-then (accept ::token/newline ast))))
 
 (defn- parse-match-clause [parser]
   (let [pattern (if (= ::token/else (token-type parser))
-                  (-> parser (advance) (assoc ::ast {::ast/type ::ast/placeholder}))
+                  (-> parser (advance) (assoc ::ast {::ast/type ::ast/placeholder :token (current parser)}))
                   (parse-pattern parser))
         rarrow (expect* #{::token/rarrow} "Expected arrow after pattern" pattern)]
     (if (:success rarrow)
       (let [body (parse-expr (:parser rarrow))]
         (assoc body ::ast {::ast/type ::ast/clause
+                           :token (current parser)
                            :pattern (::ast pattern) :body (::ast body)}))
       (panic pattern "Expected -> in match clause. Clauses must be in the form pattern -> expression" #{::token/newline ::token/rbrace}))))
 
@@ -566,7 +580,7 @@
       (case (::token/type curr)
         ::token/rbrace
         (if (< 0 (count clauses))        
-          (assoc (advance parser) ::ast {::ast/type ::ast/clauses :clauses clauses})
+          (assoc (advance parser) ::ast {::ast/type ::ast/clauses :token (current parser) :clauses clauses})
           (panic parser "Expected one or more clauses" #{::rbrace}))
 
         ::token/newline
@@ -584,11 +598,13 @@
           ;; match expression with one or many clauses in braces
           (let [clauses (parse-match-clauses clauses)]
             (assoc clauses ::ast {::ast/type ::ast/match
+                                  :token (current parser)
                                   :expr (::ast match-expr)
                                   :clauses (get-in clauses [::ast :clauses])}))
           ;; match expression with single match clause
           (let [clause (parse-match-clause clauses)]
             (assoc clause ::ast {::ast/type ::ast/match
+                                 :token (current parser)
                                  :expr (::ast match-expr)
                                  :clauses [(::ast clause)]}))))
 
@@ -602,6 +618,7 @@
           body (parse-expr (:parser arrow))]
       (if (:success arrow)
         (assoc body ::ast {::ast/type ::ast/clause
+                           :token (current parser)
                            :pattern (::ast pattern) :body (::ast body)})
         (panic pattern "Expected -> in loop clause. Clauses must be in the form of (pattern) -> expression")))))
 
@@ -612,7 +629,7 @@
       (case (::token/type curr)
         ::token/rbrace
         (if (< 0 (count clauses))        
-          (assoc (advance parser) ::ast {::ast/type ::ast/clauses :clauses clauses})
+          (assoc (advance parser) ::ast {::ast/type ::ast/clauses :token (current parser) :clauses clauses})
           (panic parser "Expected one or more loop clauses" #{::token/rbrace}))
 
         ::token/newline
@@ -624,31 +641,34 @@
 (defn- parse-loop [parser]
   (let [next (advance parser)]
     (if (= ::token/lparen (token-type next))
-    (let [loop-tup (parse-tuple next)
-          loop-header (expect* #{::token/with} "Expected with" loop-tup)]
-      (if (:success loop-header)
-        (let [clauses (:parser loop-header)]
-          (if (= (token-type clauses) ::token/lbrace)
-            ;; loop expression with one or many clauses in braces
-            (let [clauses (parse-loop-clauses clauses)]
-              (assoc clauses ::ast {::ast/type ::ast/loop
-                                    :expr (::ast loop-tup)
-                                    :clauses (get-in clauses [::ast :clauses])}))
-            ;; loop expression with single match clause
-            (let [clause (parse-loop-clause clauses)]
-              (assoc clause ::ast {::ast/type ::ast/loop
-                                   :expr (::ast loop-tup)
-                                   :clauses [(::ast clause)]}))))
+      (let [loop-tup (parse-tuple next)
+            loop-header (expect* #{::token/with} "Expected with" loop-tup)]
+        (if (:success loop-header)
+          (let [clauses (:parser loop-header)]
+            (if (= (token-type clauses) ::token/lbrace)
+              ;; loop expression with one or many clauses in braces
+              (let [clauses (parse-loop-clauses clauses)]
+                (assoc clauses ::ast {::ast/type ::ast/loop
+                                      :token (current parser)
+                                      :expr (::ast loop-tup)
+                                      :clauses (get-in clauses [::ast :clauses])}))
+              ;; loop expression with single match clause
+              (let [clause (parse-loop-clause clauses)]
+                (assoc clause ::ast {::ast/type ::ast/loop
+                                     :token (current parser)
+                                     :expr (::ast loop-tup)
+                                     :clauses [(::ast clause)]}))))
   
-        (panic parser "Expected with after loop expression")))
+          (panic parser "Expected with after loop expression")))
       (panic parser "Expected tuple as loop expression")
-    )))
+      )))
 
 (defn- parse-recur [parser]
   (let [next (advance parser)]
     (if (= ::token/lparen (token-type next))
       (let [tuple (parse-tuple next)]
         (assoc tuple ::ast {::ast/type ::ast/recur
+                            :token (current parser)
                             :tuple (::ast tuple)})
         )
       (panic parser "Expected tuple after recur")
@@ -669,6 +689,7 @@
     (if (:success rarrow)
       (let [body (parse-expr (:parser rarrow))]
         (assoc body ::ast {::ast/type ::ast/clause
+                           :token (current parser)
                            :test (::ast expr) :body (::ast body)}))
       (panic expr "Expected -> in cond clause. Clauses must be in the form test_expression -> result_expression" #{::token/newline ::token/rbrace}))))
 
@@ -679,7 +700,7 @@
       (case (::token/type curr)
         ::token/rbrace
         (if (< 0 (count clauses))        
-          (assoc (advance parser) ::ast {::ast/type ::ast/clauses :clauses clauses})
+          (assoc (advance parser) ::ast {::ast/type ::ast/clauses :token (current parser) :clauses clauses})
           (panic parser "Expected one or more clauses" #{::rbrace}))
 
 
@@ -695,6 +716,7 @@
     (if (:success header)
       (let [clauses (parse-cond-clauses (:parser header))]
         (assoc clauses ::ast {::ast/type ::ast/cond
+                              :token (current parser)
                               :clauses (get-in clauses [::ast :clauses])})
         )
       (panic parser "Expected { after cond")
@@ -710,6 +732,7 @@
           body (parse-expr (:parser arrow))]
       (if (:success arrow)
         (assoc body ::ast {::ast/type ::ast/clause
+                           :token (current parser)
                            :pattern (::ast pattern) :body (::ast body)})
         (panic pattern "Expected -> in function clause. Clauses must be in the form of (pattern) -> expression")))))
 
@@ -720,7 +743,7 @@
       (case (::token/type curr)
         ::token/rbrace
         (if (< 0 (count clauses))        
-          (assoc (advance parser) ::ast {::ast/type ::ast/clauses :clauses clauses})
+          (assoc (advance parser) ::ast {::ast/type ::ast/clauses :token (current parser) :clauses clauses})
           (panic parser "Expected one or more function clauses" #{::token/rbrace}))
 
         ::token/newline
@@ -735,12 +758,14 @@
       ::token/lparen
       (let [clause (parse-fn-clause name)]
         (assoc clause ::ast {::ast/type ::ast/fn
+                             :token (current parser)
                              :name (get-in name [::ast :word])
                              :clauses [(::ast clause)]}))
 
       ::token/lbrace
       (let [clauses (parse-fn-clauses name)]
         (assoc clauses ::ast {::ast/type ::ast/fn
+                              :token (current parser)
                               :name (get-in name [::ast :word])
                               :clauses (get-in clauses [::ast :clauses])}))
 
@@ -753,6 +778,7 @@
       (let [clause (parse-fn-clause first)]
         (assoc clause ::ast {::ast/type ::ast/fn
                              :name ::ast/anon
+                             :token (current parser)
                              :clauses [(::ast clause)]}))
 
       ::token/word (parse-named-fn first)
@@ -769,6 +795,7 @@
         (if (= ::token/pipeline next)
           (recur (advance expr+newline) (conj exprs (::ast expr)))
           (assoc expr ::ast {::ast/type ::ast/pipeline
+                             :token (current parser)
                              :exprs (conj exprs (::ast expr))})
           )))))
 
@@ -794,6 +821,7 @@
 
       :else
       (assoc name ::ast {::ast/type ::ast/import
+                         :token (current parser)
                          :path (get-in path [::ast :value])
                          :name (get-in name [::ast :word])}))))
 
@@ -879,13 +907,7 @@
 
 (do
   (def pp pp/pprint)
-  (def source "loop (10) with {
-    (0) -> print (:boom)
-    (n) -> {
-      print (:tick)
-      recur (dec (n))
-    }
-  }
+  (def source "foo
 
   ")
   (def lexed (scanner/scan source))
