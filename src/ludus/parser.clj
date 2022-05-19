@@ -825,6 +825,11 @@
                          :path (get-in path [::ast :value])
                          :name (get-in name [::ast :word])}))))
 
+(defn- parse-panic [parser]
+  (let [expr (parse-expr (advance parser))]
+    (assoc expr ::ast {::ast/type ::ast/panic
+      :token (current parser) :expr (::ast expr)})))
+
 (defn- parse-expr
   ([parser] (parse-expr parser sync-on))
   ([parser sync-on]
@@ -885,6 +890,8 @@
 
        ::token/recur (parse-recur parser)
 
+       ::token/panic (parse-panic parser)
+
        ;; TODO: improve handling of comments?
        ;; Scanner now just skips comments
        ;; ::token/comment (advance parser)
@@ -907,7 +914,7 @@
 
 (do
   (def pp pp/pprint)
-  (def source "foo
+  (def source "panic! foo
 
   ")
   (def lexed (scanner/scan source))
