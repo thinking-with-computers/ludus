@@ -450,6 +450,106 @@
 
 (def sync-pattern (s/union sync-on #{::token/equals ::token/rarrow}))
 
+(defn- parse-list-pattern [origin]
+  (loop [parser (accept-many #{::token/newline ::token/comma} (advance origin))
+         members []
+         current_member nil]
+    (let [curr (current parser)]
+      (case (token-type parser)
+        ::token/rbracket (let [ms (add-member members current_member)]
+                           (assoc (advance parser) ::ast
+                             {::ast/type ::ast/list
+                              :token (current origin)
+                              :members ms}))
+
+        (::token/comma ::token/newline)
+        (recur
+          (accept-many #{::token/comma ::token/newline} parser)
+          (add-member members current_member) nil)
+
+        (::token/rbrace ::token/rparen)
+        (panic parser (str "Mismatched enclosure in list pattern: " (::token/lexeme curr)))
+
+        ::token/eof
+        (panic (assoc origin ::errors (::errors parser)) "Unterminated list pattern" ::token/eof)
+
+        (let [parsed (parse-pattern parser)]
+          (recur parsed members (::ast parsed)))))))
+
+(defn- parse-hash-pattern [origin]
+  (loop [parser (accept-many #{::token/newline ::token/comma} (advance origin))
+         members {}
+         current_member nil]
+    (let [curr (current parser)]
+      (case (token-type parser)
+        ::token/rbrace (let [ms (add-member members current_member)]
+                         (assoc (advance parser) ::ast
+                           {::ast/type ::ast/hash
+                            :token (current origin)
+                            :members ms}))
+
+        (::token/comma ::token/newline)
+        (recur
+          (accept-many #{::token/comma ::token/newline} parser)
+          (add-member members current_member) nil)
+
+        (::token/rbracket ::token/rparen)
+        (panic parser (str "Mismatched enclosure in hashmap pattern: " (::token/lexeme curr)))
+
+        ::token/eof
+        (panic (assoc origin ::errors (::errors parser)) "Unterminated hashmap pattern" ::token/eof)
+
+        ::token/word
+        (if (not current_member) 
+          (let [parsed (parse-word parser) word (get-in parsed [::ast :word])]
+            (recur parsed members {(keyword word) (::ast parsed)}))
+          (panic parser "Hashmap patterns may only include single words or keyword+pattern pairs." #{::token/rbrace}))
+
+        ::token/keyword
+        (if (not current_member) 
+          (let [kw (parse-atom parser) pattern (parse-pattern kw)]
+            (recur pattern members {(:value (::ast kw)) (::ast pattern)}))
+          (panic parser "Hashmap patterns may only include single words or keyword+pattern pairs." #{::token/rbrace}))
+
+        (panic parser "Hashmap patterns may only include single words or keyword+pattern pairs" #{::token/rbrace})))))
+
+(defn- parse-struct-pattern [origin]
+  (loop [parser (accept-many #{::token/newline ::token/comma} (advance origin))
+         members {}
+         current_member nil]
+    (let [curr (current parser)]
+      (case (token-type parser)
+        ::token/rbrace (let [ms (add-member members current_member)]
+                         (assoc (advance parser) ::ast
+                           {::ast/type ::ast/struct
+                            :token (current origin)
+                            :members ms}))
+
+        (::token/comma ::token/newline)
+        (recur
+          (accept-many #{::token/comma ::token/newline} parser)
+          (add-member members current_member) nil)
+
+        (::token/rbracket ::token/rparen)
+        (panic parser (str "Mismatched enclosure in struct pattern: " (::token/lexeme curr)))
+
+        ::token/eof
+        (panic (assoc origin ::errors (::errors parser)) "Unterminated struct pattern" ::token/eof)
+
+        ::token/word
+        (if (not current_member) 
+          (let [parsed (parse-word parser) word (get-in parsed [::ast :word])]
+            (recur parsed members {(keyword word) (::ast parsed)}))
+          (panic parser "Struct patterns may only include single words or keyword+pattern pairs." #{::token/rbrace}))
+
+        ::token/keyword
+        (if (not current_member) 
+          (let [kw (parse-atom parser) pattern (parse-pattern kw)]
+            (recur pattern members {(:value (::ast kw)) (::ast pattern)}))
+          (panic parser "Struct patterns may only include single words or keyword+pattern pairs." #{::token/rbrace}))
+
+        (panic parser "Struct patterns may only include single words or keyword+pattern pairs." #{::token/rbrace})))))
+
 (defn- parse-tuple-pattern [origin]
   (loop [parser (accept-many #{::token/newline ::token/comma} (advance origin))
          members []
@@ -491,6 +591,12 @@
       (::token/number ::token/string ::token/keyword) (parse-atom parser)
 
       ::token/lparen (parse-tuple-pattern parser)
+
+      ::token/lbracket (parse-list-pattern parser)
+
+      ::token/starthash (parse-hash-pattern parser)
+
+      ::token/startstruct (parse-struct-pattern parser)
 
       ::token/error
       (panic parser (:message (current parser)) sync-pattern)
@@ -828,7 +934,7 @@
 (defn- parse-panic [parser]
   (let [expr (parse-expr (advance parser))]
     (assoc expr ::ast {::ast/type ::ast/panic
-      :token (current parser) :expr (::ast expr)})))
+                       :token (current parser) :expr (::ast expr)})))
 
 (defn- parse-expr
   ([parser] (parse-expr parser sync-on))
@@ -912,9 +1018,11 @@
     (parser)
     (parse-script)))
 
-(do
+(comment
   (def pp pp/pprint)
-  (def source "panic! foo
+  (def source "
+
+    let #{foo, :bar 23, 34} = #{:foo 42, :bar 23}
 
   ")
   (def lexed (scanner/scan source))
