@@ -260,7 +260,7 @@
   (let [path (:path ast)
         name (:name ast)]
     (if (contains? @ctx name)
-      (throw (ex-info (str "Name " name " is alrady bound") {}))
+      (throw (ex-info (str "Name " name " is alrady bound") {:ast ast}))
       (let [result  ;; TODO: add any error handling at all   
             (-> path
               (slurp)
