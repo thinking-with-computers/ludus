@@ -1022,7 +1022,7 @@
   (def pp pp/pprint)
   (def source "
 
-    let #{foo, :bar 23, 34} = #{:foo 42, :bar 23}
+    let #{foo, :bar 23} = #{:foo 42, :bar 23}
 
   ")
   (def lexed (scanner/scan source))
