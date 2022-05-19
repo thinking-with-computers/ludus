@@ -308,6 +308,9 @@
       ))
   )
 
+(defn- panic [ast ctx]
+  (throw (ex-info (show/show (interpret-ast (:expr ast) ctx)) {:ast ast})))
+
 (defn interpret-ast [ast ctx]
   (case (::ast/type ast)
 
@@ -336,6 +339,8 @@
     ::ast/import (interpret-import ast ctx)
 
     ::ast/ref (interpret-ref ast ctx)
+
+    ::ast/panic (panic ast ctx)
 
     ::ast/recur
     {::data/recur true :tuple (interpret-ast (:tuple ast) ctx)}
@@ -406,8 +411,10 @@
 
   (def source "
 
-    let :foo = :bar
+    print (:foo)
+    print (:bar)
 
+    panic! \"well, shit\"
     
 
     ")
