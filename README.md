@@ -10,7 +10,7 @@ Pre-alpha, still under active development. See [the ludus-spec repo for progress
 
 ### Use
 * Clone this repo.
-	- `git clone https://github.com/thinking-with-computers/cludus`
+	- `git clone https://github.com/thinking-with-computers/ludus`
 * Have Clojure and Leiningen installed.
 	- On a Mac: `brew install clojure leiningen`
 * `lein run {script}`, it runs your script.
@@ -37,6 +37,22 @@ print ("Hello, world!")
 ```
 
 Or, you can use a the `print` function, which sends a string to `stdout`. Because `print` returns the keyword `:ok` when it completes, that is the result of the last expression in the script--and so Ludus also prints this.
+
+### Some code
+Fibonacci numbers:
+```
+& fibonacci!, with multi-clause fns/pattern matching
+
+fn fib {
+	(1) -> 1
+	(2) -> 1
+	(n) -> add (
+		fib (sub (n, 1))
+		fib (sub (n, 2)))
+}
+
+fib (10) &=> 55
+```
 
 ### More on Ludus
 Most of the (very active, somewhat messy) thinking about Ludus is housed in the [ludus-spec repository](https://github.com/thinking-with-computers/ludus-spec).
