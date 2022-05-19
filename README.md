@@ -14,7 +14,17 @@ Pre-alpha, still under active development. See [the ludus-spec repo for progress
 * Have Clojure and Leiningen installed.
 	- On a Mac: `brew install clojure leiningen`
 * `lein run {script}`, it runs your script.
-* Alternately, download a binary on the [releases page](https://github.com/thinking-with-computers/ludus/releases).
+* Alternately, soon you'll be able to download a binary on the [releases page](https://github.com/thinking-with-computers/ludus/releases).
+
+### Main features
+* Pattern matching
+* No operators: everything is called as a function
+* Persistent or immutable data structures
+
+#### Under construction
+* Actor model style concurrency
+* Strong nominal data typing, including tagged unions
+	- Exhaustiveness-checking in `match` expressions in dynamically-typed code
 
 ### `Hello, world!`
 Ludus is a scripting language. At current it does not have a REPL (our aim is to get interactive coding absolutely correct).
