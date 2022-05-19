@@ -214,7 +214,7 @@
                     (interpret-synthetic-term (interpret-ast first ctx) second ctx))]
     (reduce #(interpret-synthetic-term %1 %2 ctx) first-val rest)))
 
-(defn- interpret-fn [ast ctx]
+(defn- interpret-fn [ast ctx] ;; TODO: fix context/closure (no cycles)?
   (let [name (:name ast)
         clauses (:clauses ast)]
     (if (= name ::ast/anon)
@@ -401,7 +401,7 @@
       (println (ex-message e))
       (pp/pprint (ex-data e)))))
 
-(comment
+(do
 
   (def source "
 
@@ -424,7 +424,7 @@
           }
       }
 
-      @{next}
+      ns Counter {next}
     }
 
     print (counter :next ())
@@ -432,6 +432,10 @@
     print (counter :next ())
     print (counter :next ())
     print (counter :next ())
+
+    let foo = nil
+
+    counter
 
     ")
 
