@@ -401,17 +401,37 @@
       (println (ex-message e))
       (pp/pprint (ex-data e)))))
 
-(do
+(comment
 
   (def source "
 
-    let foo = {
-      let x = :f00
-
-      fn foo () -> x
+    fn swap! (rf, f) -> {
+      let val = deref (rf)
+      let new = f (val)
+      set! (rf, new)
     }
 
-    foo ()
+    let counter = {
+      ref i = 0
+
+      fn next () -> {
+        let n = deref (i)
+        if eq (n, 3)
+          then (:done, nil)
+          else {
+            swap! (i, inc)
+            (:value, n)
+          }
+      }
+
+      @{next}
+    }
+
+    print (counter :next ())
+    print (counter :next ())
+    print (counter :next ())
+    print (counter :next ())
+    print (counter :next ())
 
     ")
 
