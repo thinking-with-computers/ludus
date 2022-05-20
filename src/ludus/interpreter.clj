@@ -402,6 +402,29 @@
   (let [members (:members ast)]
     (into [] (reduce (list-term ctx) [] members))))
 
+(defn- set-term [ctx])
+
+(defn- interpret-set [ast ctx])
+
+(defn- hash-term [ctx]
+  #(if (= (::ast/type %2) ::ast/splat)
+    (let [splatted (interpret-ast (:expr %2) ctx)
+      splat-map? (and
+        (map? splatted)
+        (::data/hashmap splatted))]
+      (println "interpreting splat in hash")
+      (if splat-map?
+        (merge %1 splatted)
+        (throw (ex-info "Cannot splat non-hashmap into hashmap" {:ast %2}))))
+    (let [k (first %2) v (second %2)]
+      (assoc %1 k (interpret-ast v ctx)))))
+
+(defn- interpret-hash [ast ctx]
+  (let [members (:members ast)]
+    (assoc (reduce (hash-term ctx) {} members) ::data/hashmap true)
+    )
+  )
+
 (defn interpret-ast [ast ctx]
   (case (::ast/type ast)
 
@@ -469,9 +492,7 @@
     (let [members (:members ast)]
       (into #{} (map #(interpret-ast % ctx)) members))
 
-    ::ast/hash
-    (let [members (:members ast)]
-      (into {::data/hashmap true} (map-values #(interpret-ast % ctx)) members))
+    ::ast/hash (interpret-hash ast ctx)
 
     ::ast/struct
     (let [members (:members ast)]
@@ -500,10 +521,9 @@
 
   (def source "
 
-    let foo = #{:bar [1, 2]}
-    fn bar () -> [3, 4]
-
-    [...foo :bar, ...bar ()]
+    let foo = #{:a 1}
+    let bar = #{:b 2, ...foo}
+    let baz = #{...bar, :a -1}
 
     ")
 
