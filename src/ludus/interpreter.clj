@@ -388,15 +388,16 @@
   (throw (ex-info (show/show (interpret-ast (:expr ast) ctx)) {:ast ast})))
 
 (defn- list-term [ctx]
-  #(if (= (::ast/type %2) ::ast/splat)
-    (let [splatted (interpret-ast (:expr %2) ctx)
-      splat-list? (and
-        (vector? splatted)
-        (not (= (first splatted) ::data/tuple)))]
-      (if splat-list?
-        (concat %1 splatted)
-        (throw (ex-info "Cannot splat non-list into list" {:ast %2}))))
-    (concat %1 [(interpret-ast %2 ctx)])))
+  (fn [list member] 
+    (if (= (::ast/type member) ::ast/splat)
+      (let [splatted (interpret-ast (:expr member) ctx)
+        splat-list? (and
+          (vector? splatted)
+          (not (= (first splatted) ::data/tuple)))]
+        (if splat-list?
+          (concat list splatted)
+          (throw (ex-info "Cannot splat non-list into list" {:ast member}))))
+      (concat list [(interpret-ast member ctx)]))))
 
 (defn- interpret-list [ast ctx]
   (let [members (:members ast)]
@@ -407,16 +408,16 @@
 (defn- interpret-set [ast ctx])
 
 (defn- hash-term [ctx]
-  #(if (= (::ast/type %2) ::ast/splat)
-    (let [splatted (interpret-ast (:expr %2) ctx)
-      splat-map? (and
-        (map? splatted)
-        (::data/hashmap splatted))]
-      (if splat-map?
-        (merge %1 splatted)
-        (throw (ex-info "Cannot splat non-hashmap into hashmap" {:ast %2}))))
-    (let [k (first %2) v (second %2)]
-      (assoc %1 k (interpret-ast v ctx)))))
+  (fn [hash member] (if (= (::ast/type member) ::ast/splat)
+      (let [splatted (interpret-ast (:expr member) ctx)
+        splat-map? (and
+          (map? splatted)
+          (::data/hashmap splatted))]
+        (if splat-map?
+          (merge hash splatted)
+          (throw (ex-info "Cannot splat non-hashmap into hashmap" {:ast member}))))
+      (let [k (first member) v (second member)]
+        (assoc hash k (interpret-ast v ctx))))))
 
 (defn- interpret-hash [ast ctx]
   (let [members (:members ast)]
