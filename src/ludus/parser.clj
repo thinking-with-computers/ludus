@@ -259,6 +259,14 @@
         ::token/eof
         (panic (assoc origin ::errors (::errors parser)) "Unterminated set" ::token/eof)
 
+        ::token/splat
+        (let [splatted (parse-expr (advance parser))
+              splat-type (node-type splatted)]
+          (if (contains? #{::ast/word ::ast/synthetic} splat-type)
+            (recur splatted members {::ast/type ::ast/splat
+                                     :token curr :expr (::ast splatted)})
+            (panic parser "You may only splat words and synthetic expressions")))
+
         (let [parsed (parse-expr parser #{::token/comma ::token/newline ::token/rbrace})]
           (recur parsed members (::ast parsed)))))))
 
@@ -294,6 +302,14 @@
         (if (not current_member) (let [kw (parse-atom parser) expr (parse-expr kw #{::token/comma ::token/newline ::token/rbrace})]
                                    (recur expr members {(:value (::ast kw)) (::ast expr)}))
           (panic parser "Hashmap entries must be single words or keyword+expression pairs." #{::token/rbrace}))
+
+        ::token/splat
+        (let [splatted (parse-expr (advance parser))
+              splat-type (node-type splatted)]
+          (if (contains? #{::ast/word ::ast/synthetic} splat-type)
+            (recur splatted members {::ast/type ::ast/splat
+                                     :token curr :expr (::ast splatted)})
+            (panic parser "You may only splat words and synthetic expressions")))
 
         (panic parser "Hashmap entries must be single words or keyword+expression pairs" #{::token/rbrace})))))
 
@@ -1026,9 +1042,10 @@
     (parser)
     (parse-script)))
 
-(do
+(comment
   (def pp pp/pprint)
-  (def source "[...:c]
+  (def source "${a, b, ...c, d, ...e}
+    #{:a b,...d, :e f, ...g}
 
   ")
   (def lexed (scanner/scan source))
