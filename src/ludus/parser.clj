@@ -272,7 +272,7 @@
 
 (defn- parse-hash [origin]
   (loop [parser (accept-many #{::token/newline ::token/comma} (advance origin))
-         members {}
+         members []
          current_member nil]
     (let [curr (current parser)]
       (case (token-type parser)
@@ -294,13 +294,17 @@
         (panic (assoc origin ::errors (::errors parser)) "Unterminated hashmap" ::token/eof)
 
         ::token/word
-        (if (not current_member) (let [parsed (parse-word parser) word (get-in parsed [::ast :word])]
-                                   (recur parsed members {(keyword word) (::ast parsed)}))
+        (if (not current_member) 
+          (let [parsed (parse-word parser) 
+                word (get-in parsed [::ast :word])]
+            (recur parsed members [(keyword word) (::ast parsed)]))
           (panic parser "Hashmap entries must be single words or keyword+expression pairs." #{::token/rbrace}))
 
         ::token/keyword
-        (if (not current_member) (let [kw (parse-atom parser) expr (parse-expr kw #{::token/comma ::token/newline ::token/rbrace})]
-                                   (recur expr members {(:value (::ast kw)) (::ast expr)}))
+        (if (not current_member) 
+          (let [kw (parse-atom parser) 
+                expr (parse-expr kw #{::token/comma ::token/newline ::token/rbrace})]
+            (recur expr members [(:value (::ast kw)) (::ast expr)]))
           (panic parser "Hashmap entries must be single words or keyword+expression pairs." #{::token/rbrace}))
 
         ::token/splat
@@ -788,7 +792,7 @@
                                      :token (current parser)
                                      :expr (::ast loop-tup)
                                      :clauses [(::ast clause)]}))))
-  
+
           (panic parser "Expected with after loop expression")))
       (panic parser "Expected tuple as loop expression")
       )))
@@ -1042,12 +1046,11 @@
     (parser)
     (parse-script)))
 
-(comment
+(do
   (def pp pp/pprint)
-  (def source "${a, b, ...c, d, ...e}
-    #{:a b,...d, :e f, ...g}
+  (def source "let foo = #{:a 1,...b}
 
-  ")
+    ")
   (def lexed (scanner/scan source))
   (def tokens (:tokens lexed))
   (def p (parser tokens))
