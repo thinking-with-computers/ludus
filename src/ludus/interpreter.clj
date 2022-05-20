@@ -6,7 +6,8 @@
     [ludus.prelude :as prelude]
     [ludus.data :as data]
     [ludus.show :as show]
-    [clojure.pprint :as pp]))
+    [clojure.pprint :as pp]
+    [clojure.set]))
 
 ;; right now this is not very efficient:
 ;; it's got runtime checking
@@ -403,12 +404,23 @@
   (let [members (:members ast)]
     (into [] (reduce (list-term ctx) [] members))))
 
-(defn- set-term [ctx])
+(defn- set-term [ctx]
+  (fn [set member]
+    (if (= (::ast/type member) ::ast/splat)
+      (let [splatted (interpret-ast (:expr member) ctx)
+        splat-set? (set? splatted)]
+        (if splat-set?
+          (clojure.set/union set splatted)
+          (throw (ex-info "Cannot splat non-set into set" {:ast member}))))
+      (conj set (interpret-ast member ctx)))))
 
-(defn- interpret-set [ast ctx])
+(defn- interpret-set [ast ctx]
+  (let [members (:members ast)]
+    (reduce (set-term ctx) #{} members)))
 
 (defn- hash-term [ctx]
-  (fn [hash member] (if (= (::ast/type member) ::ast/splat)
+  (fn [hash member] 
+    (if (= (::ast/type member) ::ast/splat)
       (let [splatted (interpret-ast (:expr member) ctx)
         splat-map? (and
           (map? splatted)
@@ -489,8 +501,7 @@
     ::ast/list (interpret-list ast ctx)
 
     ::ast/set
-    (let [members (:members ast)]
-      (into #{} (map #(interpret-ast % ctx)) members))
+    (interpret-set ast ctx)
 
     ::ast/hash (interpret-hash ast ctx)
 
@@ -521,9 +532,8 @@
 
   (def source "
 
-    let foo = #{:a 1}
-    let bar = #{:b 2, ...foo}
-    let baz = #{...bar, :a -1}
+    fn foo () -> ${1, 2, 3}
+    let bar = ${1, ...foo (), 3}
 
     ")
 
