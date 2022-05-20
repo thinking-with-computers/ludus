@@ -70,10 +70,24 @@
     (not (map? value))
     {:success false :reason "Could not match non-hashmap value to hashmap pattern"}
 
-    (not)
+    (not (::data/hashmap value))
+    {:success false :reason "Cannot match non-hashmap data types a hashmap pattern"}
 
-    )
-  )
+    :else 
+    (let [members (:members pattern)
+          kws (keys members)]
+      (loop [i (dec (count kws)) ctx {}]
+        (if (> 0 i)
+          {:success true :ctx ctx}
+          (let [kw (nth kws i)]
+            (if (contains? value kw)
+              (let [match? (match (kw members) (kw value) ctx-vol)]
+                (if (:success match?)
+                  (recur (dec i) (merge ctx (:ctx match?)))
+                  {:success false :reason (str "Could not match " pattern " with " value " at key " kw)}
+                  ))
+              {:success false :reason (str "Could not match " pattern " with " value " at key " kw)}
+              )))))))
 
 (defn- match [pattern value ctx-vol]
   (let [ctx @ctx-vol]
@@ -96,6 +110,8 @@
       ::ast/tuple (match-tuple pattern value ctx-vol)
 
       ::ast/list (match-list pattern value ctx-vol)
+
+      ::ast/hash (match-hashmap pattern value ctx-vol)
 
       (throw (ex-info "Unknown pattern on line " {:pattern pattern})))))
 
@@ -445,7 +461,7 @@
 
   (def source "
 
-
+   let #{foo, bar} = @{:foo :bar, :bar nil}
 
     ")
 
