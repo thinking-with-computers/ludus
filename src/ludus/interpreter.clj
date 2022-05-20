@@ -487,9 +487,9 @@
 
   (def source "
 
-   let @{foo, bar} = @{:foo :bar, :bar nil, :baz 42}
+   let #{} = #{:foo :bar, :bar nil, :baz 42}
 
-   
+   let [] = []
 
     ")
 
