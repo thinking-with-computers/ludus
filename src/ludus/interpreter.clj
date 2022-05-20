@@ -387,6 +387,21 @@
 (defn- panic [ast ctx]
   (throw (ex-info (show/show (interpret-ast (:expr ast) ctx)) {:ast ast})))
 
+(defn- list-term [ctx]
+  #(if (= (::ast/type %2) ::ast/splat)
+    (let [splatted (interpret-ast (:expr %2) ctx)
+      splat-list? (and
+        (vector? splatted)
+        (not (= (first splatted) ::data/tuple)))]
+      (if splat-list?
+        (concat %1 splatted)
+        (throw (ex-info "Cannot splat non-list into list" {:ast %2}))))
+    (concat %1 [(interpret-ast %2 ctx)])))
+
+(defn- interpret-list [ast ctx]
+  (let [members (:members ast)]
+    (into [] (reduce (list-term ctx) [] members))))
+
 (defn interpret-ast [ast ctx]
   (case (::ast/type ast)
 
@@ -448,9 +463,7 @@
         [(if (:partial ast) ::data/partial ::data/tuple)] 
         (map #(interpret-ast % ctx)) members))
 
-    ::ast/list
-    (let [members (:members ast)]
-      (into [] (map #(interpret-ast % ctx)) members))
+    ::ast/list (interpret-list ast ctx)
 
     ::ast/set
     (let [members (:members ast)]
@@ -487,9 +500,10 @@
 
   (def source "
 
-   let #{} = #{:foo :bar, :bar nil, :baz 42}
+    let foo = #{:bar [1, 2]}
+    fn bar () -> [3, 4]
 
-   let [] = []
+    [...foo :bar, ...bar ()]
 
     ")
 
