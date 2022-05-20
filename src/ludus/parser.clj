@@ -225,6 +225,14 @@
         ::token/eof
         (panic (assoc origin ::errors (::errors parser)) "Unterminated list" ::token/eof)
 
+        ::token/splat
+        (let [splatted (parse-expr (advance parser))
+              splat-type (node-type splatted)]
+          (if (contains? #{::ast/word ::ast/synthetic} splat-type)
+            (recur splatted members {::ast/type ::ast/splat
+                                     :token curr :expr (::ast splatted)})
+            (panic parser "You may only splat words and synthetic expressions")))
+
         (let [parsed (parse-expr parser #{::token/comma ::token/newline ::token/rbracket})]
           (recur parsed members (::ast parsed)))))))
 
@@ -1018,11 +1026,9 @@
     (parser)
     (parse-script)))
 
-(comment
+(do
   (def pp pp/pprint)
-  (def source "
-
-    let #{foo, :bar 23} = #{:foo 42, :bar 23}
+  (def source "[...:c]
 
   ")
   (def lexed (scanner/scan source))
