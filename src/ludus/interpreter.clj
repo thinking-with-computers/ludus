@@ -412,7 +412,6 @@
       splat-map? (and
         (map? splatted)
         (::data/hashmap splatted))]
-      (println "interpreting splat in hash")
       (if splat-map?
         (merge %1 splatted)
         (throw (ex-info "Cannot splat non-hashmap into hashmap" {:ast %2}))))
