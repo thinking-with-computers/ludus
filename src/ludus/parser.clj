@@ -1046,7 +1046,7 @@
     (parser)
     (parse-script)))
 
-(do
+(comment
   (def pp pp/pprint)
   (def source "let foo = #{:a 1,...b}
 
