@@ -3,11 +3,13 @@
    [ludus.data :as data]
    [ludus.show]))
 
-(defn- id [x] x)
-
+;; TODO: make eq, and, or special forms that short-circuit
+;; Right now, they evaluate all their args
 (def eq {:name "eq"
          ::data/type ::data/clj
          :body =})
+
+(defn- id [x] x)
 
 (def and- {:name "and"
   ::data/type ::data/clj
