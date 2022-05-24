@@ -61,13 +61,6 @@
       (throw (ex-info "Cannot set! something that is not a ref" {}))
       ))})
 
-(declare show)
-
-(defn- show-vector [v]
-  (if (= (first v) ::data/tuple)
-    (str "(" (apply str (into [] (comp (map (:body show)) (interpose ", ")) (next v))) ")")
-    (str "[" (apply str (into [] (comp (map (:body show)) (interpose ", ")) v)) "]")))
-
 (def show {:name "show"
   ::data/type ::data/clj
   :body ludus.show/show})
