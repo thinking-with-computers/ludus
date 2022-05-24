@@ -2,8 +2,7 @@
   (:require
     [ludus.token :as token]
     [clojure.pprint :as pp]
-    [clojure.edn :as edn]
-    [clojure.string :as s]))
+    [clojure.edn :as edn]))
 
 (def reserved-words
   "List of Ludus reserved words."
