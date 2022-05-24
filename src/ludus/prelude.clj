@@ -3,9 +3,19 @@
    [ludus.data :as data]
    [ludus.show]))
 
+(defn- id [x] x)
+
 (def eq {:name "eq"
          ::data/type ::data/clj
          :body =})
+
+(def and- {:name "and"
+  ::data/type ::data/clj
+  :body (fn [&args] (every? id &args))})
+
+(def or- {:name "or"
+  ::data/type ::data/clj
+  :body (fn [&args] (some id &args))})
 
 (def add {:name "add"
           ::data/type ::data/clj
@@ -78,4 +88,6 @@
               "show" show
               "deref" deref-
               "set!" set!-
+              "and" and-
+              "or" or-
               })
