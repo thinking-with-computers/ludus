@@ -6,6 +6,7 @@
     [ludus.prelude :as prelude]
     [ludus.data :as data]
     [ludus.show :as show]
+    [ludus.loader :as loader]
     [clojure.pprint :as pp]
     [clojure.set]))
 
@@ -340,17 +341,17 @@
       (throw (ex-info (str "Name " name " is alrady bound") {:ast ast}))
       (let [result  ;; TODO: add any error handling at all   
             (-> path
-              (slurp)
+              (loader/load-import (resolve-word ::file ctx))
               (scanner/scan)
               (parser/parse)
-              (interpret))]
+              (interpret path))]
         (vswap! ctx update-ctx {name result})
         result ;; TODO: test this!
         ))))
 
 (defn- interpret-ref [ast ctx]
   (let [name (:name ast) expr (:expr ast)]
-    (if (contains? @ctx name)
+    (when (contains? @ctx name)
       (throw (ex-info (str "Name " name " is already bound") {:ast ast})))
     (let [value (interpret-ast expr ctx)
           box (atom value)
@@ -485,7 +486,7 @@
     (let [exprs (:exprs ast)
           inner (pop exprs)
           last (peek exprs)
-          ctx (volatile! prelude/prelude)]
+          ctx (volatile! (merge prelude/prelude ctx))]
       (run! #(interpret-ast % ctx) inner)
       (interpret-ast last ctx))
 
@@ -511,11 +512,12 @@
 
     (throw (ex-info "Unknown AST node type" {:ast ast}))))
 
-(defn interpret [parsed]
+(defn interpret [parsed file]
   (try 
-    (interpret-ast (::parser/ast parsed) {})
+    (interpret-ast (::parser/ast parsed) {::file file})
     (catch clojure.lang.ExceptionInfo e
-      (println "Ludus panicked!")
+      (println "Ludus panicked in" file)
+      (println "On line" (get-in e [:ast :token :line]))
       (println (ex-message e))
       (pp/pprint (ex-data e))
       (System/exit 67))))
