@@ -1,0 +1,15 @@
+{
+	"source": ["./target/ludus"],
+	"bundle_id": "dev.ludus.core",
+	"apple_id": {
+		"username": "s.richmond@utoronto.ca",
+		"password": "@keychain:Notary"
+	},
+	"sign": {
+		"application_identity": "9F27C69TKX"
+	},
+	"dmg": {
+		"output_path": "./target/ludus.dmg",
+		"volume_name": "Ludus"
+	}
+}
