@@ -487,8 +487,7 @@
     ::ast/script
     (let [exprs (:exprs ast)
           inner (pop exprs)
-          last (peek exprs)
-          ctx (volatile! (merge prelude/prelude ctx))]
+          last (peek exprs)]
       (run! #(interpret-ast % ctx) inner)
       (interpret-ast last ctx))
 
@@ -515,8 +514,9 @@
     (throw (ex-info "Unknown AST node type" {:ast ast}))))
 
 (defn interpret [parsed file]
-  (try 
-    (interpret-ast (::parser/ast parsed) {::file file})
+  (try
+    (let [base-ctx (volatile! (merge {:file file} prelude/prelude))]
+      (interpret-ast (::parser/ast parsed) base-ctx))
     (catch clojure.lang.ExceptionInfo e
       (println "Ludus panicked in" file)
       (println "On line" (get-in (ex-data e) [:ast :token ::token/line]))
@@ -526,12 +526,33 @@
 
 (defn interpret-safe [parsed]
   (try 
-    (interpret-ast (::parser/ast parsed) {})
+    (let [base-ctx (volatile! (merge {} prelude/prelude))]
+      (interpret-ast (::parser/ast parsed) base-ctx))
     (catch clojure.lang.ExceptionInfo e
       (println "Ludus panicked!")
       (println "On line" (get-in (ex-data e) [:ast :token ::token/line]))
       (println (ex-message e))
       (pp/pprint (ex-data e)))))
+
+(defn interpret-repl 
+  ([parsed] 
+    (let [base-ctx (volatile! (merge {} prelude/prelude))]
+      (try
+        (let [result (interpret-ast (::parser/ast parsed) base-ctx)]
+          {:result result :ctx base-ctx})
+        (catch clojure.lang.ExceptionInfo e
+          (println "Ludus panicked!")
+          (println (ex-message e))
+          {:result ::error :ctx base-ctx}))))
+  ([parsed ctx]
+    (let [orig-ctx @ctx]
+      (try
+        (let [result (interpret-ast (::parser/ast parsed) ctx)]
+          {:result result :ctx ctx})
+        (catch clojure.lang.ExceptionInfo e
+          (println "Ludus panicked!")
+          (println (ex-message e))
+          {:result ::error :ctx (volatile! orig-ctx)})))))
 
 (comment
 
