@@ -68,13 +68,13 @@
                     (recur (dec i) (merge ctx (:ctx match?)))
                     {:success false :reason (str "Could not match " pattern " with " value)})))))))
 
-(defn- match-hashmap [pattern value ctx-vol]
+(defn- match-dict [pattern value ctx-vol]
   (cond
     (not (map? value))
-    {:success false :reason "Could not match non-hashmap value to hashmap pattern"}
+    {:success false :reason "Could not match non-dict value to dict pattern"}
 
-    (not (::data/hashmap value))
-    {:success false :reason "Cannot match non-hashmap data types a hashmap pattern"}
+    (not (::data/dict value))
+    {:success false :reason "Cannot match non-dict data types a dict pattern"}
 
     :else 
     (let [members (:members pattern)
@@ -138,7 +138,7 @@
 
       ::ast/list (match-list pattern value ctx-vol)
 
-      ::ast/hash (match-hashmap pattern value ctx-vol)
+      ::ast/hash (match-dict pattern value ctx-vol)
 
       ::ast/struct (match-struct pattern value ctx-vol)
 
@@ -421,22 +421,22 @@
   (let [members (:members ast)]
     (reduce (set-term ctx) #{} members)))
 
-(defn- hash-term [ctx]
-  (fn [hash member] 
+(defn- dict-term [ctx]
+  (fn [dict member] 
     (if (= (::ast/type member) ::ast/splat)
       (let [splatted (interpret-ast (:expr member) ctx)
         splat-map? (and
           (map? splatted)
-          (::data/hashmap splatted))]
+          (::data/dict splatted))]
         (if splat-map?
-          (merge hash splatted)
-          (throw (ex-info "Cannot splat non-hashmap into hashmap" {:ast member}))))
+          (merge dict splatted)
+          (throw (ex-info "Cannot splat non-dict into dict" {:ast member}))))
       (let [k (first member) v (second member)]
-        (assoc hash k (interpret-ast v ctx))))))
+        (assoc dict k (interpret-ast v ctx))))))
 
-(defn- interpret-hash [ast ctx]
+(defn- interpret-dict [ast ctx]
   (let [members (:members ast)]
-    (assoc (reduce (hash-term ctx) {} members) ::data/hashmap true)
+    (assoc (reduce (dict-term ctx) {} members) ::data/dict true)
     )
   )
 
@@ -506,7 +506,7 @@
     ::ast/set
     (interpret-set ast ctx)
 
-    ::ast/hash (interpret-hash ast ctx)
+    ::ast/hash (interpret-dict ast ctx)
 
     ::ast/struct
     (let [members (:members ast)]
