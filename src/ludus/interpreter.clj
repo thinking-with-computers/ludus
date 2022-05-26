@@ -138,7 +138,7 @@
 
       ::ast/list (match-list pattern value ctx-vol)
 
-      ::ast/hash (match-dict pattern value ctx-vol)
+      ::ast/dict (match-dict pattern value ctx-vol)
 
       ::ast/struct (match-struct pattern value ctx-vol)
 
@@ -506,7 +506,7 @@
     ::ast/set
     (interpret-set ast ctx)
 
-    ::ast/hash (interpret-dict ast ctx)
+    ::ast/dict (interpret-dict ast ctx)
 
     ::ast/struct
     (let [members (:members ast)]

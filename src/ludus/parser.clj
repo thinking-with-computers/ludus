@@ -270,7 +270,7 @@
         (let [parsed (parse-expr parser #{::token/comma ::token/newline ::token/rbrace})]
           (recur parsed members (::ast parsed)))))))
 
-(defn- parse-hash [origin]
+(defn- parse-dict [origin]
   (loop [parser (accept-many #{::token/newline ::token/comma} (advance origin))
          members []
          current_member nil]
@@ -278,7 +278,7 @@
       (case (token-type parser)
         ::token/rbrace (let [ms (add-member members current_member)]
                          (assoc (advance parser) ::ast
-                           {::ast/type ::ast/hash
+                           {::ast/type ::ast/dict
                             :token (current origin)
                             :members ms}))
 
@@ -288,24 +288,24 @@
           (add-member members current_member) nil)
 
         (::token/rbracket ::token/rparen)
-        (panic parser (str "Mismatched enclosure in hashmap: " (::token/lexeme curr)))
+        (panic parser (str "Mismatched enclosure in dict: " (::token/lexeme curr)))
 
         ::token/eof
-        (panic (assoc origin ::errors (::errors parser)) "Unterminated hashmap" ::token/eof)
+        (panic (assoc origin ::errors (::errors parser)) "Unterminated dict" ::token/eof)
 
         ::token/word
         (if (not current_member) 
           (let [parsed (parse-word parser) 
                 word (get-in parsed [::ast :word])]
             (recur parsed members [(keyword word) (::ast parsed)]))
-          (panic parser "Hashmap entries must be single words or keyword+expression pairs." #{::token/rbrace}))
+          (panic parser "Dict entries must be single words or keyword+expression pairs." #{::token/rbrace}))
 
         ::token/keyword
         (if (not current_member) 
           (let [kw (parse-atom parser) 
                 expr (parse-expr kw #{::token/comma ::token/newline ::token/rbrace})]
             (recur expr members [(:value (::ast kw)) (::ast expr)]))
-          (panic parser "Hashmap entries must be single words or keyword+expression pairs." #{::token/rbrace}))
+          (panic parser "Dict entries must be single words or keyword+expression pairs." #{::token/rbrace}))
 
         ::token/splat
         (let [splatted (parse-expr (advance parser))
@@ -315,7 +315,7 @@
                                      :token curr :expr (::ast splatted)})
             (panic parser "You may only splat words and synthetic expressions")))
 
-        (panic parser "Hashmap entries must be single words or keyword+expression pairs" #{::token/rbrace})))))
+        (panic parser "Dict entries must be single words or keyword+expression pairs" #{::token/rbrace})))))
 
 (defn- parse-struct [origin]
   (loop [parser (accept-many #{::token/newline ::token/comma} (advance origin))
@@ -504,7 +504,7 @@
         (let [parsed (parse-pattern parser)]
           (recur parsed members (::ast parsed)))))))
 
-(defn- parse-hash-pattern [origin]
+(defn- parse-dict-pattern [origin]
   (loop [parser (accept-many #{::token/newline ::token/comma} (advance origin))
          members {}
          current_member nil]
@@ -512,7 +512,7 @@
       (case (token-type parser)
         ::token/rbrace (let [ms (add-member members current_member)]
                          (assoc (advance parser) ::ast
-                           {::ast/type ::ast/hash
+                           {::ast/type ::ast/dict
                             :token (current origin)
                             :members ms}))
 
@@ -522,24 +522,24 @@
           (add-member members current_member) nil)
 
         (::token/rbracket ::token/rparen)
-        (panic parser (str "Mismatched enclosure in hashmap pattern: " (::token/lexeme curr)))
+        (panic parser (str "Mismatched enclosure in dict pattern: " (::token/lexeme curr)))
 
         ::token/eof
-        (panic (assoc origin ::errors (::errors parser)) "Unterminated hashmap pattern" ::token/eof)
+        (panic (assoc origin ::errors (::errors parser)) "Unterminated dict pattern" ::token/eof)
 
         ::token/word
         (if (not current_member) 
           (let [parsed (parse-word parser) word (get-in parsed [::ast :word])]
             (recur parsed members {(keyword word) (::ast parsed)}))
-          (panic parser "Hashmap patterns may only include single words or keyword+pattern pairs." #{::token/rbrace}))
+          (panic parser "Dict patterns may only include single words or keyword+pattern pairs." #{::token/rbrace}))
 
         ::token/keyword
         (if (not current_member) 
           (let [kw (parse-atom parser) pattern (parse-pattern kw)]
             (recur pattern members {(:value (::ast kw)) (::ast pattern)}))
-          (panic parser "Hashmap patterns may only include single words or keyword+pattern pairs." #{::token/rbrace}))
+          (panic parser "Dict patterns may only include single words or keyword+pattern pairs." #{::token/rbrace}))
 
-        (panic parser "Hashmap patterns may only include single words or keyword+pattern pairs" #{::token/rbrace})))))
+        (panic parser "Dict patterns may only include single words or keyword+pattern pairs" #{::token/rbrace})))))
 
 (defn- parse-struct-pattern [origin]
   (loop [parser (accept-many #{::token/newline ::token/comma} (advance origin))
@@ -622,7 +622,7 @@
 
       ::token/lbracket (parse-list-pattern parser)
 
-      ::token/starthash (parse-hash-pattern parser)
+      ::token/starthash (parse-dict-pattern parser)
 
       ::token/startstruct (parse-struct-pattern parser)
 
@@ -996,7 +996,7 @@
 
        ::token/startset (parse-set parser)
 
-       ::token/starthash (parse-hash parser)
+       ::token/starthash (parse-dict parser)
 
        ::token/startstruct (parse-struct parser)
 
@@ -1046,9 +1046,10 @@
     (parser)
     (parse-script)))
 
-(comment
+(do
   (def pp pp/pprint)
-  (def source "let foo = #{:a 1,...b}
+  (def source "let #{a, b} = #{:a 1, :b 2}
+
 
     ")
   (def lexed (scanner/scan source))
