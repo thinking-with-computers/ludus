@@ -622,7 +622,7 @@
 
       ::token/lbracket (parse-list-pattern parser)
 
-      ::token/starthash (parse-dict-pattern parser)
+      ::token/startdict (parse-dict-pattern parser)
 
       ::token/startstruct (parse-struct-pattern parser)
 
@@ -996,7 +996,7 @@
 
        ::token/startset (parse-set parser)
 
-       ::token/starthash (parse-dict parser)
+       ::token/startdict (parse-dict parser)
 
        ::token/startstruct (parse-struct parser)
 
@@ -1046,7 +1046,7 @@
     (parser)
     (parse-script)))
 
-(do
+(comment
   (def pp pp/pprint)
   (def source "let #{a, b} = #{:a 1, :b 2}
 

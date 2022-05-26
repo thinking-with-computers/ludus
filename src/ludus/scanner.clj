@@ -267,10 +267,10 @@
       ;; oh god, monads
       ;; additional arrow possibilities: >> ||> ~> => !>
 
-      ;; hashmap #{
+      ;; dict #{
       \# (if (= next \{)
-           (add-token (advance scanner) ::token/starthash)
-           (add-error scanner (str "Expected beginning of hash: #{. Got " char next)))
+           (add-token (advance scanner) ::token/startdict)
+           (add-error scanner (str "Expected beginning of dict: #{. Got " char next)))
 
       ;; set ${
       \$ (if (= next \{)
