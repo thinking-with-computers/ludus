@@ -7,6 +7,7 @@
     [ludus.data :as data]
     [ludus.show :as show]
     [ludus.loader :as loader]
+    [ludus.token :as token]
     [clojure.pprint :as pp]
     [clojure.set]))
 
@@ -517,7 +518,7 @@
     (interpret-ast (::parser/ast parsed) {::file file})
     (catch clojure.lang.ExceptionInfo e
       (println "Ludus panicked in" file)
-      (println "On line" (get-in e [:ast :token :line]))
+      (println "On line" (get-in e [:ast :token ::token/line]))
       (println (ex-message e))
       (pp/pprint (ex-data e))
       (System/exit 67))))
@@ -527,15 +528,13 @@
     (interpret-ast (::parser/ast parsed) {})
     (catch clojure.lang.ExceptionInfo e
       (println "Ludus panicked!")
+      (println "On line" (get-in (ex-data e) [:ast :token ::token/line]))
       (println (ex-message e))
       (pp/pprint (ex-data e)))))
 
-(comment
+(do
 
-  (def source "
-
-    fn foo () -> ${1, 2, 3}
-    let bar = ${1, ...foo (), 3}
+  (def source "panic! :oops
 
     ")
 
