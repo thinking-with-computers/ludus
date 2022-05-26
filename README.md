@@ -15,7 +15,6 @@ Pre-alpha, still under active development. See [the ludus-spec repo for progress
 	- On a Mac: `brew install clojure leiningen`
 * `lein run {script}`, it runs your script.
 
-
 Or, download a binary on the [releases page](https://github.com/thinking-with-computers/ludus/releases). (At current: M1 Mac only.)
 
 ### Main features
