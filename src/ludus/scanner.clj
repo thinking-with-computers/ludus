@@ -31,7 +31,7 @@
    ;; below here, probable
    ;; actor model/concurrency
    "receive" ::token/receive
-   "self" ::token/self
+   "self" ::token/self ;; maybe not necessary?
    "send" ::token/send
    "spawn" ::token/spawn
    "to" ::token/to
