@@ -340,12 +340,13 @@
         name (:name ast)]
     (if (contains? @ctx name)
       (throw (ex-info (str "Name " name " is alrady bound") {:ast ast}))
-      (let [result  ;; TODO: add any error handling at all   
-            (-> path
-              (loader/load-import (resolve-word ::file ctx))
-              (scanner/scan)
-              (parser/parse)
-              (interpret path))]
+      (let [source (try 
+                      (loader/load-import path (resolve-word ::file ctx))
+                      (catch Exception e 
+                        (if (::loader/error (ex-data e))
+                          (throw (ex-info (ex-message e) {:ast ast}))
+                          (throw e))))
+            result (-> source (scanner/scan) (parser/parse) (interpret path))]
         (vswap! ctx update-ctx {name result})
         result ;; TODO: test this!
         ))))
@@ -518,9 +519,9 @@
     (interpret-ast (::parser/ast parsed) {::file file})
     (catch clojure.lang.ExceptionInfo e
       (println "Ludus panicked in" file)
-      (println "On line" (get-in e [:ast :token ::token/line]))
+      (println "On line" (get-in (ex-data e) [:ast :token ::token/line]))
       (println (ex-message e))
-      (pp/pprint (ex-data e))
+      ;;(pp/pprint (ex-data e))
       (System/exit 67))))
 
 (defn interpret-safe [parsed]
@@ -532,7 +533,7 @@
       (println (ex-message e))
       (pp/pprint (ex-data e)))))
 
-(do
+(comment
 
   (def source "panic! :oops
 
