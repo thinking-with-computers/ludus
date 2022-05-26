@@ -6,7 +6,8 @@
     [ludus.interpreter :as interpreter]
     [ludus.show :as show]
     [clojure.pprint :as pp]
-    [ludus.loader :as loader])
+    [ludus.loader :as loader]
+    [ludus.repl :as repl])
   (:gen-class))
 
 (defn- run [file source]
@@ -33,6 +34,4 @@
           source (loader/load-import file)]
       (run file source))
 
-    :else (do
-            (println "Usage: ludus [script]")
-            (System/exit 64))))
+    :else (repl/launch)))
