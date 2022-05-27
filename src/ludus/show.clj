@@ -1,7 +1,7 @@
 (ns ludus.show
   (:require
-    [ludus.data :as data]
-    [clojure.pprint :as pp]))
+   [ludus.data :as data]
+   [clojure.pprint :as pp]))
 
 (declare show show-linear show-keyed)
 
@@ -13,27 +13,25 @@
 (defn- show-map [v]
   (cond
     (or (= (::data/type v) ::data/fn)
-      (= (::data/type v) ::data/clj))
+        (= (::data/type v) ::data/clj))
     (str "fn " (:name v))
 
     (= (::data/type v) ::data/ns)
     (str "ns " (::data/name v) " {"
-      (apply str (into [] show-keyed (dissoc v ::data/struct ::data/type ::data/name)))
-      "}")
+         (apply str (into [] show-keyed (dissoc v ::data/struct ::data/type ::data/name)))
+         "}")
 
-    (::data/struct v) 
+    (::data/struct v)
     (str "@{" (apply str (into [] show-keyed (dissoc v ::data/struct))) "}")
 
     (::data/ref v) ;; TODO: reconsider this
-    (str "ref:" (::data/name v) " <" (deref (::data/value v))">")
+    (str "ref:" (::data/name v) " <" (deref (::data/value v)) ">")
 
     (::data/hashmap v)
     (str "#{" (apply str (into [] show-keyed (dissoc v ::data/hashmap))) "}")
 
     :else
-    (pp/pprint v)
-
-    ))
+    (pp/pprint v)))
 
 (defn- show-set [v]
   (str "${" (apply str (into [] show-linear v)) "}"))
@@ -52,8 +50,8 @@
 
 (def show-linear (comp (map show) (interpose ", ")))
 
-(def show-keyed (comp 
-                  (map #(str (show (first %)) " " (show (second %))))
-                  (interpose ", ")))
+(def show-keyed (comp
+                 (map #(str (show (first %)) " " (show (second %))))
+                 (interpose ", ")))
 
 (show {::data/type ::data/fn :name "foo"})

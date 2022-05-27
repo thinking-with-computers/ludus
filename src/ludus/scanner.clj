@@ -1,14 +1,13 @@
 (ns ludus.scanner
   (:require
-    [ludus.token :as token]
-    [clojure.pprint :as pp]
-    [clojure.edn :as edn]))
+   [ludus.token :as token]
+   [clojure.pprint :as pp]
+   [clojure.edn :as edn]))
 
 (def reserved-words
   "List of Ludus reserved words."
   ;; see ludus-spec repo for more info
-  {
-   "as" ::token/as ;; impl for `import`; not yet for patterns
+  {"as" ::token/as ;; impl for `import`; not yet for patterns
    "cond" ::token/cond ;; impl
    "do" ::token/do ;; impl
    "else" ::token/else ;; impl
@@ -36,12 +35,12 @@
    "spawn" ::token/spawn
    "to" ::token/to
    ;; type system
-   "data" ::token/data 
+   "data" ::token/data
    ;; others
    "repeat" ::token/repeat ;; syntax sugar over "loop"
    "test" ::token/test
    "when" ::token/when
-   
+
    ;; below here, possibly not
    ;; generators (sugar over actors?)
    "gen" ::token/gen
@@ -51,8 +50,7 @@
    "wait" ::token/wait
    ;; vars
    "mut" ::token/mut
-   "var" ::token/var
-   })
+   "var" ::token/var})
 
 (defn- new-scanner
   "Creates a new scanner."
@@ -91,8 +89,8 @@
 
 (defn- char-in-range? [start end char]
   (and char
-    (>= (int char) (int start))
-    (<= (int char) (int end))))
+       (>= (int char) (int start))
+       (<= (int char) (int end))))
 
 (defn- digit? [c]
   (char-in-range? \0 \9 c))
@@ -125,27 +123,27 @@
    (add-token scanner token-type nil))
   ([scanner token-type literal]
    (update scanner ::tokens conj
-     (token/token
-       token-type
-       (current-lexeme scanner)
-       literal
-       (::line scanner)
-       (::start scanner)))))
+           (token/token
+            token-type
+            (current-lexeme scanner)
+            literal
+            (::line scanner)
+            (::start scanner)))))
 
 ;; TODO: errors should also be in the vector of tokens
 ;; The goal is to be able to be able to hand this to an LSP?
 ;; Do we need a different structure
 (defn- add-error [scanner msg]
   (let [token (token/token
-                ::token/error
-                (current-lexeme scanner)
-                nil
-                (::line scanner)
-                (::start scanner))
+               ::token/error
+               (current-lexeme scanner)
+               nil
+               (::line scanner)
+               (::start scanner))
         err-token (assoc token :message msg)]
     (-> scanner
-      (update ::errors conj err-token)
-      (update ::tokens conj err-token))))
+        (update ::errors conj err-token)
+        (update ::tokens conj err-token))))
 
 (defn- add-keyword
   [scanner]

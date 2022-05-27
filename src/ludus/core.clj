@@ -1,13 +1,13 @@
 (ns ludus.core
   "A tree-walk interpreter for the Ludus language."
   (:require
-    [ludus.scanner :as scanner]
-    [ludus.parser :as parser]
-    [ludus.interpreter :as interpreter]
-    [ludus.show :as show]
-    [clojure.pprint :as pp]
-    [ludus.loader :as loader]
-    [ludus.repl :as repl])
+   [ludus.scanner :as scanner]
+   [ludus.parser :as parser]
+   [ludus.interpreter :as interpreter]
+   [ludus.show :as show]
+   [clojure.pprint :as pp]
+   [ludus.loader :as loader]
+   [ludus.repl :as repl])
   (:gen-class))
 
 (defn- run [file source]
@@ -29,7 +29,7 @@
 
 (defn -main [& args]
   (cond
-    (= (count args) 1) 
+    (= (count args) 1)
     (let [file (first args)
           source (loader/load-import file)]
       (run file source))

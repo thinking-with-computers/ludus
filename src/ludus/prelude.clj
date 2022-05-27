@@ -12,12 +12,12 @@
 (defn- id [x] x)
 
 (def and- {:name "and"
-  ::data/type ::data/clj
-  :body (fn [&args] (every? id &args))})
+           ::data/type ::data/clj
+           :body (fn [&args] (every? id &args))})
 
 (def or- {:name "or"
-  ::data/type ::data/clj
-  :body (fn [&args] (some id &args))})
+          ::data/type ::data/clj
+          :body (fn [&args] (some id &args))})
 
 (def add {:name "add"
           ::data/type ::data/clj
@@ -36,12 +36,12 @@
           :body /})
 
 (def inc- {:name "inc"
-          ::data/type ::data/clj
-          :body inc})
+           ::data/type ::data/clj
+           :body inc})
 
 (def dec- {:name "dec"
-          ::data/type ::data/clj
-          :body dec})
+           ::data/type ::data/clj
+           :body dec})
 
 (def ld-not {:name "not"
              ::data/type ::data/clj
@@ -52,30 +52,28 @@
              :body (fn [& args] (throw (ex-info (apply str (interpose " " args)) {})))})
 
 (def print- {:name "print"
-            ::data/type ::data/clj
-            :body (fn [& args]
-                    (println (apply str args))
-                    :ok)})
+             ::data/type ::data/clj
+             :body (fn [& args]
+                     (println (apply str args))
+                     :ok)})
 
 (def deref- {:name "deref"
-  ::data/type ::data/clj
-  :body (fn [ref] 
-    (if (::data/ref ref)
-      (deref (::data/value ref))
-      (throw (ex-info "Cannot deref something that is not a ref" {}))
-      ))})
+             ::data/type ::data/clj
+             :body (fn [ref]
+                     (if (::data/ref ref)
+                       (deref (::data/value ref))
+                       (throw (ex-info "Cannot deref something that is not a ref" {}))))})
 
 (def set!- {:name "set!"
-  ::data/type ::data/clj
-  :body (fn [ref value] 
-    (if (::data/ref ref)
-      (reset! (::data/value ref) value)
-      (throw (ex-info "Cannot set! something that is not a ref" {}))
-      ))})
+            ::data/type ::data/clj
+            :body (fn [ref value]
+                    (if (::data/ref ref)
+                      (reset! (::data/value ref) value)
+                      (throw (ex-info "Cannot set! something that is not a ref" {}))))})
 
 (def show {:name "show"
-  ::data/type ::data/clj
-  :body ludus.show/show})
+           ::data/type ::data/clj
+           :body ludus.show/show})
 
 (def prelude {"eq" eq
               "add" add
@@ -91,5 +89,4 @@
               "deref" deref-
               "set!" set!-
               "and" and-
-              "or" or-
-              })
+              "or" or-})
