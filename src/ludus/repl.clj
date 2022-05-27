@@ -16,7 +16,7 @@
 (def prompt "=> ")
 
 (def base-ctx (merge prelude/prelude 
-	{::repl true "foo" :bar
+	{::repl true
 	 "repl"
 	 {
 	::data/struct true
@@ -60,13 +60,18 @@
     (swap! sessions #(assoc % name session))
     session))
 
+(defn- exit []
+	(println "\nGoodbye!")
+	(System/exit 0))
+
 (defn repl-loop []
   (let [session-atom @current-session
   	session @session-atom
   	orig-ctx (:ctx session)]
     (print (str (:name session) prompt))
     (flush)
-    (let [input (read-line)
+    (let [raw-input (read-line)
+    			input (if raw-input raw-input (exit))
           parsed (-> input (scanner/scan) (parser/parse))
           {result :result ctx :ctx} (interpreter/interpret-repl parsed (:ctx session))]
       (if (= result ::interpreter/error)
@@ -79,7 +84,7 @@
 
 (defn launch []
   (println "Welcome to Ludus (v. 0.1.0-alpha)")
-  (let [session (new-session "ludus")]
+  (let [session (new-session :ludus)]
     (reset! current-session session)
     (repl-loop)))
 
