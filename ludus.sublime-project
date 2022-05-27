@@ -1,0 +1,19 @@
+{
+	"folders":
+	[
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"on_post_save_project": [
+			{
+				"command": "exec",
+				"args": {
+					"shell_cmd": "lein cljfmt fix"
+				},
+				"scope": "window"
+			}
+		]
+	}
+}
