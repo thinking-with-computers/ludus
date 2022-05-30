@@ -18,4 +18,4 @@ pom.xml.asc
 .cpcache/
 **/.DS_Store
 /sandbox
-ludus-sublime.workspace
+ludus.sublime-workspace
