@@ -967,6 +967,16 @@
         (assoc pid ::ast {::ast/type ::ast/send :token (current parser) :msg (::ast msg) :pid (::ast pid)}))
       (panic parser "Expected PID after `to` in send expression"))))
 
+(defn- parse-receive [parser]
+  (let [header
+        (expect* #{::token/lbrace} "Expected { after receive" (advance parser))]
+    (if (:success header)
+      (let [clauses (parse-match-clauses (advance parser))]
+        (assoc clauses ::ast {::ast/type ::ast/receive
+                              :token (current parser)
+                              :clauses (get-in clauses [::ast :clauses])}))
+      (panic parser "Expected { after receive"))))
+
 (defn- parse-expr
   ([parser] (parse-expr parser sync-on))
   ([parser sync-on]
@@ -1033,6 +1043,8 @@
 
        ::token/send (parse-send parser)
 
+       ::token/receive (parse-receive parser)
+
        ;; TODO: improve handling of comments?
        ;; Scanner now just skips comments
        ;; ::token/comment (advance parser)
@@ -1053,12 +1065,11 @@
       (parser)
       (parse-script)))
 
-(do
+(comment
   (def pp pp/pprint)
   (def source "
-    let pid = spawn listen
-    send msg to pid
-    
+    cond { x -> x
+     y -> y }
     ")
   (def lexed (scanner/scan source))
   (def tokens (:tokens lexed))
