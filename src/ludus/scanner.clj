@@ -50,7 +50,8 @@
    ; "wait" ::token/wait
    ;; vars
    ; "mut" ::token/mut
-   ; "var" ::token/var})
+   ; "var" ::token/var
+   })
 
 (defn- new-scanner
   "Creates a new scanner."
@@ -324,8 +325,3 @@
         {:tokens (::tokens scanner)
          :errors (::errors scanner)})
       (recur (-> scanner (scan-token) (next-token))))))
-
-(comment
-  (def source "@{")
-
-  (pp/pprint (scan source)))
