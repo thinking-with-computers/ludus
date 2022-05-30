@@ -951,6 +951,22 @@
     (assoc expr ::ast {::ast/type ::ast/panic
                        :token (current parser) :expr (::ast expr)})))
 
+(defn- parse-spawn [parser]
+  (let [expr (parse-expr (advance parser))]
+    (case (node-type expr)
+      (::ast/word ::ast/fn ::ast/synthetic)
+      (assoc expr ::ast {::ast/type ::ast/spawn :token (current parser) :expr (::ast expr)})
+
+      (panic parser "Expected function literal, word, or synthetic expression after spawn."))))
+
+(defn- parse-send [parser]
+  (let [msg (parse-expr (advance parser))
+    to (expect* ::token/to "Expected `to` between message and PID" msg)]
+    (if (:success to)
+      (let [pid (parse-expr (:parser to))]
+        (assoc pid ::ast {::ast/type ::ast/send :token (current parser) :msg (::ast msg) :pid (::ast pid)}))
+      (panic parser "Expected PID after `to` in send expression"))))
+
 (defn- parse-expr
   ([parser] (parse-expr parser sync-on))
   ([parser sync-on]
@@ -974,7 +990,7 @@
            (::token/lparen ::token/keyword) (parse-synthetic parser)
            (parse-word parser)))
 
-       (::token/nil ::token/true ::token/false)
+       (::token/nil ::token/true ::token/false ::token/self)
        (parse-atomic-word parser)
 
        ::token/lparen (parse-tuple parser)
@@ -1013,6 +1029,10 @@
 
        ::token/panic (parse-panic parser)
 
+       ::token/spawn (parse-spawn parser)
+
+       ::token/send (parse-send parser)
+
        ;; TODO: improve handling of comments?
        ;; Scanner now just skips comments
        ;; ::token/comment (advance parser)
@@ -1033,11 +1053,12 @@
       (parser)
       (parse-script)))
 
-(comment
+(do
   (def pp pp/pprint)
-  (def source "let #{a, b} = #{:a 1, :b 2}
-
-
+  (def source "
+    let pid = spawn listen
+    send msg to pid
+    
     ")
   (def lexed (scanner/scan source))
   (def tokens (:tokens lexed))
