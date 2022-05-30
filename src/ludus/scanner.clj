@@ -43,14 +43,14 @@
 
    ;; below here, possibly not
    ;; generators (sugar over actors?)
-   "gen" ::token/gen
-   "yield" ::token/yield
+   ; "gen" ::token/gen
+   ; "yield" ::token/yield
    ;; event loop/concurrency
-   "defer" ::token/defer
-   "wait" ::token/wait
+   ; "defer" ::token/defer
+   ; "wait" ::token/wait
    ;; vars
-   "mut" ::token/mut
-   "var" ::token/var})
+   ; "mut" ::token/mut
+   ; "var" ::token/var})
 
 (defn- new-scanner
   "Creates a new scanner."
