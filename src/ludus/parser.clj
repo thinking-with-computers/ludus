@@ -953,11 +953,7 @@
 
 (defn- parse-spawn [parser]
   (let [expr (parse-expr (advance parser))]
-    (case (node-type expr)
-      (::ast/word ::ast/fn ::ast/synthetic)
-      (assoc expr ::ast {::ast/type ::ast/spawn :token (current parser) :expr (::ast expr)})
-
-      (panic parser "Expected function literal, word, or synthetic expression after spawn."))))
+    (assoc expr ::ast {::ast/type ::ast/spawn :expr (::ast expr) :token (current parser)})))
 
 (defn- parse-send [parser]
   (let [msg (parse-expr (advance parser))
@@ -1000,8 +996,11 @@
            (::token/lparen ::token/keyword) (parse-synthetic parser)
            (parse-word parser)))
 
-       (::token/nil ::token/true ::token/false ::token/self)
+       (::token/nil ::token/true ::token/false)
        (parse-atomic-word parser)
+
+       (::token/self)
+       (assoc (advance parser) ::ast {::ast/type ::ast/self :token token})
 
        ::token/lparen (parse-tuple parser)
 
@@ -1067,24 +1066,54 @@
 
 (comment
   (def pp pp/pprint)
-  (def source "
-    cond { x -> x
-     y -> y }
+  (def source1 "
+fn echo () -> {
+  loop () with () -> {
+    receive {
+      msg -> {
+        print (msg)
+        recur ()
+      }
+    }
+  }
+}
+
+& let my = spawn echo ()
     ")
-  (def lexed (scanner/scan source))
-  (def tokens (:tokens lexed))
-  (def p (parser tokens))
+  (def source2 "
+fn echo () -> {
+  loop () with () -> {
+    receive {
+      msg -> {
+        print (msg)
+        recur ()
+      }
+    }
+  }
+}
+
+
+    ")
+
+  (time (do (def lexed2 (scanner/scan source2))
+      (def tokens2 (:tokens lexed2))
+      (def p2 (parser tokens2))
+      (def ast2 (::ast (parse-script p2)))))
+
+  (time (do (def lexed1 (scanner/scan source1))
+    (def tokens1 (:tokens lexed1))
+    (def p1 (parser tokens1))
+    (def ast1 (::ast (parse-script p1)))))
 
   (println "")
   (println "")
   (println "******************************************************")
   (println "")
-  (println "*** *** NEW PARSE *** ***")
+  (println "*** *** TEST PARSE *** ***")
 
-  (-> p
-      (parse-script)
-      (::ast)
-      (pp)))
+  (println "asts are the same?" (= ast1 ast2))
+  (pp ast1)
+  (pp ast2))
 
 (comment "
 	Further thoughts/still to do:

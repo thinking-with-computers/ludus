@@ -1,15 +1,17 @@
 (ns ludus.interpreter
   (:require
-   [ludus.parser :as parser]
-   [ludus.scanner :as scanner]
-   [ludus.ast :as ast]
-   [ludus.prelude :as prelude]
-   [ludus.data :as data]
-   [ludus.show :as show]
-   [ludus.loader :as loader]
-   [ludus.token :as token]
-   [clojure.pprint :as pp]
-   [clojure.set]))
+    [ludus.parser :as parser]
+    [ludus.scanner :as scanner]
+    [ludus.ast :as ast]
+    [ludus.prelude :as prelude]
+    [ludus.data :as data]
+    [ludus.show :as show]
+    [ludus.loader :as loader]
+    [ludus.token :as token]
+    [clojure.pprint :as pp]
+    [clojure.set]))
+
+(def ^:dynamic self 1001)
 
 ;; right now this is not very efficient:
 ;; it's got runtime checking
@@ -24,6 +26,62 @@
         (throw (ex-info (str "Unbound name: " word) {}))))))
 
 (declare interpret-ast match interpret)
+
+(def processes (atom {}))
+
+(def current-pid (atom 1001))
+
+(defn new-process []
+  (let [pid @current-pid
+        process (atom {:pid pid
+                         :queue clojure.lang.PersistentQueue/EMPTY
+                         :in nil
+                         :status :occupied
+                         })]
+      (swap! processes #(assoc % pid process))
+      (swap! current-pid inc)
+      process))
+
+(def vm-state (atom :stopped))
+
+(defn- values [m] (into [] (map (fn [[_ v]] v)) m))
+
+(defn- process-msg [process]
+  ;;(println "processing message" self)
+  (let [q (:queue process)
+    in (:in process)]
+    (when (not (realized? in))
+      ;;(println "delivering message in" self)
+      (deliver in (peek q))
+      (assoc process :queue (pop q) :in nil))))
+
+(defn- run-process [process-atom]
+  (let [process @process-atom
+    status (:status process)
+    q (:queue process)
+    in (:in process)]
+    ;;(println "running process" self ":" (into [] q))
+    (when (and (= status :idle) (not-empty q) in)
+      (swap! process-atom process-msg))))
+
+(defn- start-vm []
+  ;; (println "Starting Ludus VM")
+  (when (= @vm-state :stopped)
+    (future
+      (reset! vm-state :running)
+      (loop []
+        (if (= @vm-state :running)
+          (do
+            (run! run-process (values @processes))
+            (recur))
+          ;; (println "Ludus VM shutting down")
+          )))))
+
+(defn- stop-vm []
+  (reset! vm-state :stopped)
+  (reset! processes {})
+  (reset! current-pid 1001)
+  nil)
 
 (defn- match-tuple [pattern value ctx-vol]
   (cond
@@ -219,9 +277,9 @@
      :name (str (:name lfn) "{partial}")
      :body (fn [arg]
              (call-fn
-              lfn
-              (concat [::data/tuple] (replace {::data/placeholder arg} (rest tuple)))
-              ctx))}
+               lfn
+               (concat [::data/tuple] (replace {::data/placeholder arg} (rest tuple)))
+               ctx))}
 
     (= (::data/type lfn) ::data/clj) (apply (:body lfn) (next tuple))
 
@@ -319,9 +377,9 @@
     (if (contains? @ctx name)
       (throw (ex-info (str "ns name " name " is already bound") {:ast ast}))
       (let [ns (into
-                {::data/struct true ::data/type ::data/ns ::data/name name}
-                (map-values #(interpret-ast % ctx))
-                members)]
+                 {::data/struct true ::data/type ::data/ns ::data/name name}
+                 (map-values #(interpret-ast % ctx))
+                 members)]
         (vswap! ctx update-ctx {name ns})
         ns))))
 
@@ -383,8 +441,8 @@
     (if (= (::ast/type member) ::ast/splat)
       (let [splatted (interpret-ast (:expr member) ctx)
             splat-list? (and
-                         (vector? splatted)
-                         (not (= (first splatted) ::data/tuple)))]
+                          (vector? splatted)
+                          (not (= (first splatted) ::data/tuple)))]
         (if splat-list?
           (concat list splatted)
           (throw (ex-info "Cannot splat non-list into list" {:ast member}))))
@@ -413,8 +471,8 @@
     (if (= (::ast/type member) ::ast/splat)
       (let [splatted (interpret-ast (:expr member) ctx)
             splat-map? (and
-                        (map? splatted)
-                        (::data/dict splatted))]
+                         (map? splatted)
+                         (::data/dict splatted))]
         (if splat-map?
           (merge dict splatted)
           (throw (ex-info "Cannot splat non-dict into dict" {:ast member}))))
@@ -425,8 +483,61 @@
   (let [members (:members ast)]
     (assoc (reduce (dict-term ctx) {} members) ::data/dict true)))
 
+(defn- interpret-receive [ast ctx]
+  (let [process-atom (get @processes self)
+    in (promise)
+    clauses (:clauses ast)]
+    ;; (println "receiving in" self)
+    (swap! process-atom #(assoc % :in in :status :idle))
+    (let [msg @in]
+      (swap! process-atom #(assoc % :status :occupied))
+      ;; (println "message received by" self ":" msg)
+      (loop [clause (first clauses)
+           clauses (rest clauses)]
+      (if clause
+        (let [pattern (:pattern clause)
+              body (:body clause)
+              new-ctx (volatile! {::parent ctx})
+              match? (match pattern msg new-ctx)
+              success (:success match?)
+              clause-ctx (:ctx match?)]
+          (if success
+            (do
+              (vswap! new-ctx #(merge % clause-ctx))
+              (let [result (interpret-ast body new-ctx)]
+                (swap! process-atom #(assoc % :status :idle))
+                result))
+            (recur (first clauses) (rest clauses))))
+        (throw (ex-info "Match Error: No match found" {:ast ast})))))))
+
+(defn- interpret-send [ast ctx]
+  (let [msg (interpret-ast (:msg ast) ctx) 
+    pid (interpret-ast (:pid ast) ctx)
+    process-atom (get @processes pid)
+    process @process-atom
+    q (:queue process)
+    status (:status process)]
+    (when (not (= :dead status))
+      (swap! process-atom #(assoc % :queue (conj q msg)))
+      ;;(println "sent" msg "to" (:pid process))
+        )
+    msg))
+
+(defn- interpret-spawn [ast ctx]
+  (let [expr (:expr ast)
+    process (new-process)
+    pid (:pid @process)]
+    (with-bindings {#'self pid}
+      (future
+        (try (interpret-ast expr ctx)
+          (catch Exception e
+          (println "Panic in Ludus process" (str self ":") (ex-message e))))
+        (swap! @process #(assoc % :status :dead))))
+    pid))
+
 (defn interpret-ast [ast ctx]
   (case (::ast/type ast)
+    ::ast/self self
 
     ::ast/atom (:value ast)
 
@@ -456,6 +567,12 @@
 
     ::ast/panic (panic ast ctx)
 
+    ::ast/spawn (interpret-spawn ast ctx)
+
+    ::ast/send (interpret-send ast ctx)
+
+    ::ast/receive (interpret-receive ast ctx)
+
     ::ast/recur
     {::data/recur true :tuple (interpret-ast (:tuple ast) ctx)}
 
@@ -482,8 +599,8 @@
     ::ast/tuple
     (let [members (:members ast)]
       (into
-       [(if (:partial ast) ::data/partial ::data/tuple)]
-       (map #(interpret-ast % ctx)) members))
+        [(if (:partial ast) ::data/partial ::data/tuple)]
+        (map #(interpret-ast % ctx)) members))
 
     ::ast/list (interpret-list ast ctx)
 
@@ -500,20 +617,32 @@
 
 (defn interpret [parsed file]
   (try
-    (let [base-ctx (volatile! (merge {:file file} prelude/prelude))]
-      (interpret-ast (::parser/ast parsed) base-ctx))
+    (let [base-ctx (volatile! (merge {:file file} prelude/prelude))
+      process (new-process)]
+      (start-vm)
+      (with-bindings {#'self (:pid @process)}
+        (let [result (interpret-ast (::parser/ast parsed) base-ctx)]
+          (swap! process #(assoc % :status :dead))
+          (stop-vm)
+          result)))
     (catch clojure.lang.ExceptionInfo e
       (println "Ludus panicked in" file)
       (println "On line" (get-in (ex-data e) [:ast :token ::token/line]))
       (println (ex-message e))
-      ;;(pp/pprint (ex-data e))
       (System/exit 67))))
 
 (defn interpret-safe [parsed]
   (try
-    (let [base-ctx (volatile! (merge {} prelude/prelude))]
-      (interpret-ast (::parser/ast parsed) base-ctx))
+    (let [base-ctx (volatile! (merge {} prelude/prelude))
+      process (new-process)]
+      (start-vm)
+      (with-bindings {#'self (:pid @process)}
+        (let [result (interpret-ast (::parser/ast parsed) base-ctx)]
+          (swap! process #(assoc % :status :dead))
+          result))
+      (stop-vm))
     (catch clojure.lang.ExceptionInfo e
+      (stop-vm)
       (println "Ludus panicked!")
       (println "On line" (get-in (ex-data e) [:ast :token ::token/line]))
       (println (ex-message e))
@@ -539,9 +668,31 @@
          (println (ex-message e))
          {:result ::error :ctx (volatile! orig-ctx)})))))
 
-(comment
 
-  (def source "panic! :oops
+(comment
+  (start-vm)
+  (def source "
+    fn echo () -> {
+      & print (self, :echoing)
+      loop () with () -> {
+          & print (self, :looping)
+          receive {
+            msg -> {
+              print (\"from \", self, \": \", msg)
+              recur ()
+            }
+          }
+        }
+      }
+
+    let echoer = spawn echo ()
+    
+    send :hello to echoer
+    send :foo to echoer
+    send :bar to echoer
+    send :baz to echoer
+
+    sleep (1000)
 
     ")
 
@@ -550,13 +701,13 @@
   (println "*** *** NEW INTERPRETATION *** ***")
   (println "")
 
-  (-> source
+  (let [result (-> source
       (scanner/scan)
       (parser/parse)
       (interpret-safe)
       (show/show)
-    ;;(println)
-      ))
+      )]
+  result))
 
 (comment "
 
