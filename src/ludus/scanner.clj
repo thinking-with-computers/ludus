@@ -218,9 +218,6 @@
     (let [char (current-char scanner)]
       (if (= \newline char)
         (update scanner ::line inc)
-        ;;(if (s/starts-with? comm "&&&")
-        ;;(add-token (update scanner ::line inc) ::token/docstring)
-        ;;(add-token (update scanner ::line inc) ::token/comment))
         (recur (advance scanner) (str comm char))))))
 
 (defn- scan-token [scanner]
@@ -319,7 +316,7 @@
   (assoc scanner ::start (::current scanner)))
 
 (defn scan [source]
-  (loop [scanner (new-scanner source)]
+  (loop [scanner (new-scanner (str source "\n"))]
     (if (at-end? scanner)
       (let [scanner (add-token scanner ::token/eof)]
         {:tokens (::tokens scanner)
