@@ -199,8 +199,10 @@
         ::token/eof
         (panic (assoc origin ::errors (::errors parser)) "Unterminated tuple" ::token/eof)
 
-        (let [parsed (parse-expr parser #{::token/comma ::token/newline ::token/rparen})]
-          (recur parsed members (::ast parsed)))))))
+        (if current_member
+          (panic parser "Comma expected between tuple members")
+          (let [parsed (parse-expr parser #{::token/comma ::token/newline ::token/rparen})]
+                  (recur parsed members (::ast parsed))))))))
 
 (defn- parse-list [origin]
   (loop [parser (accept-many #{::token/newline ::token/comma} (advance origin))
@@ -233,8 +235,10 @@
                                      :token curr :expr (::ast splatted)})
             (panic parser "You may only splat words and synthetic expressions")))
 
-        (let [parsed (parse-expr parser #{::token/comma ::token/newline ::token/rbracket})]
-          (recur parsed members (::ast parsed)))))))
+        (if current_member 
+          (panic parser "Comma expected between list members") 
+          (let [parsed (parse-expr parser #{::token/comma ::token/newline ::token/rbracket})]
+                  (recur parsed members (::ast parsed))))))))
 
 (defn- parse-set [origin]
   (loop [parser (accept-many #{::token/newline ::token/comma} (advance origin))
@@ -267,8 +271,10 @@
                                      :token curr :expr (::ast splatted)})
             (panic parser "You may only splat words and synthetic expressions")))
 
-        (let [parsed (parse-expr parser #{::token/comma ::token/newline ::token/rbrace})]
-          (recur parsed members (::ast parsed)))))))
+        (if current_member
+          (panic parser "Comma expected between set members")
+          (let [parsed (parse-expr parser #{::token/comma ::token/newline ::token/rbrace})]
+                  (recur parsed members (::ast parsed))))))))
 
 (defn- parse-dict [origin]
   (loop [parser (accept-many #{::token/newline ::token/comma} (advance origin))
@@ -1066,44 +1072,8 @@
 
 (comment
   (def pp pp/pprint)
-  (def source1 "
-fn echo () -> {
-  loop () with () -> {
-    receive {
-      msg -> {
-        print (msg)
-        recur ()
-      }
-    }
-  }
-}
+  (def source "(asdf 1)")
 
-& let my = spawn echo ()
-    ")
-  (def source2 "
-fn echo () -> {
-  loop () with () -> {
-    receive {
-      msg -> {
-        print (msg)
-        recur ()
-      }
-    }
-  }
-}
-
-
-    ")
-
-  (time (do (def lexed2 (scanner/scan source2))
-      (def tokens2 (:tokens lexed2))
-      (def p2 (parser tokens2))
-      (def ast2 (::ast (parse-script p2)))))
-
-  (time (do (def lexed1 (scanner/scan source1))
-    (def tokens1 (:tokens lexed1))
-    (def p1 (parser tokens1))
-    (def ast1 (::ast (parse-script p1)))))
 
   (println "")
   (println "")
@@ -1111,9 +1081,7 @@ fn echo () -> {
   (println "")
   (println "*** *** TEST PARSE *** ***")
 
-  (println "asts are the same?" (= ast1 ast2))
-  (pp ast1)
-  (pp ast2))
+  (pp/pprint (parse (scanner/scan source))))
 
 (comment "
 	Further thoughts/still to do:
