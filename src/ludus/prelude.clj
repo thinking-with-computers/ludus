@@ -1,7 +1,7 @@
 (ns ludus.prelude
   (:require
     [ludus.data :as data]
-    [ludus.show]))
+    [ludus.show :as show]))
 
 ;; TODO: make eq, and, or special forms that short-circuit
 ;; Right now, they evaluate all their args
@@ -49,12 +49,15 @@
 
 (def panic! {:name "panic!"
              ::data/type ::data/clj
-             :body (fn [& args] (throw (ex-info (apply str (interpose " " args)) {})))})
+             :body (fn [& args] (throw (ex-info (apply show/show (interpose " " args)) {})))})
+
+(defn- print-show [lvalue]
+  (if (string? lvalue) lvalue (show/show lvalue)))
 
 (def print- {:name "print"
              ::data/type ::data/clj
              :body (fn [& args]
-                     (println (apply str args))
+                     (println (apply str (into [] (map print-show) args)))
                      :ok)})
 
 (def deref- {:name "deref"
@@ -81,7 +84,6 @@
 
 (def prelude {"eq" eq
               "add" add
-              ;;"panic!" panic!
               "print" print-
               "sub" sub
               "mult" mult

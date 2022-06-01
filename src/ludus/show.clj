@@ -36,7 +36,8 @@
 (defn- show-set [v]
   (str "${" (apply str (into [] show-linear v)) "}"))
 
-(defn show [v]
+(defn show 
+  ([v]
   (cond
     (string? v) (str "\"" v "\"")
     (number? v) (str v)
@@ -47,6 +48,8 @@
     (set? v) (show-set v)
     (map? v) (show-map v)
     :else (with-out-str (pp/pprint v))))
+  ([v & vs] (apply str (into [] (comp (map show) (interpose " ")) (concat [v] vs))))
+  )
 
 (def show-linear (comp (map show) (interpose ", ")))
 
