@@ -70,12 +70,11 @@
     (future
       (reset! vm-state :running)
       (loop []
-        (if (= @vm-state :running)
-          (do
+        (when (= @vm-state :running)
             (run! run-process (values @processes))
-            (recur))
-          ;; (println "Ludus VM shutting down")
-          )))))
+            (recur)
+            ;; (println "Ludus VM shutting down")
+            )))))
 
 (defn- stop-vm []
   (reset! vm-state :stopped)
@@ -649,24 +648,31 @@
       (pp/pprint (ex-data e)))))
 
 (defn interpret-repl
-  ([parsed]
-   (let [base-ctx (volatile! (merge {} prelude/prelude))]
-     (try
-       (let [result (interpret-ast (::parser/ast parsed) base-ctx)]
-         {:result result :ctx base-ctx})
-       (catch clojure.lang.ExceptionInfo e
-         (println "Ludus panicked!")
-         (println (ex-message e))
-         {:result ::error :ctx base-ctx}))))
   ([parsed ctx]
-   (let [orig-ctx @ctx]
-     (try
-       (let [result (interpret-ast (::parser/ast parsed) ctx)]
-         {:result result :ctx ctx})
-       (catch clojure.lang.ExceptionInfo e
-         (println "Ludus panicked!")
-         (println (ex-message e))
-         {:result ::error :ctx (volatile! orig-ctx)})))))
+    (let [orig-ctx @ctx
+      process (new-process)
+      pid (:pid @process)]
+      (try
+        (start-vm)
+        (with-bindings {#'self pid}
+          (let [result (interpret-ast (::parser/ast parsed) ctx)]
+            {:result result :ctx ctx :pid pid}))
+        (catch clojure.lang.ExceptionInfo e
+          (println "Ludus panicked!")
+          (println (ex-message e))
+          {:result :error :ctx (volatile! orig-ctx) :pid pid}))))
+  ([parsed ctx pid]
+    (let [orig-ctx @ctx]
+      (try
+        (start-vm)
+        (with-bindings {#'self pid}
+          (let [result (interpret-ast (::parser/ast parsed) ctx)]
+            {:result result :ctx ctx :pid pid}))
+        (catch clojure.lang.ExceptionInfo e
+          (println "Ludus panicked!")
+          (println (ex-message e))
+          {:result :error :ctx (volatile! orig-ctx) :pid pid}
+          )))))
 
 
 (comment

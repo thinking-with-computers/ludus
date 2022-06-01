@@ -79,25 +79,30 @@
 (defn repl-loop []
   (let [session-atom @current-session
         session @session-atom
-        orig-ctx (:ctx session)]
+        orig-ctx (:ctx session)
+        pid (:pid session)]
     (print (str (:name session) prompt))
     (flush)
-    (let [raw-input (read-line)]
+    (let [input (read-line)]
       (cond
-        (= nil raw-input) (exit)
+        (= nil input) (exit)
 
-        (= "" raw-input) (recur)
+        (= "" input) (recur)
 
         :else
-        (let [input (if raw-input raw-input (exit))
-              parsed (-> input (scanner/scan) (parser/parse))
-              {result :result ctx :ctx} (interpreter/interpret-repl parsed (:ctx session))]
+        (let [parsed (-> input (scanner/scan) (parser/parse))
+              {result :result ctx :ctx pid- :pid}
+              (if pid
+                (interpreter/interpret-repl parsed orig-ctx pid)
+                (interpreter/interpret-repl parsed orig-ctx))]
           (if (= result ::interpreter/error)
             (recur)
             (do
               (println (show/show result))
               (when (not (= @ctx @orig-ctx))
                 (swap! session-atom #(assoc % :ctx ctx)))
+              (when (not (= pid pid-))
+                (swap! session-atom #(assoc % :pid pid-)))
               (recur))))))))
 
 (defn launch []
