@@ -27,11 +27,11 @@
     (::data/ref v) ;; TODO: reconsider this
     (str "ref:" (::data/name v) " <" (deref (::data/value v)) ">")
 
-    (::data/hashmap v)
-    (str "#{" (apply str (into [] show-keyed (dissoc v ::data/hashmap))) "}")
+    (::data/dict v)
+    (str "#{" (apply str (into [] show-keyed (dissoc v ::data/dict))) "}")
 
     :else
-    (pp/pprint v)))
+    (pr-str v)))
 
 (defn- show-set [v]
   (str "${" (apply str (into [] show-linear v)) "}"))
