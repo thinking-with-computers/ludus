@@ -31,7 +31,7 @@
       (throw (ex-info (str "Unbound name: " (:word word)) {:ast word}))
       value)))
 
-(declare interpret-ast match interpret)
+(declare interpret-ast match interpret interpret-file)
 
 (def processes (atom {}))
 
@@ -399,7 +399,7 @@
                        (if (::loader/error (ex-data e))
                          (throw (ex-info (ex-message e) {:ast ast}))
                          (throw e))))
-            result (-> source (scanner/scan) (parser/parse) (interpret path))]
+            result (-> source (scanner/scan) (parser/parse) (interpret-file path))]
         ;; (pp/pprint @ctx)
         (vswap! ctx update-ctx {name result})
         ;; (pp/pprint @ctx)
@@ -494,9 +494,9 @@
   (let [process-atom (get @processes self)
     inbox (promise)
     clauses (:clauses ast)]
-    (println "receiving inbox" self)
+    ;; (println "receiving in" self)
     (swap! process-atom #(assoc % :inbox inbox :status :idle))
-    (println "awaiting message in" self)
+    ;; (println "awaiting message in" self)
     (let [msg @inbox]
       (swap! process-atom #(assoc % :status :occupied))
       ;; (println "message received by" self ":" msg)
@@ -625,6 +625,16 @@
       (into {::data/struct true} (map-values #(interpret-ast % ctx)) members))
 
     (throw (ex-info "Unknown AST node type" {:ast ast}))))
+
+(defn interpret-file [parsed file]
+  (try 
+    (let [base-ctx (volatile! (merge {:file file} prelude/prelude))]
+      (interpret-ast (::parser/ast parsed) base-ctx))
+    (catch clojure.lang.ExceptionInfo e
+      (println "Ludus panicked in" file)
+      (println "On line" (get-in (ex-data e) [:ast :token ::token/line]))
+      (println (ex-message e))
+      (System/exit 67))))
 
 (defn interpret [parsed file]
   (try
