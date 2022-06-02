@@ -17,13 +17,19 @@
 ;; it's got runtime checking
 ;; we should be able to do these checks statically
 ;; that's for later, tho
-(defn- resolve-word [word ctx-vol]
+(defn- ludus-resolve [key ctx-vol]
   (let [ctx @ctx-vol]
-    (if (contains? ctx word)
-      (get ctx word)
+    (if (contains? ctx key)
+      (get ctx key)
       (if (contains? ctx ::parent)
-        (recur word (::parent ctx))
-        (throw (ex-info (str "Unbound name: " word) {}))))))
+        (recur key (::parent ctx))
+        ::not-found))))
+
+(defn- resolve-word [word ctx]
+  (let [value (ludus-resolve (:word word) ctx)]
+    (if (= ::not-found value)
+      (throw (ex-info (str "Unbound name: " (:word word)) {:ast word}))
+      value)))
 
 (declare interpret-ast match interpret)
 
@@ -35,7 +41,7 @@
   (let [pid @current-pid
         process (atom {:pid pid
                          :queue clojure.lang.PersistentQueue/EMPTY
-                         :in nil
+                         :inbox nil
                          :status :occupied
                          })]
       (swap! processes #(assoc % pid process))
@@ -49,19 +55,19 @@
 (defn- process-msg [process]
   ;;(println "processing message" self)
   (let [q (:queue process)
-    in (:in process)]
-    (when (not (realized? in))
+    inbox (:inbox process)]
+    (when (not (realized? inbox))
       ;;(println "delivering message in" self)
-      (deliver in (peek q))
-      (assoc process :queue (pop q) :in nil))))
+      (deliver inbox (peek q))
+      (assoc process :queue (pop q) :inbox nil))))
 
 (defn- run-process [process-atom]
   (let [process @process-atom
     status (:status process)
     q (:queue process)
-    in (:in process)]
+    inbox (:inbox process)]
     ;;(println "running process" self ":" (into [] q))
-    (when (and (= status :idle) (not-empty q) in)
+    (when (and (= status :idle) (not-empty q) inbox)
       (swap! process-atom process-msg))))
 
 (defn- start-vm []
@@ -388,14 +394,16 @@
     (if (contains? @ctx name)
       (throw (ex-info (str "Name " name " is alrady bound") {:ast ast}))
       (let [source (try
-                     (loader/load-import path (resolve-word ::file ctx))
+                     (loader/load-import path (ludus-resolve :file ctx))
                      (catch Exception e
                        (if (::loader/error (ex-data e))
                          (throw (ex-info (ex-message e) {:ast ast}))
                          (throw e))))
             result (-> source (scanner/scan) (parser/parse) (interpret path))]
+        ;; (pp/pprint @ctx)
         (vswap! ctx update-ctx {name result})
-        result ;; TODO: test this!
+        ;; (pp/pprint @ctx)
+        result
         ))))
 
 (defn- interpret-ref [ast ctx]
@@ -484,11 +492,12 @@
 
 (defn- interpret-receive [ast ctx]
   (let [process-atom (get @processes self)
-    in (promise)
+    inbox (promise)
     clauses (:clauses ast)]
-    ;; (println "receiving in" self)
-    (swap! process-atom #(assoc % :in in :status :idle))
-    (let [msg @in]
+    (println "receiving inbox" self)
+    (swap! process-atom #(assoc % :inbox inbox :status :idle))
+    (println "awaiting message in" self)
+    (let [msg @inbox]
       (swap! process-atom #(assoc % :status :occupied))
       ;; (println "message received by" self ":" msg)
       (loop [clause (first clauses)
@@ -532,8 +541,8 @@
         (try (interpret-ast expr ctx)
           (catch Exception e
           (println "Panic in Ludus process" (str self ":") (ex-message e))
-          (pp/pprint (ex-data e))
-          (println "On line" (get-in (ex-data e) [:ast :token ::token/line]) "in" (resolve-word :file ctx))))
+          ;; (pp/pprint (ex-data e))
+          (println "On line" (get-in (ex-data e) [:ast :token ::token/line]) "in" (ludus-resolve :file ctx))))
         (swap! @process #(assoc % :status :dead))))
     pid))
 
@@ -543,7 +552,7 @@
 
     ::ast/atom (:value ast)
 
-    ::ast/word (resolve-word (:word ast) ctx)
+    ::ast/word (resolve-word ast ctx)
 
     ::ast/let (interpret-let ast ctx)
 
