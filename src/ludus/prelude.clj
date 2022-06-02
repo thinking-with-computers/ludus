@@ -82,6 +82,18 @@
              ::data/type ::data/clj
              :body (fn [ms] (Thread/sleep ms))})
 
+(def conj- {:name "conj"
+  ::data/type ::data/clj
+  :body conj})
+
+(def assoc- {:name "assoc"
+  ::data/type ::data/clj
+  :body assoc})
+
+(def get- {:name "get"
+  ::data/type ::data/clj
+  :body get})
+
 (def prelude {"eq" eq
               "add" add
               "print" print-
@@ -97,4 +109,7 @@
               "and" and-
               "or" or-
               "sleep" sleep-
+              "assoc" assoc-
+              "conj" conj-
+              "get" get-
               })
