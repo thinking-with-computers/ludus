@@ -5,7 +5,8 @@
     [ludus.interpreter :as interpreter]
     [ludus.prelude :as prelude]
     [ludus.show :as show]
-    [ludus.data :as data]))
+    [ludus.data :as data]
+    [ludus.process :as process]))
 
 (declare repl-prelude new-session)
 
@@ -19,7 +20,7 @@
   (println "\nGoodbye!")
   (System/exit 0))
 
-(def base-ctx (merge prelude/prelude
+(def base-ctx (merge prelude/prelude process/process
                 {::repl true
                  "repl"
                  {::data/struct true

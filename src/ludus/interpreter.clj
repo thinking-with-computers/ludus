@@ -8,10 +8,11 @@
     [ludus.show :as show]
     [ludus.loader :as loader]
     [ludus.token :as token]
+    [ludus.process :as process]
     [clojure.pprint :as pp]
     [clojure.set]))
 
-(def ^:dynamic self 1001)
+(def ^:dynamic self @process/current-pid)
 
 ;; right now this is not very efficient:
 ;; it's got runtime checking
@@ -32,61 +33,6 @@
       value)))
 
 (declare interpret-ast match interpret interpret-file)
-
-(def processes (atom {}))
-
-(def current-pid (atom 1001))
-
-(defn new-process []
-  (let [pid @current-pid
-        process (atom {:pid pid
-                         :queue clojure.lang.PersistentQueue/EMPTY
-                         :inbox nil
-                         :status :occupied
-                         })]
-      (swap! processes #(assoc % pid process))
-      (swap! current-pid inc)
-      process))
-
-(def vm-state (atom :stopped))
-
-(defn- values [m] (into [] (map (fn [[_ v]] v)) m))
-
-(defn- process-msg [process]
-  ;;(println "processing message" self)
-  (let [q (:queue process)
-    inbox (:inbox process)]
-    (when (not (realized? inbox))
-      ;;(println "delivering message in" self)
-      (deliver inbox (peek q))
-      (assoc process :queue (pop q) :inbox nil))))
-
-(defn- run-process [process-atom]
-  (let [process @process-atom
-    status (:status process)
-    q (:queue process)
-    inbox (:inbox process)]
-    ;;(println "running process" self ":" (into [] q))
-    (when (and (= status :idle) (not-empty q) inbox)
-      (swap! process-atom process-msg))))
-
-(defn- start-vm []
-  ;; (println "Starting Ludus VM")
-  (when (= @vm-state :stopped)
-    (future
-      (reset! vm-state :running)
-      (loop []
-        (when (= @vm-state :running)
-            (run! run-process (values @processes))
-            (recur)
-            ;; (println "Ludus VM shutting down")
-            )))))
-
-(defn- stop-vm []
-  (reset! vm-state :stopped)
-  (reset! processes {})
-  (reset! current-pid 1001)
-  nil)
 
 (defn- match-tuple [pattern value ctx-vol]
   (cond
@@ -491,7 +437,7 @@
     (assoc (reduce (dict-term ctx) {} members) ::data/dict true)))
 
 (defn- interpret-receive [ast ctx]
-  (let [process-atom (get @processes self)
+  (let [process-atom (get @process/processes self)
     inbox (promise)
     clauses (:clauses ast)]
     ;; (println "receiving in" self)
@@ -521,7 +467,7 @@
 (defn- interpret-send [ast ctx]
   (let [msg (interpret-ast (:msg ast) ctx) 
     pid (interpret-ast (:pid ast) ctx)
-    process-atom (get @processes pid)
+    process-atom (get @process/processes pid)
     process @process-atom
     q (:queue process)
     status (:status process)]
@@ -534,7 +480,7 @@
 
 (defn- interpret-spawn [ast ctx]
   (let [expr (:expr ast)
-    process (new-process)
+    process (process/new-process)
     pid (:pid @process)]
     (with-bindings {#'self pid}
       (future
@@ -543,7 +489,7 @@
           (println "Panic in Ludus process" (str self ":") (ex-message e))
           ;; (pp/pprint (ex-data e))
           (println "On line" (get-in (ex-data e) [:ast :token ::token/line]) "in" (ludus-resolve :file ctx))))
-        (swap! @process #(assoc % :status :dead))))
+        (swap! process #(assoc % :status :dead))))
     pid))
 
 (defn interpret-ast [ast ctx]
@@ -628,7 +574,7 @@
 
 (defn interpret-file [parsed file]
   (try 
-    (let [base-ctx (volatile! (merge {:file file} prelude/prelude))]
+    (let [base-ctx (volatile! (merge {:file file} prelude/prelude process/process))]
       (interpret-ast (::parser/ast parsed) base-ctx))
     (catch clojure.lang.ExceptionInfo e
       (println "Ludus panicked in" file)
@@ -638,13 +584,13 @@
 
 (defn interpret [parsed file]
   (try
-    (let [base-ctx (volatile! (merge {:file file} prelude/prelude))
-      process (new-process)]
-      (start-vm)
+    (let [base-ctx (volatile! (merge {:file file} prelude/prelude process/process))
+      process (process/new-process)]
+      (process/start-vm)
       (with-bindings {#'self (:pid @process)}
         (let [result (interpret-ast (::parser/ast parsed) base-ctx)]
           (swap! process #(assoc % :status :dead))
-          (stop-vm)
+          (process/stop-vm)
           result)))
     (catch clojure.lang.ExceptionInfo e
       (println "Ludus panicked in" file)
@@ -655,15 +601,15 @@
 (defn interpret-safe [parsed]
   (try
     (let [base-ctx (volatile! (merge {} prelude/prelude))
-      process (new-process)]
-      (start-vm)
+      process (process/new-process)]
+      (process/start-vm)
       (with-bindings {#'self (:pid @process)}
         (let [result (interpret-ast (::parser/ast parsed) base-ctx)]
           (swap! process #(assoc % :status :dead))
           result))
-      (stop-vm))
+      (process/stop-vm))
     (catch clojure.lang.ExceptionInfo e
-      (stop-vm)
+      (process/stop-vm)
       (println "Ludus panicked!")
       (println "On line" (get-in (ex-data e) [:ast :token ::token/line]))
       (println (ex-message e))
@@ -672,10 +618,10 @@
 (defn interpret-repl
   ([parsed ctx]
     (let [orig-ctx @ctx
-      process (new-process)
+      process (process/new-process)
       pid (:pid @process)]
       (try
-        (start-vm)
+        (process/start-vm)
         (with-bindings {#'self pid}
           (let [result (interpret-ast (::parser/ast parsed) ctx)]
             {:result result :ctx ctx :pid pid}))
@@ -686,7 +632,7 @@
   ([parsed ctx pid]
     (let [orig-ctx @ctx]
       (try
-        (start-vm)
+        (process/start-vm)
         (with-bindings {#'self pid}
           (let [result (interpret-ast (::parser/ast parsed) ctx)]
             {:result result :ctx ctx :pid pid}))
@@ -698,7 +644,7 @@
 
 
 (comment
-  (start-vm)
+  (process/start-vm)
   (def source "
     fn echo () -> {
       & print (self, :echoing)
