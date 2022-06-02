@@ -31,7 +31,7 @@
     (str "#{" (apply str (into [] show-keyed (dissoc v ::data/dict))) "}")
 
     :else
-    (pr-str v)))
+    (with-out-str (pp/pprint v))))
 
 (defn- show-set [v]
   (str "${" (apply str (into [] show-linear v)) "}"))
@@ -47,7 +47,9 @@
     (vector? v) (show-vector v)
     (set? v) (show-set v)
     (map? v) (show-map v)
-    :else (with-out-str (pp/pprint v))))
+    :else
+    (with-out-str (pp/pprint v))
+    ))
   ([v & vs] (apply str (into [] (comp (map show) (interpose " ")) (concat [v] vs))))
   )
 

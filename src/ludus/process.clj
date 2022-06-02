@@ -66,12 +66,20 @@
 
 	:list {::data/type ::data/clj
 			:name "list"
-			:body (fn [] (keys @processes))}
+			:body (fn [] (into [] (keys @processes)))}
 
 	:info {::data/type ::data/clj
 			:name "info"
 			:body (fn [pid]
 				(let [process @(get @processes pid)
 					queue (into [] (:queue process))]
-					(assoc process :queue queue)))}
+					(assoc process :queue queue ::data/dict true)))}
+
+  :flush {::data/type ::data/clj
+      :name "flush"
+      :body (fn [pid]
+        (let [process (get @processes pid)
+          queue (into [] (:queue @process))]
+          (swap! process #(assoc % :queue clojure.lang.PersistentQueue/EMPTY))
+          queue))}
 	}})
