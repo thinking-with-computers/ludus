@@ -518,7 +518,8 @@
     status (:status process)]
     (when (not (= :dead status))
       (swap! process-atom #(assoc % :queue (conj q msg)))
-      ;;(println "sent" msg "to" (:pid process))
+      (Thread/sleep 1) ;; this is terrible--but it avoids deadlock
+      ;;TODO: actually debug this?
         )
     msg))
 
@@ -530,7 +531,9 @@
       (future
         (try (interpret-ast expr ctx)
           (catch Exception e
-          (println "Panic in Ludus process" (str self ":") (ex-message e))))
+          (println "Panic in Ludus process" (str self ":") (ex-message e))
+          (pp/pprint (ex-data e))
+          (println "On line" (get-in (ex-data e) [:ast :token ::token/line]) "in" (resolve-word :file ctx))))
         (swap! @process #(assoc % :status :dead))))
     pid))
 
