@@ -114,7 +114,7 @@
 (defn- whitespace? [c]
   (or (= c \space) (= c \tab)))
 
-(def terminators #{\: \; \newline \{ \} \( \) \[ \] \$ \# \- \< \& \, \| nil \\})
+(def terminators #{\: \; \newline \{ \} \( \) \[ \] \$ \# \- \= \& \, \| nil \\})
 
 (defn- terminates? [c]
   (or (whitespace? c) (contains? terminators c)))
