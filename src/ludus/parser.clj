@@ -522,7 +522,7 @@
                :token (current origin)
                :length (count ms)
                :members ms})
-            (panic parser "A splat my only appear once in a pattern, at the end of a pattern.")))
+            (panic parser "A splat my only appear once in a list pattern, at the end of the pattern.")))
 
         (::token/comma ::token/newline)
         (recur
