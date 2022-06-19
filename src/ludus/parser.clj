@@ -1070,9 +1070,9 @@
       (parser)
       (parse-script)))
 
-(comment
+(do
   (def pp pp/pprint)
-  (def source "(asdf 1)")
+  (def source "1")
 
 
   (println "")
