@@ -518,7 +518,7 @@
         (let [ms (add-member members current_member)]
           (if (not-any? #(= (::ast/type %) ::ast/splat) (drop-last ms))
             (assoc (advance parser) ::ast
-              {::ast/type ::ast/tuple
+              {::ast/type ::ast/list
                :token (current origin)
                :length (count ms)
                :members ms})
