@@ -571,7 +571,7 @@
           current_member
           (panic parser "Unexpected splat after keyword in dict pattern.")
 
-          (::ast/splatted members)
+          (::ast/splat members)
           (panic parser "Dict patterns may only have one splat.")
 
           (not= ::token/word (::token/type (current (advance parser))))
@@ -579,7 +579,7 @@
 
           :else
           (let [splatted (parse-word (advance parser))]
-            (recur splatted members {::ast/splatted (::ast splatted)})))
+            (recur splatted members {::ast/splat (::ast splatted)})))
 
         ::token/word
         (if (not current_member)
@@ -623,7 +623,7 @@
           current_member
           (panic parser "Unexpected splat after keyword in struct pattern.")
 
-          (::ast/splatted members)
+          (::ast/splat members)
           (panic parser "Struct patterns may only have one splat.")
 
           (not= ::token/word (::token/type (current (advance parser))))
@@ -631,7 +631,7 @@
 
           :else
           (let [splatted (parse-word (advance parser))]
-            (recur splatted members {::ast/splatted (::ast splatted)})))
+            (recur splatted members {::ast/splat (::ast splatted)})))
 
         ::token/word
         (if (not current_member)
@@ -1142,7 +1142,7 @@
     (parser)
     (parse-script)))
 
-(do
+(comment
   (def pp pp/pprint)
   (def source "let @{a, ...foo, :c d} = :foo")
 
