@@ -625,11 +625,13 @@
       (case (token-type parser)
         ::token/rparen 
         (let [ms (add-member members current_member)]
+          (if (not-any? #(= (::ast/type %) ::ast/splat) (drop-last ms))
             (assoc (advance parser) ::ast
               {::ast/type ::ast/tuple
                :token (current origin)
                :length (count ms)
-               :members ms}))
+               :members ms})
+            (panic parser "A splat my only appear once in a tuple pattern, at the end of the pattern.")))
           
 
         (::token/comma ::token/newline)
@@ -642,6 +644,10 @@
 
         ::token/eof
         (panic (assoc origin ::errors (::errors parser)) "Unterminated tuple" ::token/eof)
+
+        ::token/splat
+        (let [splatted (parse-splat-pattern parser)]
+          (recur splatted members (::ast splatted)))
 
         (let [parsed (parse-pattern parser)]
           (recur parsed members (::ast parsed)))))))
@@ -1107,7 +1113,7 @@
 
 (do
   (def pp pp/pprint)
-  (def source "let [a, b, (c, d), ...e] = [1, 2, (4, 5), 6]")
+  (def source "let (a, ...b) = :foo")
 
   (println "")
   (println "")
