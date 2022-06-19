@@ -12,5 +12,5 @@
   ([file from]
    (load-import
     (fs/path
-     (fs/parent (fs/canonicalize from))
+     (if (= from :cwd) (fs/cwd) (fs/parent (fs/canonicalize from)))
      (fs/path file)))))

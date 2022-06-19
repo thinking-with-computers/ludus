@@ -336,11 +336,13 @@
 
 (defn- interpret-import [ast ctx]
   (let [path (:path ast)
-        name (:name ast)]
+        name (:name ast)
+        file (ludus-resolve :file ctx)
+        from (if (= ::not-found file) :cwd file)]
     (if (contains? @ctx name)
       (throw (ex-info (str "Name " name " is alrady bound") {:ast ast}))
       (let [source (try
-                     (loader/load-import path (ludus-resolve :file ctx))
+                     (loader/load-import path from)
                      (catch Exception e
                        (if (::loader/error (ex-data e))
                          (throw (ex-info (ex-message e) {:ast ast}))
