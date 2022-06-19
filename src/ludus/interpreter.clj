@@ -165,11 +165,15 @@
       (throw (ex-info (:reason match) {:ast ast})))
     value))
 
+(defn- interpret-if-let [ast ctx])
+
 (defn- interpret-if [ast ctx]
   (let [if-expr (:if ast)
         then-expr (:then ast)
         else-expr (:else ast)
-        if-value (interpret-ast if-expr ctx)]
+        if-value (if (= (::ast/type if-expr) ::ast/let)
+          (interpret-if-let if-expr ctx)
+          (interpret-ast if-expr ctx))]
     (if if-value
       (interpret-ast then-expr ctx)
       (interpret-ast else-expr ctx))))
@@ -608,8 +612,8 @@
       (with-bindings {#'self (:pid @process)}
         (let [result (interpret-ast (::parser/ast parsed) base-ctx)]
           (swap! process #(assoc % :status :dead))
-          result))
-      (process/stop-vm))
+          (process/stop-vm)
+          result)))
     (catch clojure.lang.ExceptionInfo e
       (process/stop-vm)
       (println "Ludus panicked!")
@@ -645,30 +649,12 @@
           )))))
 
 
-(comment
+(do
   (process/start-vm)
   (def source "
-    fn echo () -> {
-      & print (self, :echoing)
-      loop () with () -> {
-          & print (self, :looping)
-          receive {
-            msg -> {
-              print (\"from \", self, \": \", msg)
-              recur ()
-            }
-          }
-        }
-      }
+    let foo = 3
 
-    let echoer = spawn echo ()
-    
-    send :hello to echoer
-    send :foo to echoer
-    send :bar to echoer
-    send :baz to echoer
-
-    sleep (1000)
+    if let 3 = foo then :foo else :bar
 
     ")
 
