@@ -522,7 +522,7 @@
                :token (current origin)
                :length (count ms)
                :members ms})
-            (panic parser "A splat my only appear once in a list pattern, at the end of the pattern.")))
+            (panic parser "A splat my only appear once in a pattern, at the end of a pattern.")))
 
         (::token/comma ::token/newline)
         (recur
@@ -548,15 +548,11 @@
          current_member nil]
     (let [curr (current parser)]
       (case (token-type parser)
-        ::token/rbrace
-        (let [ms (add-member members current_member)]
-          (if (not-any? #(= (::ast/type %) ::ast/splat) (drop-last ms))
-            (assoc (advance parser) ::ast
-              {::ast/type ::ast/tuple
-               :token (current origin)
-               :length (count ms)
-               :members ms})
-            (panic parser "A splat my only appear once in a dict pattern, at the end of the pattern.")))
+        ::token/rbrace (let [ms (add-member members current_member)]
+                         (assoc (advance parser) ::ast
+                           {::ast/type ::ast/dict
+                            :token (current origin)
+                            :members ms}))
 
         (::token/comma ::token/newline)
         (recur
@@ -568,10 +564,6 @@
 
         ::token/eof
         (panic (assoc origin ::errors (::errors parser)) "Unterminated dict pattern" ::token/eof)
-
-        ::token/splat
-        (let [splatted (parse-splat-pattern parser)]
-          (recur splatted members (::ast splatted)))
 
         ::token/word
         (if (not current_member)
@@ -593,15 +585,11 @@
          current_member nil]
     (let [curr (current parser)]
       (case (token-type parser)
-        ::token/rbrace
-                (let [ms (add-member members current_member)]
-          (if (not-any? #(= (::ast/type %) ::ast/splat) (drop-last ms))
-            (assoc (advance parser) ::ast
-              {::ast/type ::ast/tuple
-               :token (current origin)
-               :length (count ms)
-               :members ms})
-            (panic parser "A splat my only appear once in a struct pattern, at the end of the pattern.")))
+        ::token/rbrace (let [ms (add-member members current_member)]
+                         (assoc (advance parser) ::ast
+                           {::ast/type ::ast/struct
+                            :token (current origin)
+                            :members ms}))
 
         (::token/comma ::token/newline)
         (recur
@@ -613,10 +601,6 @@
 
         ::token/eof
         (panic (assoc origin ::errors (::errors parser)) "Unterminated struct pattern" ::token/eof)
-
-        ::token/splat
-        (let [splatted (parse-splat-pattern parser)]
-          (recur splatted members (::ast splatted)))
 
         ::token/word
         (if (not current_member)
@@ -641,13 +625,11 @@
       (case (token-type parser)
         ::token/rparen 
         (let [ms (add-member members current_member)]
-          (if (not-any? #(= (::ast/type %) ::ast/splat) (drop-last ms))
             (assoc (advance parser) ::ast
               {::ast/type ::ast/tuple
                :token (current origin)
                :length (count ms)
-               :members ms})
-            (panic parser "A splat my only appear once in a tuple pattern, at the end of the pattern.")))
+               :members ms}))
           
 
         (::token/comma ::token/newline)
@@ -660,10 +642,6 @@
 
         ::token/eof
         (panic (assoc origin ::errors (::errors parser)) "Unterminated tuple" ::token/eof)
-
-        ::token/splat
-        (let [splatted (parse-splat-pattern parser)]
-          (recur splatted members (::ast splatted)))
 
         (let [parsed (parse-pattern parser)]
           (recur parsed members (::ast parsed)))))))
