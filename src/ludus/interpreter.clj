@@ -136,7 +136,7 @@
       ::ast/word
       (let [word (:word pattern)]
         (if (contains? ctx word)
-          {:success false :reason (str "Name " word " is already bound")}
+          {:success false :reason (str "Name " word " is already bound") :code :name-error}
           {:success true :ctx {word value}}))
 
       ::ast/tuple (match-tuple pattern value ctx-vol)
@@ -165,7 +165,19 @@
       (throw (ex-info (:reason match) {:ast ast})))
     value))
 
-(defn- interpret-if-let [ast ctx])
+(defn- interpret-if-let [ast ctx]
+  (let [pattern (:pattern ast)
+      expr (:expr ast)
+      value (interpret-ast expr ctx)
+      match (match pattern value ctx)
+      success (:success match)]
+    (if success
+      (do 
+        (vswap! ctx update-ctx (:ctx match))
+        value)
+      (if (:code match)
+        (throw (ex-info (:reason match) {:ast ast}))
+        false))))
 
 (defn- interpret-if [ast ctx]
   (let [if-expr (:if ast)
@@ -649,12 +661,14 @@
           )))))
 
 
-(do
+(comment
   (process/start-vm)
   (def source "
-    let foo = 3
+    let foo = (:a, :b)
 
-    if let 3 = foo then :foo else :bar
+    if let (x, y) = foo then :foo else :bar
+
+    y
 
     ")
 
