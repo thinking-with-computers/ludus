@@ -34,26 +34,49 @@
 
 (declare interpret-ast match interpret interpret-file)
 
+(defn- match-splatted-tuple [pattern value ctx-vol]
+  (let [length (:length pattern) members (:members pattern)
+    ctx-diff (volatile! @ctx-vol)]
+    (if (> length (count value))
+      {:success false :reason "Could not match tuple lengths"}
+      (loop [i 0 ctx {}]
+        (if (= (dec length) i)
+          (
+            ;; TODO: write the actual splat here
+            ;; check if the name is already bound
+            ;; then pack everything into a list
+            ;; and return success with the list bound to the name
+            )
+          (let [match? (match (nth members i) (nth value (inc i)) ctx-diff)]
+            (if (:success match?)
+              (recur (inc i) (vswap! ctx-diff #(merge % (:ctx match?))))
+              {:success :false :reason (str "Could not match " pattern " with " value)}
+              )))))))
+
 (defn- match-tuple [pattern value ctx-vol]
   (cond
     (not (vector? value)) {:success false :reason "Could not match non-tuple value to tuple"}
 
     (not (= ::data/tuple (first value))) {:success false :reason "Could not match list to tuple"}
 
+    (= ::ast/splat (::ast/type (last (:members pattern))))
+    (match-splatted-tuple pattern value ctx-vol)
+
     (not (= (:length pattern) (dec (count value))))
     {:success false :reason "Cannot match tuples of different lengths"}
 
     (= 0 (:length pattern) (dec (count value))) {:success true :ctx {}}
 
-    :else (let [members (:members pattern)]
+    :else (let [members (:members pattern)
+      ctx-diff (volatile! @ctx-vol)]
             (loop [i (:length pattern)
                    ctx {}]
               (if (= 0 i)
                 {:success true :ctx ctx}
-                (let [match? (match (nth members (dec i)) (nth value i) ctx-vol)]
+                (let [match? (match (nth members (dec i)) (nth value i) ctx-diff)]
                   (if (:success match?)
-                    (recur (dec i) (merge ctx (:ctx match?)))
-                    {:success false :reason (str "Could not match " pattern " with " value)})))))))
+                    (recur (dec i) (vswap! ctx-diff #(merge % (:ctx match?))))
+                    {:success false :reason (str "Could not match " pattern " with " value " because " (:reason match?))})))))))
 
 (defn- match-list [pattern value ctx-vol]
   (cond
@@ -661,14 +684,10 @@
           )))))
 
 
-(comment
+(do
   (process/start-vm)
   (def source "
-    let foo = (:a, :b)
-
-    if let (x, y) = foo then :foo else :bar
-
-    y
+    let (a, b) = (1, 2)
 
     ")
 
