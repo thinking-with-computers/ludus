@@ -1072,7 +1072,7 @@
 
 (comment
   (def pp pp/pprint)
-  (def source "1")
+  (def source "if let foo = bar then foo else bar")
 
 
   (println "")
@@ -1081,7 +1081,7 @@
   (println "")
   (println "*** *** TEST PARSE *** ***")
 
-  (pp/pprint (parse (scanner/scan source))))
+  (pp/pprint (::ast (parse (scanner/scan source)))))
 
 (comment "
 	Further thoughts/still to do:
