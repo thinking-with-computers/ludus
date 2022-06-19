@@ -484,7 +484,7 @@
 
 (def sync-pattern (s/union sync-on #{::token/equals ::token/rarrow}))
 
-(defn- parse-splat-pattern [origin]
+(defn- parse-list-tuple-splat-pattern [origin]
   (let [splatted (advance origin)]
     (case (token-type splatted)
       ::token/word 
@@ -536,7 +536,7 @@
         (panic (assoc origin ::errors (::errors parser)) "Unterminated list pattern" ::token/eof)
 
         ::token/splat
-        (let [splatted (parse-splat-pattern parser)]
+        (let [splatted (parse-list-tuple-splat-pattern parser)]
           (recur splatted members (::ast splatted)))
 
         (let [parsed (parse-pattern parser)]
@@ -548,11 +548,12 @@
          current_member nil]
     (let [curr (current parser)]
       (case (token-type parser)
-        ::token/rbrace (let [ms (add-member members current_member)]
-                         (assoc (advance parser) ::ast
-                           {::ast/type ::ast/dict
-                            :token (current origin)
-                            :members ms}))
+        ::token/rbrace
+        (let [ms (add-member members current_member)]
+           (assoc (advance parser) ::ast
+             {::ast/type ::ast/dict
+              :token (current origin)
+              :members ms}))
 
         (::token/comma ::token/newline)
         (recur
@@ -564,6 +565,21 @@
 
         ::token/eof
         (panic (assoc origin ::errors (::errors parser)) "Unterminated dict pattern" ::token/eof)
+
+        ::token/splat
+        (cond
+          current_member
+          (panic parser "Unexpected splat after keyword in dict pattern.")
+
+          (::ast/splatted members)
+          (panic parser "Dict patterns may only have one splat.")
+
+          (not= ::token/word (::token/type (current (advance parser))))
+          (panic parser "Splats in dicts may only splat into words.")
+
+          :else
+          (let [splatted (parse-word (advance parser))]
+            (recur splatted members {::ast/splatted (::ast splatted)})))
 
         ::token/word
         (if (not current_member)
@@ -601,6 +617,21 @@
 
         ::token/eof
         (panic (assoc origin ::errors (::errors parser)) "Unterminated struct pattern" ::token/eof)
+
+        ::token/splat
+        (cond
+          current_member
+          (panic parser "Unexpected splat after keyword in struct pattern.")
+
+          (::ast/splatted members)
+          (panic parser "Struct patterns may only have one splat.")
+
+          (not= ::token/word (::token/type (current (advance parser))))
+          (panic parser "Splats in structs may only splat into words.")
+
+          :else
+          (let [splatted (parse-word (advance parser))]
+            (recur splatted members {::ast/splatted (::ast splatted)})))
 
         ::token/word
         (if (not current_member)
@@ -646,7 +677,7 @@
         (panic (assoc origin ::errors (::errors parser)) "Unterminated tuple" ::token/eof)
 
         ::token/splat
-        (let [splatted (parse-splat-pattern parser)]
+        (let [splatted (parse-list-tuple-splat-pattern parser)]
           (recur splatted members (::ast splatted)))
 
         (let [parsed (parse-pattern parser)]
@@ -1113,7 +1144,7 @@
 
 (do
   (def pp pp/pprint)
-  (def source "let (a, ...b) = :foo")
+  (def source "let @{a, ...foo, :c d} = :foo")
 
   (println "")
   (println "")
