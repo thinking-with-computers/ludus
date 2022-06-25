@@ -549,16 +549,22 @@
     (let [curr (current parser)]
       (case (token-type parser)
         ::token/rbrace
-        (let [ms (add-member members current_member)]
-           (assoc (advance parser) ::ast
-             {::ast/type ::ast/dict
-              :token (current origin)
-              :members ms}))
+        (let [current-key (first (keys current_member))]
+          (if (current-key members)
+            (panic parser (str "Dict patterns may not duplicate keys: " current-key))
+            (let [ms (add-member members current_member)]
+                   (assoc (advance parser) ::ast
+                     {::ast/type ::ast/dict
+                      :token (current origin)
+                      :members ms}))))
 
         (::token/comma ::token/newline)
-        (recur
-          (accept-many #{::token/comma ::token/newline} parser)
-          (add-member members current_member) nil)
+        (let [current-key (first (keys current_member))]
+          (if (current-key members)
+            (panic parser (str "Dict patterns may not duplicate keys: " current-key))
+            (recur
+                  (accept-many #{::token/comma ::token/newline} parser)
+                  (add-member members current_member) nil)))
 
         (::token/rbracket ::token/rparen)
         (panic parser (str "Mismatched enclosure in dict pattern: " (::token/lexeme curr)))
