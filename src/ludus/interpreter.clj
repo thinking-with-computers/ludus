@@ -36,7 +36,7 @@
 
 (defn- match-splatted-tuple [pattern value ctx-vol]
   (let [length (:length pattern) members (:members pattern)
-    ctx-diff (volatile! @ctx-vol)]
+        ctx-diff (volatile! @ctx-vol)]
     (if (> length (count value))
       {:success false :reason "Could not match tuple lengths"}
       (loop [i 0 ctx {}]
@@ -67,17 +67,20 @@
 
     (= 0 (:length pattern) (dec (count value))) {:success true :ctx {}}
 
-    :else (let [members (:members pattern)
-      ctx-diff (volatile! @ctx-vol)]
-            (loop [i (:length pattern)
-                   ctx {}]
-              (if (= 0 i)
-                {:success true :ctx ctx}
-                (let [match? (match (nth members (dec i)) (nth value i) ctx-diff)]
-                  (if (:success match?)
-                    (recur (dec i) (vswap! ctx-diff #(merge % (:ctx match?))))
-                    {:success false :reason (str "Could not match " pattern " with " value " because " (:reason match?))})))))))
+    :else 
+    (let [members (:members pattern)
+          ctx-diff (volatile! @ctx-vol)]
+      (loop [i (:length pattern)]
+        (if (= 0 i)
+          {:success true :ctx @ctx-diff}
+          (let [match? (match (nth members (dec i)) (nth value i) ctx-diff)]
+            (if (:success match?)
+              (do
+                (vswap! ctx-diff #(merge % (:ctx match?)))
+                (recur (dec i)))
+              {:success false :reason (str "Could not match " pattern " with " value " because " (:reason match?))})))))))
 
+;; TODO: fix repeated name bug in list patterns
 (defn- match-list [pattern value ctx-vol]
   (cond
     (not (vector? value)) {:success false :reason "Could not match non-list value to list"}
@@ -90,38 +93,48 @@
 
     (= 0 (count (:members pattern)) (count value)) {:success true :ctx {}}
 
-    :else (let [members (:members pattern)]
-            (loop [i (dec (count members))
-                   ctx {}]
+    :else 
+    (let [members (:members pattern)
+      ctx-diff (volatile! @ctx-vol)]
+            (loop [i (dec (count members))]
               (if (> 0 i)
-                {:success true :ctx ctx}
-                (let [match? (match (nth members i) (nth value i) ctx-vol)]
+                {:success true :ctx @ctx-diff}
+                (let [match? (match (nth members i) (nth value i) ctx-diff)]
                   (if (:success match?)
-                    (recur (dec i) (merge ctx (:ctx match?)))
-                    {:success false :reason (str "Could not match " pattern " with " value)})))))))
+                    (do
+                      (vswap! ctx-diff #(merge % (:ctx match?))) 
+                      (recur (dec i)))
+                    {:success false :reason (str "Could not match " pattern " with " value " because " (:reason match?))})))))))
 
+;; TODO: investigate if there is a repeated name bug in dict patterns
 (defn- match-dict [pattern value ctx-vol]
   (cond
     (not (map? value))
     {:success false :reason "Could not match non-dict value to dict pattern"}
 
     (not (::data/dict value))
-    {:success false :reason "Cannot match non-dict data types a dict pattern"}
+    {:success false :reason "Cannot match non-dict data types to a dict pattern"}
 
     :else
     (let [members (:members pattern)
-          kws (keys members)]
-      (loop [i (dec (count kws)) ctx {}]
+          kws (keys members)
+          ctx-diff (volatile! @ctx-vol)]
+      (loop [i (dec (count kws))]
         (if (> 0 i)
-          {:success true :ctx ctx}
+          {:success true :ctx @ctx-diff}
           (let [kw (nth kws i)]
             (if (contains? value kw)
-              (let [match? (match (kw members) (kw value) ctx-vol)]
+              (let [match? (match (kw members) (kw value) ctx-diff)]
                 (if (:success match?)
-                  (recur (dec i) (merge ctx (:ctx match?)))
-                  {:success false :reason (str "Could not match " pattern " with " value " at key " kw)}))
-              {:success false :reason (str "Could not match " pattern " with " value " at key " kw)})))))))
+                  (do
+                    (println (:ctx match?))
+                    (vswap! ctx-diff #(merge % (:ctx match?)))
+                    (recur (dec i)))
+                  {:success false :reason (str "Could not match " pattern " with " value " at key " kw " because " (:reason match?))}))
+              {:success false
+                :reason (str "Could not match " pattern " with " value " at key " kw " because there is no value at " kw)})))))))
 
+;; TODO: investigate if there is a repeated name bug in struct patterns
 (defn- match-struct [pattern value ctx-vol]
   (cond
     (not (map? value))
@@ -132,17 +145,20 @@
 
     :else
     (let [members (:members pattern)
-          kws (keys members)]
-      (loop [i (dec (count kws)) ctx {}]
+          kws (keys members)
+          ctx-diff (volatile! @ctx-vol)]
+      (loop [i (dec (count kws))]
         (if (> 0 i)
-          {:success true :ctx ctx}
+          {:success true :ctx @ctx-diff}
           (let [kw (nth kws i)]
             (if (contains? value kw)
-              (let [match? (match (kw members) (kw value) ctx-vol)]
+              (let [match? (match (kw members) (kw value) ctx-diff)]
                 (if (:success match?)
-                  (recur (dec i) (merge ctx (:ctx match?)))
-                  {:success false :reason (str "Could not match " pattern " with " value " at key " kw)}))
-              {:success false :reason (str "Could not match " pattern " with " value " at key " kw)})))))))
+                  (do
+                    (vswap! ctx-diff #(merge % (:ctx match?)))
+                    (recur (dec i)))
+                  {:success false :reason (str "Could not match " pattern " with " value " at key " kw " because " (:reason match?))}))
+              {:success false :reason (str "Could not match " pattern " with " value " at key " kw ", because there is no value at " kw)})))))))
 
 (defn- match [pattern value ctx-vol]
   (let [ctx @ctx-vol]
@@ -190,10 +206,10 @@
 
 (defn- interpret-if-let [ast ctx]
   (let [pattern (:pattern ast)
-      expr (:expr ast)
-      value (interpret-ast expr ctx)
-      match (match pattern value ctx)
-      success (:success match)]
+        expr (:expr ast)
+        value (interpret-ast expr ctx)
+        match (match pattern value ctx)
+        success (:success match)]
     (if success
       (do 
         (vswap! ctx update-ctx (:ctx match))
@@ -207,8 +223,8 @@
         then-expr (:then ast)
         else-expr (:else ast)
         if-value (if (= (::ast/type if-expr) ::ast/let)
-          (interpret-if-let if-expr ctx)
-          (interpret-ast if-expr ctx))]
+                   (interpret-if-let if-expr ctx)
+                   (interpret-ast if-expr ctx))]
     (if if-value
       (interpret-ast then-expr ctx)
       (interpret-ast else-expr ctx))))
@@ -479,8 +495,8 @@
 
 (defn- interpret-receive [ast ctx]
   (let [process-atom (get @process/processes self)
-    inbox (promise)
-    clauses (:clauses ast)]
+        inbox (promise)
+        clauses (:clauses ast)]
     ;; (println "receiving in" self)
     (swap! process-atom #(assoc % :inbox inbox :status :idle))
     ;; (println "awaiting message in" self)
@@ -488,48 +504,48 @@
       (swap! process-atom #(assoc % :status :occupied))
       ;; (println "message received by" self ":" msg)
       (loop [clause (first clauses)
-           clauses (rest clauses)]
-      (if clause
-        (let [pattern (:pattern clause)
-              body (:body clause)
-              new-ctx (volatile! {::parent ctx})
-              match? (match pattern msg new-ctx)
-              success (:success match?)
-              clause-ctx (:ctx match?)]
-          (if success
-            (do
-              (vswap! new-ctx #(merge % clause-ctx))
-              (let [result (interpret-ast body new-ctx)]
-                (swap! process-atom #(assoc % :status :idle))
-                result))
-            (recur (first clauses) (rest clauses))))
-        (throw (ex-info "Match Error: No match found" {:ast ast})))))))
+             clauses (rest clauses)]
+        (if clause
+          (let [pattern (:pattern clause)
+                body (:body clause)
+                new-ctx (volatile! {::parent ctx})
+                match? (match pattern msg new-ctx)
+                success (:success match?)
+                clause-ctx (:ctx match?)]
+            (if success
+              (do
+                (vswap! new-ctx #(merge % clause-ctx))
+                (let [result (interpret-ast body new-ctx)]
+                  (swap! process-atom #(assoc % :status :idle))
+                  result))
+              (recur (first clauses) (rest clauses))))
+          (throw (ex-info "Match Error: No match found" {:ast ast})))))))
 
 (defn- interpret-send [ast ctx]
   (let [msg (interpret-ast (:msg ast) ctx) 
-    pid (interpret-ast (:pid ast) ctx)
-    process-atom (get @process/processes pid)
-    process @process-atom
-    q (:queue process)
-    status (:status process)]
+        pid (interpret-ast (:pid ast) ctx)
+        process-atom (get @process/processes pid)
+        process @process-atom
+        q (:queue process)
+        status (:status process)]
     (when (not (= :dead status))
       (swap! process-atom #(assoc % :queue (conj q msg)))
       (Thread/sleep 1) ;; this is terrible--but it avoids deadlock
       ;;TODO: actually debug this?
-        )
+      )
     msg))
 
 (defn- interpret-spawn [ast ctx]
   (let [expr (:expr ast)
-    process (process/new-process)
-    pid (:pid @process)]
+        process (process/new-process)
+        pid (:pid @process)]
     (with-bindings {#'self pid}
       (future
         (try (interpret-ast expr ctx)
           (catch Exception e
-          (println "Panic in Ludus process" (str self ":") (ex-message e))
-          ;; (pp/pprint (ex-data e))
-          (println "On line" (get-in (ex-data e) [:ast :token ::token/line]) "in" (ludus-resolve :file ctx))))
+            (println "Panic in Ludus process" (str self ":") (ex-message e))
+            ;; (pp/pprint (ex-data e))
+            (println "On line" (get-in (ex-data e) [:ast :token ::token/line]) "in" (ludus-resolve :file ctx))))
         (swap! process #(assoc % :status :dead))))
     pid))
 
@@ -626,7 +642,7 @@
 (defn interpret [parsed file]
   (try
     (let [base-ctx (volatile! (merge {:file file} prelude/prelude process/process))
-      process (process/new-process)]
+          process (process/new-process)]
       (process/start-vm)
       (with-bindings {#'self (:pid @process)}
         (let [result (interpret-ast (::parser/ast parsed) base-ctx)]
@@ -642,7 +658,7 @@
 (defn interpret-safe [parsed]
   (try
     (let [base-ctx (volatile! (merge {} prelude/prelude))
-      process (process/new-process)]
+          process (process/new-process)]
       (process/start-vm)
       (with-bindings {#'self (:pid @process)}
         (let [result (interpret-ast (::parser/ast parsed) base-ctx)]
@@ -658,37 +674,37 @@
 
 (defn interpret-repl
   ([parsed ctx]
-    (let [orig-ctx @ctx
-      process (process/new-process)
-      pid (:pid @process)]
-      (try
-        (process/start-vm)
-        (with-bindings {#'self pid}
-          (let [result (interpret-ast (::parser/ast parsed) ctx)]
-            {:result result :ctx ctx :pid pid}))
-        (catch clojure.lang.ExceptionInfo e
-          (println "Ludus panicked!")
-          (println (ex-message e))
-          {:result :error :ctx (volatile! orig-ctx) :pid pid}))))
+   (let [orig-ctx @ctx
+         process (process/new-process)
+         pid (:pid @process)]
+     (try
+       (process/start-vm)
+       (with-bindings {#'self pid}
+         (let [result (interpret-ast (::parser/ast parsed) ctx)]
+           {:result result :ctx ctx :pid pid}))
+       (catch clojure.lang.ExceptionInfo e
+         (println "Ludus panicked!")
+         (println (ex-message e))
+         {:result :error :ctx (volatile! orig-ctx) :pid pid}))))
   ([parsed ctx pid]
-    (let [orig-ctx @ctx]
-      (try
-        (process/start-vm)
-        (with-bindings {#'self pid}
-          (let [result (interpret-ast (::parser/ast parsed) ctx)]
-            {:result result :ctx ctx :pid pid}))
-        (catch clojure.lang.ExceptionInfo e
-          (println "Ludus panicked!")
-          (println (ex-message e))
-          {:result :error :ctx (volatile! orig-ctx) :pid pid}
-          )))))
+   (let [orig-ctx @ctx]
+     (try
+       (process/start-vm)
+       (with-bindings {#'self pid}
+         (let [result (interpret-ast (::parser/ast parsed) ctx)]
+           {:result result :ctx ctx :pid pid}))
+       (catch clojure.lang.ExceptionInfo e
+         (println "Ludus panicked!")
+         (println (ex-message e))
+         {:result :error :ctx (volatile! orig-ctx) :pid pid}
+         )))))
 
 
 (do
   (process/start-vm)
   (def source "
-    let (a, b) = (1, 2)
-
+    let #{a, a} = #{:a 1}
+    a
     ")
 
   (println "")
@@ -697,12 +713,12 @@
   (println "")
 
   (let [result (-> source
-      (scanner/scan)
-      (parser/parse)
-      (interpret-safe)
-      (show/show)
-      )]
-  result))
+                 (scanner/scan)
+                 (parser/parse)
+                 (interpret-safe)
+                 (show/show)
+                 )]
+    result))
 
 (comment "
 
