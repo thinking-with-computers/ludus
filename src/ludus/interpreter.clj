@@ -80,7 +80,6 @@
                 (recur (dec i)))
               {:success false :reason (str "Could not match " pattern " with " value " because " (:reason match?))})))))))
 
-;; TODO: fix repeated name bug in list patterns
 (defn- match-list [pattern value ctx-vol]
   (cond
     (not (vector? value)) {:success false :reason "Could not match non-list value to list"}
@@ -106,7 +105,6 @@
                       (recur (dec i)))
                     {:success false :reason (str "Could not match " pattern " with " value " because " (:reason match?))})))))))
 
-;; TODO: investigate if there is a repeated name bug in dict patterns
 (defn- match-dict [pattern value ctx-vol]
   (cond
     (not (map? value))
@@ -134,7 +132,6 @@
               {:success false
                 :reason (str "Could not match " pattern " with " value " at key " kw " because there is no value at " kw)})))))))
 
-;; TODO: investigate if there is a repeated name bug in struct patterns
 (defn- match-struct [pattern value ctx-vol]
   (cond
     (not (map? value))
