@@ -34,6 +34,7 @@
 
 (declare interpret-ast match interpret interpret-file)
 
+;; TODO: actually implement this!
 (defn- match-splatted-tuple [pattern value ctx-vol]
   (let [length (:length pattern) members (:members pattern)
         ctx-diff (volatile! @ctx-vol)]
