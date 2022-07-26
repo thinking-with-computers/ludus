@@ -698,7 +698,7 @@
          )))))
 
 
-(do
+(comment
   (process/start-vm)
   (def source "
     let #{a, a} = #{:a 1}
