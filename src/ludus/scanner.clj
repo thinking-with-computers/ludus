@@ -195,13 +195,13 @@
         (word-char? curr) (recur (advance scanner) (str word curr))
         :else (add-error scanner (str "Unexpected " curr " after word " word "."))))))
 
-(defn- add-datatype
+(defn- add-data
   [char scanner]
   (loop [scanner scanner
          word (str char)]
     (let [curr (current-char scanner)]
       (cond
-        (terminates? curr) (add-token scanner (get reserved-words word ::token/word))
+        (terminates? curr) (add-token scanner ::token/data)
         (word-char? curr) (recur (advance scanner) (str word curr))
         :else (add-error scanner (str "Unexpected " curr " after datatype " word "."))))))
 
@@ -312,7 +312,8 @@
       (cond
         (whitespace? char) scanner ;; for now just skip whitespace characters
         (digit? char) (add-number char scanner)
-        (alpha? char) (add-word char scanner)
+        (upper? char) (add-data char scanner)
+        (lower? char) (add-word char scanner)
         :else (add-error scanner (str "Unexpected character: " char))))))
 
 (defn- next-token [scanner]
@@ -325,3 +326,4 @@
         {:tokens (::tokens scanner)
          :errors (::errors scanner)})
       (recur (-> scanner (scan-token) (next-token))))))
+
