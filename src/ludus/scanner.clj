@@ -1,7 +1,7 @@
 (ns ludus.scanner
   (:require
    [ludus.token :as token]
-   [clojure.pprint :as pp]
+   ;; [clojure.pprint :as pp]
    [clojure.edn :as edn]))
 
 (def reserved-words
@@ -27,7 +27,6 @@
    "true" ::token/true ;; impl
    "with" ::token/with ;; impl
 
-   ;; below here, probable
    ;; actor model/concurrency
    "receive" ::token/receive
    "self" ::token/self ;; maybe not necessary?
@@ -40,17 +39,7 @@
    "repeat" ::token/repeat ;; syntax sugar over "loop"
    "test" ::token/test
    "when" ::token/when
-
-   ;; below here, possibly not
-   ;; generators (sugar over actors?)
-   ; "gen" ::token/gen
-   ; "yield" ::token/yield
-   ;; event loop/concurrency
-   ; "defer" ::token/defer
-   ; "wait" ::token/wait
-   ;; vars
-   ; "mut" ::token/mut
-   ; "var" ::token/var
+   "module" ::token/module
    })
 
 (defn- new-scanner
@@ -104,6 +93,10 @@
 ;; (defn- alpha? [c] (boolean (re-find #"\p{L}" (str c))))
 (defn- alpha? [c]
   (or (char-in-range? \a \z c) (char-in-range? \A \Z c)))
+
+(defn- lower? [c] (char-in-range? \a \z c))
+
+(defn- upper? [c] (char-in-range? \A \Z c))
 
 ;; legal characters in words
 (def word-chars #{\_ \? \! \* \/})
@@ -201,6 +194,16 @@
         (terminates? curr) (add-token scanner (get reserved-words word ::token/word))
         (word-char? curr) (recur (advance scanner) (str word curr))
         :else (add-error scanner (str "Unexpected " curr " after word " word "."))))))
+
+(defn- add-datatype
+  [char scanner]
+  (loop [scanner scanner
+         word (str char)]
+    (let [curr (current-char scanner)]
+      (cond
+        (terminates? curr) (add-token scanner (get reserved-words word ::token/word))
+        (word-char? curr) (recur (advance scanner) (str word curr))
+        :else (add-error scanner (str "Unexpected " curr " after datatype " word "."))))))
 
 (defn- add-ignored
   [scanner]
