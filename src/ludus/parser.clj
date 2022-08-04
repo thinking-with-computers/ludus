@@ -1036,7 +1036,36 @@
                               :clauses (get-in clauses [::ast :clauses])}))
       (panic parser "Expected { after receive"))))
 
-(defn- parse-data [parser]
+(defn- parse-data-constr [parser]
+  (if (= (token-type parser) ::token/datatype)
+    (let [dt-ast (parse-datatype parser)
+          after-dt (token-type dt-ast)]
+      (case after-dt
+        ::token/newline (assoc dt-ast ::ast {::ast/type ::ast/datatype
+                                             :token (current parser)
+                                             :constructor-type :nullary})
+        ::token/lparen
+        (let [pattern (parse-tuple-pattern (advance dt-ast))]
+          (assoc pattern ::ast {::ast/type ::ast/datatype
+                                :token (current parser)
+                                :constructor-type :tuple
+                                :pattern (::ast pattern)}))
+
+        ::token/lbrace
+        (let [pattern (parse-struct-pattern (advance dt-ast))]
+          (assoc pattern ::ast {::ast/type ::ast/datatype
+                                :token (current parser)
+                                :constructor-type :struct
+                                :pattern (::ast pattern)}))
+
+        (panic dt-ast (str "Unexpected " (get-in dt-ast [::token :lexeme]) " after datatype declaration."))))
+    (panic parser "Expected datatype constructor.")))
+
+;; XXX: write the enum parser, model it after a script or a match
+;; note that the current token here should be an lbrace
+(defn- parse-enum [parser])
+
+(defn- parse-data-decl [parser]
   (let [dt (advance parser)]
     (if (= (token-type dt) ::token/datatype)
       (let [dt-ast (parse-datatype dt)
@@ -1059,7 +1088,10 @@
                                   :constructor-type :struct
                                   :pattern (::ast pattern)}))
 
-          (panic dt-ast (str "Undexpected " (get-in dt-ast [::token :lexeme]) "after datatype declaration."))))
+          ::token/with
+          (parse-enum (advance dt-ast))
+
+          (panic dt-ast (str "Unexpected " (get-in dt-ast [::token :lexeme]) " after datatype declaration."))))
       (panic dt "Expected datatype name after data reserved word."))))
 
 (defn- parse-toplevel [parser]
@@ -1068,7 +1100,7 @@
 
     ::token/import (parse-import parser)
 
-    ::token/data (parse-data parser)
+    ::token/data (parse-data-decl parser)
 
     (parse-expr parser)))
 
