@@ -124,6 +124,13 @@
                     :token token
                     :value (get atomic-words (::token/type token))}))))
 
+(defn- parse-datatype [parser]
+  (let [token (current parser)]
+    (-> parser (advance)
+        (assoc ::ast {::ast/type ::ast/datatype
+                      :token token
+                      :value (::token/literal token)}))))
+
 (defn- add-member [members member]
   (if (nil? member)
     members
@@ -1080,6 +1087,9 @@
            (::token/lparen ::token/keyword) (parse-synthetic parser)
            (parse-word parser)))
 
+       ::token/datatype
+       (parse-datatype parser)
+
        (::token/nil ::token/true ::token/false)
        (parse-atomic-word parser)
 
@@ -1148,9 +1158,9 @@
     (parser)
     (parse-script)))
 
-(comment
+(do
   (def pp pp/pprint)
-  (def source "let @{a, ...foo, :c d} = :foo")
+  (def source "Word")
 
   (println "")
   (println "")
@@ -1158,7 +1168,7 @@
   (println "")
   (println "*** *** TEST PARSE *** ***")
 
-  (pp/pprint (::ast (parse (scanner/scan source)))))
+  (pp (::ast (parse (scanner/scan source)))))
 
 (comment "
 	Further thoughts/still to do:

@@ -201,7 +201,7 @@
          word (str char)]
     (let [curr (current-char scanner)]
       (cond
-        (terminates? curr) (add-token scanner ::token/data)
+        (terminates? curr) (add-token scanner ::token/datatype)
         (word-char? curr) (recur (advance scanner) (str word curr))
         :else (add-error scanner (str "Unexpected " curr " after datatype " word "."))))))
 
