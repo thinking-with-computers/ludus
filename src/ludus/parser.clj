@@ -440,30 +440,7 @@
                 (parse-expr parser))]
           (recur parsed exprs (::ast parsed)))))))
 
-(defn parse-script [origin]
-  (loop [parser (accept-many #{::token/newline ::token/semicolon} origin)
-         exprs []
-         current_expr nil]
-    (case (token-type parser)
-      ::token/eof
-      (let [es (add-member exprs current_expr)]
-        (if (empty? es)
-          (panic parser "Scripts must have at least one expression")
-          (assoc parser ::ast {::ast/type ::ast/script
-                               :token (current origin) :exprs es})))
 
-      (::token/semicolon ::token/newline)
-      (recur
-        (accept-many #{::token/semicolon ::token/newline} parser)
-        (add-member exprs current_expr)
-        nil)
-
-      (let [parsed
-            (if current_expr
-              (panic parser "Expected end of expression" #{::token/semicolon ::token/newline})
-              (parse-expr parser))]
-
-        (recur parsed exprs (::ast parsed))))))
 
 (defn- parse-synthetic [parser]
   (loop [parser parser
@@ -1064,6 +1041,34 @@
                               :clauses (get-in clauses [::ast :clauses])}))
       (panic parser "Expected { after receive"))))
 
+(defn parse-script [origin]
+  (loop [parser (accept-many #{::token/newline ::token/semicolon} origin)
+         exprs []
+         current_expr nil]
+    (case (token-type parser)
+      ::token/eof
+      (let [es (add-member exprs current_expr)]
+        (if (empty? es)
+          (panic parser "Scripts must have at least one expression")
+          (assoc parser ::ast {::ast/type ::ast/script
+                               :token (current origin) :exprs es})))
+      ::token/ns (parse-ns parser)
+
+      ::token/import (parse-import parser)
+
+      (::token/semicolon ::token/newline)
+      (recur
+        (accept-many #{::token/semicolon ::token/newline} parser)
+        (add-member exprs current_expr)
+        nil)
+
+      (let [parsed
+            (if current_expr
+              (panic parser "Expected end of expression" #{::token/semicolon ::token/newline})
+              (parse-expr parser))]
+
+        (recur parsed exprs (::ast parsed))))))
+
 (defn- parse-expr
   ([parser] (parse-expr parser sync-on))
   ([parser sync-on]
@@ -1119,10 +1124,6 @@
        ::token/do (parse-do parser)
 
        ::token/cond (parse-cond parser)
-
-       ::token/ns (parse-ns parser)
-
-       ::token/import (parse-import parser)
 
        ::token/ref (parse-ref parser)
 
