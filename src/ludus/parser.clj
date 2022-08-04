@@ -1041,6 +1041,43 @@
                               :clauses (get-in clauses [::ast :clauses])}))
       (panic parser "Expected { after receive"))))
 
+(defn- parse-data [parser]
+  (let [dt (advance parser)]
+    (if (= (token-type dt) ::token/datatype)
+      (let [dt-ast (parse-datatype dt)
+            after-dt (token-type dt-ast)]
+                               (case after-dt
+                                 ::token/newline (assoc dt-ast ::ast {::ast/type ::ast/datatype
+                                                                      :token (current parser)
+                                                                      :constructor-type :nullary})
+                                 ::token/lparen
+                                 (let [pattern (parse-tuple-pattern (advance dt-ast))]
+                                   (assoc pattern ::ast {::ast/type ::ast/datatype
+                                                         :token (current parser)
+                                                         :constructor-type :tuple
+                                                         :pattern (::ast pattern)}))
+
+                                 ::token/lbrace
+                                 (let [pattern (parse-struct-pattern (advance dt-ast))]
+                                   (assoc pattern ::ast {::ast/type ::ast/datatype
+                                                         :token (current parser)
+                                                         :constructor-type :struct
+                                                         :pattern (::ast pattern)}))
+
+                               (panic dt-ast (str "Undexpected " (get-in dt-ast [::token :lexeme]) "after datatype declaration."))))
+      (panic dt "Expected datatype name after data reserved word."))))
+
+
+(defn- parse-toplevel [parser]
+    (case (token-type parser)
+      ::token/ns (parse-ns parser)
+
+      ::token/import (parse-import parser)
+
+      ::token/data (parse-data parser)
+      
+      (parse-expr parser)))
+
 (defn parse-script [origin]
   (loop [parser (accept-many #{::token/newline ::token/semicolon} origin)
          exprs []
@@ -1052,11 +1089,8 @@
           (panic parser "Scripts must have at least one expression")
           (assoc parser ::ast {::ast/type ::ast/script
                                :token (current origin) :exprs es})))
-      ::token/ns (parse-ns parser)
 
-      ::token/import (parse-import parser)
-
-      (::token/semicolon ::token/newline)
+    (::token/semicolon ::token/newline)
       (recur
         (accept-many #{::token/semicolon ::token/newline} parser)
         (add-member exprs current_expr)
@@ -1065,7 +1099,7 @@
       (let [parsed
             (if current_expr
               (panic parser "Expected end of expression" #{::token/semicolon ::token/newline})
-              (parse-expr parser))]
+              (parse-toplevel parser))]
 
         (recur parsed exprs (::ast parsed))))))
 
@@ -1160,16 +1194,12 @@
     (parse-script)))
 
 (do
-  (def pp pp/pprint)
-  (def source "Word")
+  (def source "
+data Foo {foo, bar}
 
-  (println "")
-  (println "")
-  (println "******************************************************")
-  (println "")
-  (println "*** *** TEST PARSE *** ***")
+")
 
-  (pp (::ast (parse (scanner/scan source)))))
+  (::ast (parse (scanner/scan source))))
 
 (comment "
 	Further thoughts/still to do:
