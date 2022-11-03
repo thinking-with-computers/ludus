@@ -251,9 +251,9 @@
 
       ;; at current we're not using this
       ;; <-
-      \< (if (= next \-)
-           (add-token (advance scanner) ::token/larrow)
-           (add-error scanner (str "Expected <-. Got " char next)))
+      ;;\< (if (= next \-)
+      ;;     (add-token (advance scanner) ::token/larrow)
+      ;;     (add-error scanner (str "Expected <-. Got " char next)))
 
       ;; |>
       ;; Consider => , with =>> for bind
