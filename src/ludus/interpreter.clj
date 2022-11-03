@@ -203,29 +203,29 @@
     value))
 
 (defn- interpret-if-let [ast ctx]
-  (let [pattern (:pattern ast)
-        expr (:expr ast)
-        value (interpret-ast expr ctx)
-        match (match pattern value ctx)
-        success (:success match)]
-    (if success
-      (do 
-        (vswap! ctx update-ctx (:ctx match))
-        value)
-      (if (:code match)
-        (throw (ex-info (:reason match) {:ast ast}))
-        false))))
+	(let [if-ast (:if ast)
+		  then-expr (:then ast)
+		  else-expr (:else ast)
+		  if-pattern (:pattern if-ast)
+		  if-expr (:expr if-ast)
+		  if-value (interpret-ast if-expr ctx)
+		  if-match (match if-pattern if-value ctx)
+		  success (:success if-match)]
+		(if success
+			(interpret-ast then-expr (volatile! (merge (:ctx if-match) {:parent ctx})))
+			(if (:code if-match)
+				(throw (ex-info (:reason if-match) {:ast if-ast}))
+				(interpret-ast else-expr ctx)))))
 
 (defn- interpret-if [ast ctx]
   (let [if-expr (:if ast)
         then-expr (:then ast)
-        else-expr (:else ast)
-        if-value (if (= (::ast/type if-expr) ::ast/let)
-                   (interpret-if-let if-expr ctx)
-                   (interpret-ast if-expr ctx))]
-    (if if-value
-      (interpret-ast then-expr ctx)
-      (interpret-ast else-expr ctx))))
+        else-expr (:else ast)]
+     (if (= (::ast/type if-expr) ::ast/let)
+        (interpret-if-let ast ctx)
+        (if (interpret-ast if-expr ctx)
+        	 (interpret-ast then-expr ctx)
+        	 (interpret-ast else-expr ctx)))))
 
 (defn- interpret-match [ast ctx]
   (let [match-expr (:expr ast)
