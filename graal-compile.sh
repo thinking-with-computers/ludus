@@ -1,6 +1,6 @@
 #!/opt/homebrew/bin/fish
 
-jenv shell graalvm64-19.0.1
+jenv shell graalvm64-19.0.2
 
 lein uberjar
 
