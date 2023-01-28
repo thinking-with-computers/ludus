@@ -530,6 +530,7 @@
       (swap! process-atom #(assoc % :queue (conj q msg)))
       (Thread/sleep 1) ;; this is terrible--but it avoids deadlock
       ;;TODO: actually debug this?
+      ;;THOUGHT: is swap! returning before the value is actually changed? Clojure docs say atoms are synchronous
       )
     msg))
 
@@ -721,7 +722,7 @@
 (comment "
 
 	Left to do:
-	* if-let pattern
+	x if-let pattern
 	* improve panics
 	* add location info for panics
   * refactor calling keywords
