@@ -1,6 +1,16 @@
 (ns ludus.process
 	(:require
-		[ludus.data :as data]))
+		[ludus.data :as data])
+  (:import (java.util.concurrent Executors)))
+
+(defn thread-factory [name]
+  (-> (Thread/ofVirtual)
+    (.name name 0)
+    (.factory)))
+
+(set-agent-send-off-executor!
+  (Executors/newThreadPerTaskExecutor
+    (thread-factory "ludus-vthread-")))
 
 (def processes (atom {}))
 

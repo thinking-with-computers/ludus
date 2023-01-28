@@ -9,4 +9,5 @@
   :repl-options {:init-ns ludus.core}
   :main ludus.core
   :profiles {:uberjar {:aot :all}}
+  :jvm-opts ["--enable-preview"]
   )
