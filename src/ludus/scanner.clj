@@ -107,6 +107,10 @@
 (defn- whitespace? [c]
   (or (= c \space) (= c \tab)))
 
+;; TODO: update terminators:
+;;	remove: \|
+;; add: \>
+;; research others
 (def terminators #{\: \; \newline \{ \} \( \) \[ \] \$ \# \- \= \& \, \| nil \\})
 
 (defn- terminates? [c]
