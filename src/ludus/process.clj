@@ -3,7 +3,8 @@
 		[ludus.data :as data])
   (:import (java.util.concurrent Executors)))
 
-(defn thread-factory [name]
+;; virtual thread patch from https://ales.rocks/notes-on-virtual-threads-and-clojure
+(defn- thread-factory [name]
   (-> (Thread/ofVirtual)
     (.name name 0)
     (.factory)))
