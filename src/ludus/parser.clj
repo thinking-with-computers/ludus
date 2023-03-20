@@ -1225,12 +1225,16 @@
     (parse-script)))
 
 (do
-  (def source "
+  (def my-source "
 data Foo {foo, bar}
+data Bar as {
+    Bar
+    Baz
+}
 
 ")
 
-  (::ast (parse (scanner/scan source))))
+  (::ast (parse (scanner/scan my-source))))
 
 (comment "
 	Further thoughts/still to do:
