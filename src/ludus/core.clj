@@ -11,7 +11,7 @@
   (:gen-class))
 
 (defn- run [file source]
-  (let [scanned (scanner/scan source)]
+(comment  (let [scanned (scanner/scan source)]
     (if (not-empty (:errors scanned))
       (do
         (println "I found some scanning errors!")
@@ -25,13 +25,13 @@
             (System/exit 66))
           (let [interpreted (interpreter/interpret parsed file)]
             (println (show/show interpreted))
-            (System/exit 0)))))))
+            (System/exit 0))))))))
 
 (defn -main [& args]
-  (cond
+(comment  (cond
     (= (count args) 1)
     (let [file (first args)
           source (loader/load-import file)]
       (run file source))
 
-    :else (repl/launch)))
+    :else (repl/launch))))
