@@ -1,7 +1,9 @@
 (ns ludus.prelude
   (:require
     [ludus.data :as data]
-    [ludus.show :as show]))
+    [ludus.show :as show]
+    [ludus.draw :as d]
+    ))
 
 ;; TODO: make eq, and, or special forms that short-circuit
 ;; Right now, they evaluate all their args
@@ -81,7 +83,6 @@
 (def sleep- {:name "sleep"
              ::data/type ::data/clj
              :body (fn [ms] (Thread/sleep ms))})
-
 (def conj- {:name "conj"
   ::data/type ::data/clj
   :body conj})
@@ -93,6 +94,10 @@
 (def get- {:name "get"
   ::data/type ::data/clj
   :body get})
+
+(def draw {:name "draw"
+  ::data/type ::data/clj
+  :body d/draw})
 
 (def prelude {"eq" eq
               "add" add
@@ -112,4 +117,5 @@
               "assoc" assoc-
               "conj" conj-
               "get" get-
+              "draw" draw
               })

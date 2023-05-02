@@ -20,7 +20,7 @@
    "match" ::token/match ;; impl
    "nil" ::token/nil ;; impl
    "ns" ::token/ns ;; impl
-   "panic!" ::token/panic ;; impl
+   ;; "panic!" ::token/panic ;; impl (should be a function)
    "recur" ::token/recur ;; impl
    "ref" ::token/ref ;; impl
    "then" ::token/then ;; impl
@@ -29,17 +29,17 @@
 
    ;; actor model/concurrency
    "receive" ::token/receive
-   "self" ::token/self ;; maybe not necessary?
-   "send" ::token/send
+   ;;"self" ::token/self ;; maybe not necessary?: self() is a function
+   ;;"send" ::token/send ;; not necessary: send(pid, message) is a function
    "spawn" ::token/spawn
-   "to" ::token/to
+   ;;"to" ::token/to ;; not necessary if send is a function
    ;; type system
-   "data" ::token/data
+   ;; "data" ::token/data ;; we are going to tear out datatypes for now: see if dynamism works for us
    ;; others
-   "repeat" ::token/repeat ;; syntax sugar over "loop"
+   "repeat" ::token/repeat ;; syntax sugar over "loop": still unclear what this syntax could be
    "test" ::token/test
    "when" ::token/when
-   "module" ::token/module
+   ;; "module" ::token/module ;; not necessary if we don't have datatypes
    })
 
 (defn- new-scanner
@@ -107,7 +107,7 @@
 (defn- whitespace? [c]
   (or (= c \space) (= c \tab)))
 
-;; TODO: update terminators:
+;; TODO: update token terminators:
 ;;	remove: \|
 ;; add: \>
 ;; research others
@@ -251,7 +251,7 @@
       \- (cond
            (= next \>) (add-token (advance scanner) ::token/rarrow)
            (digit? next) (add-number char scanner)
-           :else (add-error scanner (str "Expected -> or negative number. Got " char next)))
+           :else (add-error scanner (str "Expected -> or negative number after `-`. Got `" char next "`")))
 
       ;; at current we're not using this
       ;; <-
@@ -330,4 +330,6 @@
         {:tokens (::tokens scanner)
          :errors (::errors scanner)})
       (recur (-> scanner (scan-token) (next-token))))))
+
+(scan "2 :three true nil")
 
