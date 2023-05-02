@@ -1,0 +1,135 @@
+(*
+	ludus.ebnf
+
+	An Instaparse-style EBNF grammer for Ludus.
+*)
+
+script = <wsnl?> toplevel <ws?> {<terminator> <ws?> toplevel <ws?>} <wsnl?>
+
+terminator = (";" | <{comment}> "\n")+
+
+ws = (" " | "\t" | "\r")+
+
+wsnl = (ws | <{comment}> "\n")+
+
+reserved = "cond" | "let" | "if" | "then" | "else" | "nil" | "true" | "false" | "as" | "match" | "with" | "NaN" | "recur"
+
+comment = "&" not_nl*
+
+not_nl = #"[^\n]"
+
+toplevel = expression | import | test | ns
+
+test = <"test" ws> string <ws> expression
+
+import = <"import" ws> string <ws "as" ws> name
+
+ns = <"ns" ws> name <ws? "{" wsnl?> entries <wsnl? "}">
+
+entries = [(name | entry) {<separator> [(name | entry)]}]
+
+expression = if | cond | let | tuple | atom | synthetic | block | match | fn | do | loop | dict | struct | list | ref | spawn | send | receive | repeat
+
+(* TODO: is this right? *)
+repeat = <"repeat" ws> (number | name) <ws> fn_clause
+
+spawn = <"spawn" ws> expression
+
+receive = <"receive" ws? "{" wsnl?> match_clause {terminator <ws?> [match_clause]} <wsnl? "}">
+
+ref = <"ref" ws> name <ws? "=" ws?> expression
+
+loop = <"loop" ws> tuple <ws "with" ws> (fn_clause 
+	| (<"{" wsnl?> fn_clause {terminator <ws?> [fn_clause]} <wsnl? "}">))
+
+do = <"do" ws> expression {<pipe> expression}
+
+pipe = wsnl? "|>" wsnl?
+
+fn = lambda | named | complex
+
+lambda = <"fn" ws?> fn_clause
+
+named = <"fn" ws?> name <ws> fn_clause
+
+complex = <"fn" ws?> name <ws?> "{" <wsnl?> string? <wsnl> fn_clause {terminator <ws?> [fn_clause]} <wsnl? "}">
+
+fn_clause = tuple_pattern <arrow> expression
+
+match = <"match" ws> expression <ws "with" ws? "{" wsnl?> match_clause {terminator <ws?> [match_clause]} <wsnl? "}">
+
+match_clause = pattern constraint? <arrow> expression
+
+constraint = <"when" ws> expression
+
+let = <"let" ws> pattern <ws "=" wsnl> expression
+
+pattern = tuple_pattern | atom | placeholder | "else" | splattern
+
+tuple_pattern = <"(" wsnl?> [pattern {<separator> [pattern]}] <{separator} ws? ")">
+
+struct_pattern = <"@{" wsnl?> [(name | pattern_entry | splattern) {<separator> [(name | pattern_entry | splattern)]}] <{separator} ws? "}">
+
+dict_pattern = <"#{" wsnl?> [(name | pattern_entry | splattern) {<separator> [(name | pattern_entry | splattern)]}] <{separator} ws? "}">
+
+pattern_entry = keyword <ws> pattern
+
+splattern = <"..."> name | ignored | placeholder
+
+block = <"{" wsnl?> expression {<terminator ws?> expression <ws?>} <wsnl? "}">
+
+cond = "cond" <ws> expression <ws? "{" wsnl?> cond_clause {terminator <ws?> [cond_clause]} <wsnl? "}">
+
+cond_clause = expression <arrow> expression
+
+arrow = <ws? "->" wsnl?>
+
+if = <"if" ws> expression <wsnl "then" ws> expression <wsnl> <"else" ws> expression
+
+synthetic = (name | keyword | recur) ((<ws?> (args | keyword))+)
+
+recur = <"recur">
+
+separator = <ws?> ("," | "\n") <ws?>
+
+args = <"(" ws? {separator}> [arg_expr {<separator> [arg_expr]}] <{separator} ws? ")">
+
+arg_expr = expression | placeholder
+
+placeholder = <"_">
+
+tuple = <"(" wsnl?> [expression {<separator> [expression]}] <{separator} ws? ")">
+
+list =  <"[" wsnl?> [(expression | splat) {<separator> [(expression | splat)]}] <{separator} ws? "]">
+
+struct = <"@{" wsnl?> [(name | entry) {<separator> [(name | entry)]}] <{separator} ws? "}">
+
+dict = <"#{" wsnl?> [(name | entry | splat) {<separator> [(name | entry | splat)]}] <{separator} ws? "}">
+
+entry = keyword <ws> expression
+
+splat = <"..."> name
+
+atom = name | ignored | keyword | number | string | boolean | nil
+
+boolean = true | false
+
+true = <"true">
+
+false = <"false">
+
+nil = <"nil">
+
+string = <'"'> {escaped_quote | nonquote} <'"'>
+
+escaped_quote = "\\" '\"'
+nonquote = #'[^"]'
+
+keyword = #":[a-zA-Z][a-zA-Z0-9\/\-_!\*\?]*"
+ignored = #"_[a-z][a-zA-Z0-9\/\-_!\*\?]*"
+
+name = !reserved #"[a-z][a-zA-Z0-9\/\-_!\*\?]*"
+
+(* TODO: Debug this to reject things starting with 0, eg 012. *)
+number = #"\-?[1-9][0-9]*" | #"\-?(0|[1-9][0-9]*).[0-9]+" | ["-"] "0" | "NaN"
+
