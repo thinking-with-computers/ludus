@@ -7,66 +7,66 @@
 (def reserved-words
   "List of Ludus reserved words."
   ;; see ludus-spec repo for more info
-  {"as" ::token/as ;; impl for `import`; not yet for patterns
-   "cond" ::token/cond ;; impl
-   "do" ::token/do ;; impl
-   "else" ::token/else ;; impl
-   "false" ::token/false ;; impl
-   "fn" ::token/fn ;; impl
-   "if" ::token/if ;; impl
-   "import" ::token/import ;; impl
-   "let" ::token/let ;; impl
-   "loop" ::token/loop ;; impl
-   "match" ::token/match ;; impl
-   "nil" ::token/nil ;; impl
-   "ns" ::token/ns ;; impl
-   ;; "panic!" ::token/panic ;; impl (should be a function)
-   "recur" ::token/recur ;; impl
-   "ref" ::token/ref ;; impl
-   "then" ::token/then ;; impl
-   "true" ::token/true ;; impl
-   "with" ::token/with ;; impl
+  {"as" :as ;; impl for `import`; not yet for patterns
+   "cond" :cond ;; impl
+   "do" :do ;; impl
+   "else" :else ;; impl
+   "false" :false ;; impl
+   "fn" :fn ;; impl
+   "if" :if ;; impl
+   "import" :import ;; impl
+   "let" :let ;; impl
+   "loop" :loop ;; impl
+   "match" :match ;; impl
+   "nil" :nil ;; impl
+   "ns" :ns ;; impl
+   ;; "panic!" :panic ;; impl (should be a function)
+   "recur" :recur ;; impl
+   "ref" :ref ;; impl
+   "then" :then ;; impl
+   "true" :true ;; impl
+   "with" :with ;; impl
 
    ;; actor model/concurrency
-   "receive" ::token/receive
-   ;;"self" ::token/self ;; maybe not necessary?: self() is a function
-   ;;"send" ::token/send ;; not necessary: send(pid, message) is a function
-   "spawn" ::token/spawn
-   ;;"to" ::token/to ;; not necessary if send is a function
+   "receive" :receive
+   ;;"self" :self ;; maybe not necessary?: self() is a function
+   ;;"send" :send ;; not necessary: send(pid, message) is a function
+   "spawn" :spawn
+   ;;"to" :to ;; not necessary if send is a function
    ;; type system
-   ;; "data" ::token/data ;; we are going to tear out datatypes for now: see if dynamism works for us
+   ;; "data" :data ;; we are going to tear out datatypes for now: see if dynamism works for us
    ;; others
-   "repeat" ::token/repeat ;; syntax sugar over "loop": still unclear what this syntax could be
-   "test" ::token/test
-   "when" ::token/when
-   ;; "module" ::token/module ;; not necessary if we don't have datatypes
+   "repeat" :repeat ;; syntax sugar over "loop": still unclear what this syntax could be
+   "test" :test
+   "when" :when
+   ;; "module" :module ;; not necessary if we don't have datatypes
    })
 
 (defn- new-scanner
   "Creates a new scanner."
   [source]
-  {::source source
-   ::length (count source)
-   ::errors []
-   ::start 0
-   ::current 0
-   ::line 1
-   ::tokens []})
+  {:source source
+   :length (count source)
+   :errors []
+   :start 0
+   :current 0
+   :line 1
+   :tokens []})
 
 (defn- at-end?
   "Tests if a scanner is at end of input."
   [scanner]
-  (>= (::current scanner) (::length scanner)))
+  (>= (:current scanner) (:length scanner)))
 
 (defn- current-char
   "Gets the current character of the scanner."
   [scanner]
-  (nth (::source scanner) (::current scanner) nil))
+  (nth (:source scanner) (:current scanner) nil))
 
 (defn- advance
   "Advances the scanner by a single character."
   [scanner]
-  (update scanner ::current inc))
+  (update scanner :current inc))
 
 (defn- next-char
   "Gets the next character from the scanner."
@@ -75,7 +75,7 @@
 
 (defn- current-lexeme
   [scanner]
-  (subs (::source scanner) (::start scanner) (::current scanner)))
+  (subs (:source scanner) (:start scanner) (:current scanner)))
 
 (defn- char-in-range? [start end char]
   (and char
@@ -120,28 +120,28 @@
   ([scanner token-type]
    (add-token scanner token-type nil))
   ([scanner token-type literal]
-   (update scanner ::tokens conj
+   (update scanner :tokens conj
            (token/token
             token-type
             (current-lexeme scanner)
             literal
-            (::line scanner)
-            (::start scanner)))))
+            (:line scanner)
+            (:start scanner)))))
 
 ;; TODO: errors should also be in the vector of tokens
 ;; The goal is to be able to be able to hand this to an LSP?
 ;; Do we need a different structure
 (defn- add-error [scanner msg]
   (let [token (token/token
-               ::token/error
+               :error
                (current-lexeme scanner)
                nil
-               (::line scanner)
-               (::start scanner))
+               (:line scanner)
+               (:start scanner))
         err-token (assoc token :message msg)]
     (-> scanner
-        (update ::errors conj err-token)
-        (update ::tokens conj err-token))))
+        (update :errors conj err-token)
+        (update :tokens conj err-token))))
 
 (defn- add-keyword
   [scanner]
@@ -149,7 +149,7 @@
          key ""]
     (let [char (current-char scanner)]
       (cond
-        (terminates? char) (add-token scanner ::token/keyword (keyword key))
+        (terminates? char) (add-token scanner :keyword (keyword key))
         (word-char? char) (recur (advance scanner) (str key char))
         :else (add-error scanner (str "Unexpected " char "after keyword :" key))))))
 
@@ -166,7 +166,7 @@
         (= curr \.) (if float?
                       (add-error scanner (str "Unexpected second decimal point after " num "."))
                       (recur (advance scanner) (str num curr) true))
-        (terminates? curr) (add-token scanner ::token/number (edn/read-string num))
+        (terminates? curr) (add-token scanner :number (edn/read-string num))
         (digit? curr) (recur (advance scanner) (str num curr) float?)
         :else (add-error scanner (str "Unexpected " curr " after number " num "."))))))
 
@@ -179,10 +179,10 @@
     (let [char (current-char scanner)]
       (case char
         \newline (add-error scanner "Unterminated string.")
-        \" (add-token (advance scanner) ::token/string string)
+        \" (add-token (advance scanner) :string string)
         \\ (let [next (next-char scanner)
                  scanner (if (= next \newline)
-                           (update scanner ::line inc)
+                           (update scanner :line inc)
                            scanner)]
              (recur (advance (advance scanner)) (str string next)))
         (if (at-end? scanner)
@@ -195,7 +195,7 @@
          word (str char)]
     (let [curr (current-char scanner)]
       (cond
-        (terminates? curr) (add-token scanner (get reserved-words word ::token/word))
+        (terminates? curr) (add-token scanner (get reserved-words word :word))
         (word-char? curr) (recur (advance scanner) (str word curr))
         :else (add-error scanner (str "Unexpected " curr " after word " word "."))))))
 
@@ -205,7 +205,7 @@
          word (str char)]
     (let [curr (current-char scanner)]
       (cond
-        (terminates? curr) (add-token scanner ::token/datatype)
+        (terminates? curr) (add-token scanner :datatype)
         (word-char? curr) (recur (advance scanner) (str word curr))
         :else (add-error scanner (str "Unexpected " curr " after datatype " word "."))))))
 
@@ -215,7 +215,7 @@
          ignored "_"]
     (let [char (current-char scanner)]
       (cond
-        (terminates? char) (add-token scanner ::token/ignored)
+        (terminates? char) (add-token scanner :ignored)
         (word-char? char) (recur (advance scanner) (str ignored char))
         :else (add-error scanner (str "Unexpected " char " after word " ignored "."))))))
 
@@ -224,7 +224,7 @@
          comm (str char)]
     (let [char (current-char scanner)]
       (if (= \newline char)
-        (update scanner ::line inc)
+        (update scanner :line inc)
         (recur (advance scanner) (str comm char))))))
 
 (defn- scan-token [scanner]
@@ -233,36 +233,36 @@
         next (current-char scanner)]
     (case char
       ;; one-character tokens
-      \( (add-token scanner ::token/lparen)
-      \) (add-token scanner ::token/rparen)
-      \{ (add-token scanner ::token/lbrace)
-      \} (add-token scanner ::token/rbrace)
-      \[ (add-token scanner ::token/lbracket)
-      \] (add-token scanner ::token/rbracket)
-      \; (add-token scanner ::token/semicolon)
-      \, (add-token scanner ::token/comma)
-      \newline (add-token (update scanner ::line inc) ::token/newline)
-      \\ (add-token scanner ::token/backslash)
-      \= (add-token scanner ::token/equals)
-      \> (add-token scanner ::token/pipeline)
+      \( (add-token scanner :lparen)
+      \) (add-token scanner :rparen)
+      \{ (add-token scanner :lbrace)
+      \} (add-token scanner :rbrace)
+      \[ (add-token scanner :lbracket)
+      \] (add-token scanner :rbracket)
+      \; (add-token scanner :semicolon)
+      \, (add-token scanner :comma)
+      \newline (add-token (update scanner :line inc) :newline)
+      \\ (add-token scanner :backslash)
+      \= (add-token scanner :equals)
+      \> (add-token scanner :pipeline)
 
       ;; two-character tokens
       ;; ->
       \- (cond
-           (= next \>) (add-token (advance scanner) ::token/rarrow)
+           (= next \>) (add-token (advance scanner) :rarrow)
            (digit? next) (add-number char scanner)
            :else (add-error scanner (str "Expected -> or negative number after `-`. Got `" char next "`")))
 
       ;; at current we're not using this
       ;; <-
       ;;\< (if (= next \-)
-      ;;     (add-token (advance scanner) ::token/larrow)
+      ;;     (add-token (advance scanner) :larrow)
       ;;     (add-error scanner (str "Expected <-. Got " char next)))
 
       ;; |>
       ;; Consider => , with =>> for bind
       ; \| (if (= next \>)
-      ;      (add-token (advance scanner) ::token/pipeline)
+      ;      (add-token (advance scanner) :pipeline)
       ;      (add-error scanner (str "Expected |>. Got " char next)))
 
       ;; possible additional operator: bind/result
@@ -272,23 +272,23 @@
 
       ;; dict #{
       \# (if (= next \{)
-           (add-token (advance scanner) ::token/startdict)
+           (add-token (advance scanner) :startdict)
            (add-error scanner (str "Expected beginning of dict: #{. Got " char next)))
 
       ;; set ${
       \$ (if (= next \{)
-           (add-token (advance scanner) ::token/startset)
+           (add-token (advance scanner) :startset)
            (add-error scanner (str "Expected beginning of set: ${. Got " char next)))
 
       ;; struct @{
       \@ (if (= next \{)
-           (add-token (advance scanner) ::token/startstruct)
+           (add-token (advance scanner) :startstruct)
            (add-error scanner (str "Expected beginning of struct: @{. Got " char next)))
 
       ;; placeholders
       ;; there's a flat _, and then ignored words
       \_ (cond
-           (terminates? next) (add-token scanner ::token/placeholder)
+           (terminates? next) (add-token scanner :placeholder)
            (alpha? next) (add-ignored scanner)
            :else (add-error scanner (str "Expected placeholder: _. Got " char next)))
 
@@ -306,7 +306,7 @@
       ;; splats
       \. (let [after_next (current-char (advance scanner))]
            (if (= ".." (str next after_next))
-             (add-token (advance (advance scanner)) ::token/splat)
+             (add-token (advance (advance scanner)) :splat)
              (add-error scanner (str "Expected splat: ... . Got " (str "." next after_next)))))
 
       ;; strings
@@ -321,14 +321,14 @@
         :else (add-error scanner (str "Unexpected character: " char))))))
 
 (defn- next-token [scanner]
-  (assoc scanner ::start (::current scanner)))
+  (assoc scanner :start (:current scanner)))
 
 (defn scan [source]
   (loop [scanner (new-scanner (str source "\n"))]
     (if (at-end? scanner)
-      (let [scanner (add-token scanner ::token/eof)]
-        {:tokens (::tokens scanner)
-         :errors (::errors scanner)})
+      (let [scanner (add-token scanner :eof)]
+        {:tokens (:tokens scanner)
+         :errors (:errors scanner)})
       (recur (-> scanner (scan-token) (next-token))))))
 
 (scan "2 :three true nil")
