@@ -85,7 +85,7 @@
 
           							:group {:status :ok
           								:type name
-          								:data (concat results (:data result))
+          								:data (vec (concat results (:data result)))
           								:token origin 
           								:remaining res-rem}
           							
@@ -96,8 +96,8 @@
                 					:group	(recur (rest ps) 
                 						;; TODO: fix this?
                 						;; This is supposed to undo the :quiet/:group thing
-                						(concat results 
-                							(filter #(= (:status %) :ok) (:data result))) 
+                						(vec (concat results 
+                							(filter #(= (:status %) :ok) (:data result))))
                 						res-rem)
                 					:quiet 	(recur (rest ps) results res-rem)
                 					:err 	(update result :trace #(conj % name))))))))})
@@ -109,27 +109,6 @@
          				(if (pass? result) 
  							(assoc result :status :quiet)
          					result)))})
-
-(defn one+
-	([parser] (one+ (pname parser) parser))
-	([name parser]
- 		{:name name
- 		:rule (fn [tokens]
-        			(let [result (apply-parser parser tokens)
-        				rest (zero+ name parser)]
-        				(case (:status result)
-        					(:ok :quiet)
-        					(let [rest-result (apply-parser rest (remaining result))
-        						rest-data (data rest-result)
-        						rest-remaining (remaining rest-result)]
-        						(println rest-data)
-        						{:status :group
-        							:type name 
-        							:data (concat (data result) (second rest-data)) 
-        							:token (first tokens)
-        							:remaining rest-remaining})
-        					
-        					:err result)))}))
 
 (defn zero+ 
 	([parser] (zero+ (pname parser) parser))
@@ -146,6 +125,27 @@
            						(recur (conj results result) (remaining result) ts)
            						{:status :group :type name :data results :token (first tokens) :remaining ts}
            						))))}))
+
+(defn one+
+	([parser] (one+ (pname parser) parser))
+	([name parser]
+ 		{:name name
+ 		:rule (fn [tokens]
+        			(let [result (apply-parser parser tokens)
+        				rest (zero+ name parser)]
+        				(case (:status result)
+        					(:ok :quiet)
+        					(let [rest-result (apply-parser rest (remaining result))
+        						rest-data (data rest-result)
+        						rest-remaining (remaining rest-result)]
+        						(println rest-data)
+        						{:status :group
+        							:type name 
+        							:data (vec (concat (data result) (second rest-data)) )
+        							:token (first tokens)
+        							:remaining rest-remaining})
+        					
+        					:err result)))}))
 
 (defn maybe
 	([parser] (maybe (pname parser) parser))
@@ -167,6 +167,8 @@
 
 	And now the `group` status has broken `quiet`
 
+	TODO: the concats put things into lists/seqs, and thus lett and iff are out of order.
+
 
 ")
 
@@ -186,6 +188,23 @@
 
 (def nls? (quiet (zero+ :nls :newline)))
 
+(def pattern (choice :pattern [:literal :word])) ;; stupid to start
+
+(def iff (order :iff [
+	(quiet :if) nls? 
+	expression 
+	nls? (quiet :then) 
+	expression 
+	nls? (quiet :else) 
+	expression]))
+
+(def lett (order :let [
+	(quiet :let)
+	pattern
+	(quiet :equals)
+	nls?
+	expression]))
+
 (def tuple-entries (order :tuple-entries [(quiet separator) expression]))
 
 (def tuple (order :tuple 
@@ -194,13 +213,25 @@
 		(zero+ tuple-entries)
 		(quiet :rparen)]))
 
-(def expression (choice :expression [tuple literal]))
+(def synth-root (choice :synth-root [:keyword :word]))
+
+(def synth-term (choice :synth-term [:tuple :keyword]))
+
+(def synthetic (order :synthetic [synth-root (one+ synth-term)]))
+
+(def terminator (choice :terminator [:newline :semicolon]))
+
+(def block-line (order :block-line [(quiet terminator) expression]))
+
+(def block (order :block [(quiet :lbrace) nls? expression (zero+ block-line) nls? (quiet :rbrace)]))
+
+(def expression (choice :expression [tuple literal lett iff synthetic :word block]))
 
 (def foo (order :foo [:number :keyword]))
 
-(def eg (:tokens (scan/scan "(1, 2, 3)")))
+(def eg (:tokens (scan/scan "let foo = :bar")))
 
-(def result (apply-parser tuple eg))
+(def result (apply-parser expression eg))
 
 result
 
