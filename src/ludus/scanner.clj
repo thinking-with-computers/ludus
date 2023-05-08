@@ -11,20 +11,20 @@
    "cond" :cond ;; impl
    "do" :do ;; impl
    "else" :else ;; impl
-   "false" :false ;; impl
+   "false" :false ;; impl -> literal word
    "fn" :fn ;; impl
    "if" :if ;; impl
    "import" :import ;; impl
    "let" :let ;; impl
    "loop" :loop ;; impl
    "match" :match ;; impl
-   "nil" :nil ;; impl
+   "nil" :nil ;; impl -> literal word
    "ns" :ns ;; impl
    ;; "panic!" :panic ;; impl (should be a function)
    "recur" :recur ;; impl
    "ref" :ref ;; impl
    "then" :then ;; impl
-   "true" :true ;; impl
+   "true" :true ;; impl -> literal word
    "with" :with ;; impl
 
    ;; actor model/concurrency
@@ -41,6 +41,12 @@
    "when" :when
    ;; "module" :module ;; not necessary if we don't have datatypes
    })
+
+(def literal-words {
+  "true" true
+  "false" false
+  "nil" nil
+})
 
 (defn- new-scanner
   "Creates a new scanner."
@@ -195,7 +201,9 @@
          word (str char)]
     (let [curr (current-char scanner)]
       (cond
-        (terminates? curr) (add-token scanner (get reserved-words word :word))
+        (terminates? curr) (add-token scanner 
+                            (get reserved-words word :word) 
+                            (get literal-words word :none))
         (word-char? curr) (recur (advance scanner) (str word curr))
         :else (add-error scanner (str "Unexpected " curr " after word " word "."))))))
 
