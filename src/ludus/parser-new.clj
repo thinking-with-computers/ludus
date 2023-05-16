@@ -13,7 +13,7 @@
 
 (defn pass? [{status :status}] (contains? passing status))
 
-(defn fail? [{status :status}] (conatins? failing status))
+(defn fail? [{status :status}] (contains? failing status))
 
 (defn data [{d :data}] d)
 
@@ -59,7 +59,7 @@
                				rem-ts (remaining result)
                				rem-ps (rest ps)]
          						(cond
-          							(pass? result)
+          							(pass? result) ;result
           							{:status :ok :type name :data [result] :token (first tokens) :remaining rem-ts}
 
           							(= :err (:status result))
@@ -86,9 +86,9 @@
            				(:ok :quiet :group)
             			(loop [ps (rest parsers) 
                   				results (case (:status first-result)
-                  					:ok [first-result]
-                  					:quiet []
-                  					:group (:data first-result)) 
+                           					:ok [first-result]
+                           					:quiet []
+                           					:group (:data first-result)) 
                   				ts (remaining first-result)]
               			(let [result (apply-parser (first ps) ts)
                    				res-rem (remaining result)]
@@ -164,13 +164,13 @@
             							:token (first tokens)
             							:remaining (remaining rest-result)})
     						
-      						:quiet
-      						(let [rest-result (apply-parser rest-parser (remaining first-result))]
-       							{:status :quiet
-       								:type name
-       								:data []
-       								:token (first tokens)
-       								:remaining (remaining rest-result)})
+          						:quiet
+          						(let [rest-result (apply-parser rest-parser (remaining first-result))]
+           							{:status :quiet
+           								:type name
+           								:data []
+           								:token (first tokens)
+           								:remaining (remaining rest-result)})
 
            					(:err :none) first-result)))}))
 
@@ -184,6 +184,14 @@
           						result
           						{:status :group :type name :data [] :token (first tokens) :remaining tokens}
           						)))}))
+
+(defn flat
+ 	([parser] (flat (pname parser) parser))
+ 	([name parser]
+ 		{:name (kw+str name "-flat")
+  		:rule (fn flat-fn [tokens]
+         			(let [result (apply-parser parser tokens)]
+          				(if (pass? result) (first (:data result)) result)))}))
 
 (comment
  	"
@@ -219,7 +227,7 @@
 
 (declare expression)
 
-(def literal (choice :literal [:nil :true :false :number :string]))
+(def literal (flat (choice :literal [:nil :true :false :number :string])))
 
 (def separator (choice :separator [:comma :newline]))
 
@@ -257,7 +265,7 @@
 
 (def splat (order :splat [(quiet :splat) :word]))
 
-(def list-term (choice :list-term [splat expression]))
+(def list-term (flat (choice :list-term [splat expression])))
 
 (def list-entry (order :list-entry [(quiet (one+ separator)) list-term]))
 
@@ -285,7 +293,7 @@
 
 (def importt (order :import [(quiet :import) :string (quiet :as) :word]))
 
-(def toplevel (choice :toplevel [importt expression]))
+(def toplevel (flat (choice :toplevel [importt expression])))
 
 (def script-line (order :script-line [(quiet terminator) toplevel]))
 
@@ -293,7 +301,9 @@
 
 
 (def eg (:tokens (scan/scan
-                  	""
+                  	"1
+                  	2
+                  	3"
                   	)))
 
 eg
