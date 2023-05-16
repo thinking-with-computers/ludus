@@ -2,16 +2,18 @@
  	(:require
   		[ludus.scanner :as scan]))
 
-(def msgs {
-
-          	})
-
 (defn ? [val default] (if (nil? val) default val))
 
 (defn ok? [{status :status}]
  	(= status :ok))
 
-(defn pass? [{status :status}] (or (= status :ok) (= status :quiet)))
+(def failing #{:err :none})
+
+(def passing #{:ok :group :silent})
+
+(defn pass? [{status :status}] (contains? passing status))
+
+(defn fail? [{status :status}] (conatins? failing status))
 
 (defn data [{d :data}] d)
 
@@ -19,205 +21,259 @@
 
 (defn pname [parser] (? (:name parser) parser))
 
+(defn str-part [kw] (apply str (next (str kw))))
+
+(defn kw+str [kw mystr] (keyword (str (str-part kw) mystr)))
+
 (defn value [token]
  	(if (= :none (:literal token)) (:lexeme token) (:literal token)))
 
 (defn apply-kw-parser [kw tokens]
  	(let [token (first tokens)]
- 		(println "applying kw parser " kw " to " token)
+  		;(println "applying kw parser " kw " to " token)
   		(if (= kw (:type token))
-  			{:status :ok :type kw :data [(value token)] :token token :remaining (rest tokens)}
-   			{:status :err :token token :trace [kw] :remaining (rest tokens)})))
+   			{:status :ok 
+   				:type kw 
+   				:data (if (value token) [(value token)] [])
+   				:token token 
+   				:remaining (rest tokens)}
+   			{:status :none :token token :trace [kw] :remaining (rest tokens)})))
 
 (defn apply-fn-parser [parser tokens]
- 	(println "applying fn parser" parser ", " tokens)
  	(let [rule (:rule parser) name (:name parser)] 	
-  		(println "appying fn parser " name " to " (first tokens)) 
+  		;(println "appying fn parser " name " to " (first tokens)) 
   		(rule tokens)))
 
 (defn apply-parser [parser tokens]
- 	(if (keyword? parser) 
-  		(apply-kw-parser parser tokens) 
-  		(apply-fn-parser parser tokens)))
-
-(defn pmap [f parser] (fn [tokens] (f (apply-parser parser tokens))))
+ 	(cond 
+  		(keyword? parser) (apply-kw-parser parser tokens)
+  		(:rule parser) (apply-fn-parser parser tokens)
+  		:else (throw (Exception. "`apply-parser` requires a parser"))))
 
 (defn choice [name parsers]
  	{:name name
- 		:rule (fn [tokens]
- 				(println "entering CHOICE" name)
+ 		:rule (fn choice-fn [tokens]
+       				;(println "entering CHOICE" name)
          		(loop [ps parsers]
           			(let [result (apply-parser (first ps) tokens) 
                				rem-ts (remaining result)
                				rem-ps (rest ps)]
-         						(cond 
+         						(cond
           							(pass? result)
           							{:status :ok :type name :data [result] :token (first tokens) :remaining rem-ts}
 
+          							(= :err (:status result))
+          							(update result :trace #(conj % name))
+
           							(empty? rem-ps)
-          							{:status :err :token (first tokens) :trace [name] :remaining rem-ts}
+          							{:status :none :token (first tokens) :trace [name] :remaining rem-ts}
+
           							:else (recur rem-ps)))))})
 
 (defn order [name parsers]
  	{:name name
- 		:rule (fn [tokens] 
- 					(println "entering ORDER" name)
-        			(let [origin (first tokens)]
-          			(loop [ps parsers 
-                				results [] 
-                				ts tokens]
-            			(let [result (apply-parser (first ps) ts)
-                 				res-rem (remaining result)]
-             				(if (empty? (rest ps)) 
-         						(case (:status result)
-          							
-          							:ok {:status :ok 
-          								:type name 
-          								:data (conj results result) 
-          								:token origin 
-          								:remaining res-rem}
-          							
-          							:quiet {:status :ok 
-          								:type name 
-          								:data results 
-          								:token origin 
-          								:remaining res-rem}
+ 		:rule (fn order-fn [tokens] 
+      					;(println "entering ORDER" name)
+        			(let [origin (first tokens)
+             				first-result (apply-parser (first parsers) tokens)]
+          			(case (:status first-result)
+           				(:err :none) 
+           				{:status :none 
+           					:token (first tokens) 
+           					:trace [name]
+           					:remaining tokens}
 
-          							:group {:status :ok
-          								:type name
-          								:data (vec (concat results (:data result)))
-          								:token origin 
-          								:remaining res-rem}
+           				(:ok :quiet :group)
+            			(loop [ps (rest parsers) 
+                  				results (case (:status first-result)
+                  					:ok [first-result]
+                  					:quiet []
+                  					:group (:data first-result)) 
+                  				ts (remaining first-result)]
+              			(let [result (apply-parser (first ps) ts)
+                   				res-rem (remaining result)]
+               				(if (empty? (rest ps)) 
+               						(case (:status result)
+                							:ok {:status :group 
+                    								:type name 
+                    								:data (conj results result) 
+                    								:token origin 
+                    								:remaining res-rem}
           							
-          							:err (update result :trace #(conj % name)))
+                							:quiet {:status :group
+                       								:type name 
+                       								:data results 
+                       								:token origin 
+                       								:remaining res-rem}
+
+                							:group {:status :group
+                       								:type name
+                       								:data (vec (concat results (:data result)))
+                       								:token origin 
+                       								:remaining res-rem}
+          							
+                							(:err :none)
+                							(assoc (update result :trace #(conj % name)) :status :err))
              							
-              					(case (:status result)  
-                					:ok 	(recur (rest ps) (conj results result) res-rem)
-                					:group	(recur (rest ps) 
-                						;; TODO: fix this?
-                						;; This is supposed to undo the :quiet/:group thing
-                						(vec (concat results 
-                							(filter #(= (:status %) :ok) (:data result))))
-                						res-rem)
-                					:quiet 	(recur (rest ps) results res-rem)
-                					:err 	(update result :trace #(conj % name))))))))})
+                					(case (:status result)  
+                  					:ok 	(recur (rest ps) (conj results result) res-rem)
+                  					:group	(recur (rest ps) 
+                          						(vec (concat results (:data result)))
+                          						res-rem)
+                  					:quiet 	(recur (rest ps) results res-rem)
+                  					(:err :none) 	
+                  					(assoc (update result :trace #(conj % name)) :status :err))))))))})
 
 (defn quiet [parser]
- 	{:name (? (:name parser) parser)
- 		:rule (fn [tokens]
+ 	{:name (kw+str (? (:name parser) parser) "-quiet")
+ 		:rule (fn quiet-fn [tokens]
         			(let [result (apply-parser parser tokens)]
          				(if (pass? result) 
- 							(assoc result :status :quiet)
-         					result)))})
+        							(assoc result :status :quiet)
+          					result)))})
 
 (defn zero+ 
-	([parser] (zero+ (pname parser) parser))
-	([name parser]
- 	{:name name
- 		:rule (fn [tokens]
- 					(println "entering ZERO+")
-        			(loop [results [] 
-             					ts tokens
-             					back tokens]
-             			(println "looping ZERO+" (:name parser))
-         				(let [result (apply-parser parser ts)]
-          					(if (pass? result)
-           						(recur (conj results result) (remaining result) ts)
-           						{:status :group :type name :data results :token (first tokens) :remaining ts}
-           						))))}))
+ 	([parser] (zero+ (pname parser) parser))
+ 	([name parser]
+  	{:name (kw+str name "-zero+")
+  		:rule (fn zero+fn [tokens]
+       					;(println "entering ZERO+")
+         			(loop [results [] 
+              					ts tokens]
+           			;(println "looping ZERO+" (? (:name parser) parser))
+          				(let [result (apply-parser parser ts)]
+           					(case (:status result)
+            						:ok (recur (conj results result) (remaining result))
+            						:group (recur (vec (concat results (:data result))) (remaining result))
+            						:quiet (recur results (remaining result))
+            						{:status :group :type name :data results :token (first tokens) :remaining ts}))))}))
 
 (defn one+
-	([parser] (one+ (pname parser) parser))
-	([name parser]
- 		{:name name
- 		:rule (fn [tokens]
-        			(let [result (apply-parser parser tokens)
-        				rest (zero+ name parser)]
-        				(case (:status result)
-        					(:ok :quiet)
-        					(let [rest-result (apply-parser rest (remaining result))
-        						rest-data (data rest-result)
-        						rest-remaining (remaining rest-result)]
-        						(println rest-data)
-        						{:status :group
-        							:type name 
-        							:data (vec (concat (data result) (second rest-data)) )
-        							:token (first tokens)
-        							:remaining rest-remaining})
-        					
-        					:err result)))}))
+ 	([parser] (one+ (pname parser) parser))
+ 	([name parser]
+ 		{:name (kw+str name "-one+")
+  		:rule (fn one+fn [tokens]
+         			(let [first-result (apply-parser parser tokens)
+              				rest-parser (zero+ name parser)]
+          				(case (:status first-result)
+           					(:ok :group)
+           					(let [rest-result (apply-parser rest-parser (remaining first-result))]
+            						{:status :group
+            							:type name 
+            							:data (vec (concat [first-result] (data rest-result)))
+            							:token (first tokens)
+            							:remaining (remaining rest-result)})
+    						
+      						:quiet
+      						(let [rest-result (apply-parser rest-parser (remaining first-result))]
+       							{:status :quiet
+       								:type name
+       								:data []
+       								:token (first tokens)
+       								:remaining (remaining rest-result)})
+
+           					(:err :none) first-result)))}))
 
 (defn maybe
-	([parser] (maybe (pname parser) parser))
-	([name parser]
-		{:name name
-			:rule (fn [tokens]
-				(let [result (apply-parser parser tokens)]
-					(if (pass? result)
-						result
-						{:status :group :type name :data [] :token (first tokens) :remaining tokens}
-						)))}))
+ 	([parser] (maybe (pname parser) parser))
+ 	([name parser]
+ 		{:name (kw+str name "-maybe")
+ 			:rule (fn maybe-fn [tokens]
+        				(let [result (apply-parser parser tokens)]
+         					(if (pass? result)
+          						result
+          						{:status :group :type name :data [] :token (first tokens) :remaining tokens}
+          						)))}))
 
 (comment
-	"So one thing I'm thinking about is the fact that zero+, one+, maybe all only really make sense in the context of an `order` call. So that idea is that anything that's in one of these should be added to the `order`'s data vector, rather than putting it in a subordinate structure.
+ 	"
+ 	If I'm not mistaken, the Ludus grammer requires *no* lookahead, the first token in an expression tells you what kind of expression it is:
 
-	This is much the same as the `quiet` idea: there should be some kind of internal representation of the thing.
+ 	Rather, there is one ambiguity: synthetic expressions can start with words or keywords.
+ 	A bare word can be assimilated to synthetic expressions. Interestingly, so can synthetic.
 
-	***
+ 	The parsing strategy is the same: consume as many things until you can't get anymore.
 
-	And now the `group` status has broken `quiet`
+ 	The fact that a bare keyword is evaluated like a literal doesn't matter.
 
-	TODO: the concats put things into lists/seqs, and thus lett and iff are out of order.
+ 	So:
+ 	literal -> literal
+ 	keyword -> synthetic
+ 	word -> synthetic
+ 	( -> tuple
+ 	[ -> list
+ 	#{ -> dict
+ 	@{ -> struct
+ 	ns -> ns
+ 	let -> let
+ 	do -> pipeline
 
+ 	etc.
 
-")
+ 	Because there's now NO lookahead, we can easily distinguish between orderings that don't match at all, and ones which match on the first token.
 
-(defn group 
-	([parser] (pname parser) parser)
-	([name parser] (fn [tokens]
-		(let [result (apply-parser parser tokens)
-			data (map :data (:data result))]
-			{assoc result :data data}))))
+ 	Because of that, we can also distinguish between no-match and errors
+
+ 	")
 
 
 (declare expression)
 
-(def literal (choice :literal [:nil :true :false :number :string :keyword]))
+(def literal (choice :literal [:nil :true :false :number :string]))
 
-(def separator (one+ (choice :separator [:comma :newline])))
+(def separator (choice :separator [:comma :newline]))
 
 (def nls? (quiet (zero+ :nls :newline)))
 
 (def pattern (choice :pattern [:literal :word])) ;; stupid to start
 
 (def iff (order :iff [
-	(quiet :if) nls? 
-	expression 
-	nls? (quiet :then) 
-	expression 
-	nls? (quiet :else) 
-	expression]))
+                     	(quiet :if) 
+                     	nls? 
+                     	expression 
+                     	nls? 
+                     	(quiet :then) 
+                     	expression 
+                     	nls? 
+                     	(quiet :else) 
+                     	expression]))
 
 (def lett (order :let [
-	(quiet :let)
-	pattern
-	(quiet :equals)
-	nls?
-	expression]))
+                      	(quiet :let)
+                      	pattern
+                      	(quiet :equals)
+                      	nls?
+                      	expression]))
 
-(def tuple-entries (order :tuple-entries [(quiet separator) expression]))
+(def tuple-entry (order :tuple-entry [(quiet (one+ separator)) expression]))
 
 (def tuple (order :tuple 
-	[(quiet :lparen) 
-		(maybe expression)
-		(zero+ tuple-entries)
-		(quiet :rparen)]))
+            	[(quiet :lparen)
+            		(quiet (zero+ separator))
+            		(maybe expression)
+            		(zero+ tuple-entry)
+            		(quiet (zero+ separator))
+            		(quiet :rparen)]))
+
+(def splat (order :splat [(quiet :splat) :word]))
+
+(def list-term (choice :list-term [splat expression]))
+
+(def list-entry (order :list-entry [(quiet (one+ separator)) list-term]))
+
+(def listt (order :list
+            	[(quiet :lbracket)
+            		(quiet (zero+ separator))
+            		(maybe list-term)
+            		(zero+ list-entry)
+            		(quiet (zero+ separator))
+            		(quiet :rbracket)]))
 
 (def synth-root (choice :synth-root [:keyword :word]))
 
-(def synth-term (choice :synth-term [:tuple :keyword]))
+(def synth-term (choice :synth-term [tuple :keyword]))
 
-(def synthetic (order :synthetic [synth-root (one+ synth-term)]))
+(def synthetic (order :synthetic [synth-root (zero+ synth-term)]))
 
 (def terminator (choice :terminator [:newline :semicolon]))
 
@@ -225,25 +281,40 @@
 
 (def block (order :block [(quiet :lbrace) nls? expression (zero+ block-line) nls? (quiet :rbrace)]))
 
-(def expression (choice :expression [tuple literal lett iff synthetic :word block]))
+(def expression (choice :expression [lett iff synthetic block listt tuple literal]))
 
-(def foo (order :foo [:number :keyword]))
+(def importt (order :import [(quiet :import) :string (quiet :as) :word]))
 
-(def eg (:tokens (scan/scan "let foo = :bar")))
+(def toplevel (choice :toplevel [importt expression]))
 
-(def result (apply-parser expression eg))
+(def script-line (order :script-line [(quiet terminator) toplevel]))
+
+(def script (order :script [nls? toplevel (zero+ script-line) nls? (quiet :eof)]))
+
+
+(def eg (:tokens (scan/scan
+                  	""
+                  	)))
+
+eg
+
+(println eg)
+
+(def result (apply-parser script eg))
 
 result
 
+(println result)
+
 (defn clean [node]
-	(if (map? node)
-		(-> node 
-			(dissoc 
-				:status 
-				:remaining 
-				:token)
-			(update :data #(map clean %)))
-		node))
+ 	(if (map? node)
+  		(-> node 
+   			(dissoc 
+    				:status 
+    				:remaining 
+    				:token)
+   			(update :data #(into [] (map clean) %)))
+  		node))
 
 (defn tap [x] (println "\n\n\n\n******NEW PARSE\n\n:::=> " x "\n\n") x)
 
