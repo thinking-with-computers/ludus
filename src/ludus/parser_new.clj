@@ -28,6 +28,7 @@
 
 (defn apply-kw-parser [kw tokens]
  	(let [token (first tokens)]
+  		(if (= kw (:type token)) (println "Matched " kw))
   		(if (= kw (:type token))
    			{:status :ok 
    				:type kw 
@@ -37,10 +38,12 @@
    			{:status :none :token token :trace [kw] :remaining (rest tokens)})))
 
 (defn apply-fn-parser [parser tokens]
- 	(let [rule (:rule parser) name (:name parser)]
-  		(rule tokens)))
+ 	(let [rule (:rule parser) name (:name parser) result (rule tokens)]
+  		(if (pass? result) (println "Matched " (:name parser)))
+  		result))
 
 (defn apply-parser [parser tokens]
+ 	(println "Applying parser " (? (:name parser) parser))
  	(cond 
   		(keyword? parser) (apply-kw-parser parser tokens)
   		(:rule parser) (apply-fn-parser parser tokens)
@@ -139,7 +142,11 @@
             						:group (recur (vec (concat results (:data result))) (remaining result))
             						:quiet (recur results (remaining result))
             						:err (update result :trace #(conj % name))
-            						{:status :group :type name :data results :token (first tokens) :remaining ts}))))}))
+            						:none {:status :group 
+                  							:type name 
+                  							:data results 
+                  							:token (first tokens) 
+                  							:remaining ts}))))}))
 
 (defn one+
  	([parser] (one+ (pname parser) parser))
@@ -194,6 +201,16 @@
          			(let [result (apply-parser parser tokens)]
           				(if (= :group (:status result))
            					(assoc result :status :ok)
+           					result)))}))
+
+(defn weak
+ 	([parser] (weak (pname parser) parser))
+ 	([name parser]
+ 		{:name (kw+str name "-weak")
+  		:rule (fn weak-fn [tokens]
+         			(let [result (apply-parser parser tokens)]
+          				(if (= :err (:status result))
+           					(assoc result :status :none)
            					result)))}))
 
 (defn err-msg [{token :token trace :trace}]
