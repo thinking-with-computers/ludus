@@ -1,8 +1,8 @@
 (ns ludus.scanner
   (:require
-   [ludus.token :as token]
-   ;; [clojure.pprint :as pp]
-   [clojure.edn :as edn]))
+    [ludus.token :as token]
+    ;; [clojure.pprint :as pp]
+    [clojure.edn :as edn]))
 
 (def reserved-words
   "List of Ludus reserved words."
@@ -43,10 +43,10 @@
    })
 
 (def literal-words {
-  "true" true
-  "false" false
-  "nil" nil
-})
+                    "true" true
+                    "false" false
+                    "nil" nil
+                    })
 
 (defn- new-scanner
   "Creates a new scanner."
@@ -85,8 +85,8 @@
 
 (defn- char-in-range? [start end char]
   (and char
-       (>= (int char) (int start))
-       (<= (int char) (int end))))
+    (>= (int char) (int start))
+    (<= (int char) (int end))))
 
 (defn- digit? [c]
   (char-in-range? \0 \9 c))
@@ -127,27 +127,27 @@
    (add-token scanner token-type nil))
   ([scanner token-type literal]
    (update scanner :tokens conj
-           (token/token
-            token-type
-            (current-lexeme scanner)
-            literal
-            (:line scanner)
-            (:start scanner)))))
+     (token/token
+       token-type
+       (current-lexeme scanner)
+       literal
+       (:line scanner)
+       (:start scanner)))))
 
 ;; TODO: errors should also be in the vector of tokens
 ;; The goal is to be able to be able to hand this to an LSP?
 ;; Do we need a different structure
 (defn- add-error [scanner msg]
   (let [token (token/token
-               :error
-               (current-lexeme scanner)
-               nil
-               (:line scanner)
-               (:start scanner))
+                :error
+                (current-lexeme scanner)
+                nil
+                (:line scanner)
+                (:start scanner))
         err-token (assoc token :message msg)]
     (-> scanner
-        (update :errors conj err-token)
-        (update :tokens conj err-token))))
+      (update :errors conj err-token)
+      (update :tokens conj err-token))))
 
 (defn- add-keyword
   [scanner]
@@ -202,8 +202,8 @@
     (let [curr (current-char scanner)]
       (cond
         (terminates? curr) (add-token scanner 
-                            (get reserved-words word :word) 
-                            (get literal-words word :none))
+                             (get reserved-words word :word) 
+                             (get literal-words word :none))
         (word-char? curr) (recur (advance scanner) (str word curr))
         :else (add-error scanner (str "Unexpected " curr " after word " word "."))))))
 
@@ -332,7 +332,7 @@
   (assoc scanner :start (:current scanner)))
 
 (defn scan [source]
-  (loop [scanner (new-scanner (str source "\n"))]
+  (loop [scanner (new-scanner source)]
     (if (at-end? scanner)
       (let [scanner (add-token scanner :eof)]
         {:tokens (:tokens scanner)
