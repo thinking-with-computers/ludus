@@ -36,7 +36,7 @@
    ;; type system
    ;; "data" :data ;; we are going to tear out datatypes for now: see if dynamism works for us
    ;; others
-   "repeat" :repeat ;; syntax sugar over "loop": still unclear what this syntax could be
+   ;;"repeat" :repeat ;; syntax sugar over "loop": still unclear what this syntax could be
    "test" :test
    "when" :when
    ;; "module" :module ;; not necessary if we don't have datatypes
@@ -113,11 +113,7 @@
 (defn- whitespace? [c]
   (or (= c \space) (= c \tab)))
 
-;; TODO: update token terminators:
-;;	remove: \|
-;; add: \>
-;; research others
-(def terminators #{\: \; \newline \{ \} \( \) \[ \] \$ \# \- \= \& \, \| nil \\})
+(def terminators #{\: \; \newline \{ \} \( \) \[ \] \$ \# \- \= \& \, \> nil \\})
 
 (defn- terminates? [c]
   (or (whitespace? c) (contains? terminators c)))
@@ -176,24 +172,29 @@
         (digit? curr) (recur (advance scanner) (str num curr) float?)
         :else (add-error scanner (str "Unexpected " curr " after number " num "."))))))
 
-;; TODO: add string interpolation
-;; This still has to be devised
+;; TODO: activate string interpolation
 (defn- add-string
   [scanner]
   (loop [scanner scanner
-         string ""]
+         string ""
+         interpolate? false]
     (let [char (current-char scanner)]
       (case char
-        \newline (add-error scanner "Unterminated string.")
-        \" (add-token (advance scanner) :string string)
+        \{ (recur (update (advance scanner)) (str string char) true)
+        ; allow multiline strings
+        \newline (recur (update (advance scanner) :line inc) (str string char) interpolate?)
+        \" (if interpolate?
+             ;(add-token (advance scanner) :interpolated string)
+             (add-token (advance scanner) :string string)
+             (add-token (advance scanner) :string string))
         \\ (let [next (next-char scanner)
                  scanner (if (= next \newline)
                            (update scanner :line inc)
                            scanner)]
-             (recur (advance (advance scanner)) (str string next)))
+             (recur (advance (advance scanner)) (str string next) interpolate?))
         (if (at-end? scanner)
           (add-error scanner "Unterminated string.")
-          (recur (advance scanner) (str string char)))))))
+          (recur (advance scanner) (str string char) interpolate?))))))
 
 (defn- add-word
   [char scanner]
@@ -242,11 +243,13 @@
     (case char
       ;; one-character tokens
       \( (add-token scanner :lparen)
-      \) (add-token scanner :rparen)
+      ;; :break is a special zero-char token before closing braces
+      ;; it makes parsing much simpler
+      \) (add-token (add-token scanner :break) :rparen)
       \{ (add-token scanner :lbrace)
-      \} (add-token scanner :rbrace)
+      \} (add-token (add-token scanner :break) :rbrace)
       \[ (add-token scanner :lbracket)
-      \] (add-token scanner :rbracket)
+      \] (add-token (add-token scanner :break) :rbracket)
       \; (add-token scanner :semicolon)
       \, (add-token scanner :comma)
       \newline (add-token (update scanner :line inc) :newline)
@@ -260,23 +263,6 @@
            (= next \>) (add-token (advance scanner) :rarrow)
            (digit? next) (add-number char scanner)
            :else (add-error scanner (str "Expected -> or negative number after `-`. Got `" char next "`")))
-
-      ;; at current we're not using this
-      ;; <-
-      ;;\< (if (= next \-)
-      ;;     (add-token (advance scanner) :larrow)
-      ;;     (add-error scanner (str "Expected <-. Got " char next)))
-
-      ;; |>
-      ;; Consider => , with =>> for bind
-      ; \| (if (= next \>)
-      ;      (add-token (advance scanner) :pipeline)
-      ;      (add-error scanner (str "Expected |>. Got " char next)))
-
-      ;; possible additional operator: bind/result
-      ;; possible additional operator: bind/some
-      ;; oh god, monads
-      ;; additional arrow possibilities: >> ||> ~> => !>
 
       ;; dict #{
       \# (if (= next \{)
@@ -302,8 +288,6 @@
 
       ;; comments
       ;; & starts an inline comment
-      ;; TODO: include comments in scanned file
-      ;; TODO, maybe: add doc comments: &&& (or perhaps a docstring in an fn?)
       \& (add-comment char scanner)
 
       ;; keywords
@@ -324,7 +308,7 @@
       (cond
         (whitespace? char) scanner ;; for now just skip whitespace characters
         (digit? char) (add-number char scanner)
-        (upper? char) (add-data char scanner)
+        (upper? char) (add-word char scanner) ;; no datatypes for now
         (lower? char) (add-word char scanner)
         :else (add-error scanner (str "Unexpected character: " char))))))
 
@@ -334,10 +318,8 @@
 (defn scan [source]
   (loop [scanner (new-scanner source)]
     (if (at-end? scanner)
-      (let [scanner (add-token scanner :eof)]
+      (let [scanner (add-token (add-token scanner :break) :eof)]
         {:tokens (:tokens scanner)
          :errors (:errors scanner)})
       (recur (-> scanner (scan-token) (next-token))))))
-
-(scan "2 :three true nil")
 

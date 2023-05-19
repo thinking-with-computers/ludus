@@ -44,10 +44,13 @@
 
 (defn apply-parser [parser tokens]
  	(println "Applying parser " (? (:name parser) parser))
- 	(cond 
-  		(keyword? parser) (apply-kw-parser parser tokens)
-  		(:rule parser) (apply-fn-parser parser tokens)
-  		:else (throw (Exception. "`apply-parser` requires a parser"))))
+ 	(let [result (cond 
+               		(keyword? parser) (apply-kw-parser parser tokens)
+               		(:rule parser) (apply-fn-parser parser tokens)
+               		:else (throw (Exception. "`apply-parser` requires a parser")))]
+  		(println "Parser result " (? (:name parser) parser) (:status result))
+  		result
+   	))
 
 (defn choice [name parsers]
  	{:name name
@@ -67,8 +70,9 @@
           							{:status :none :token (first tokens) :trace [name] :remaining rem-ts}
 
           							:else (recur rem-ps)))))})
-
-(defn order [name parsers]
+;; TODO - figure out a scheme for zero and one lookahead
+;; Lookahead isn't even the right term here
+(defn order-1 [name parsers]
  	{:name name
  		:rule (fn order-fn [tokens]
         			(let [origin (first tokens)
@@ -121,6 +125,49 @@
                   					(:err :none) 	
                   					(assoc (update result :trace #(conj % name)) :status :err))))))))})
 
+(defn order-0 [name parsers]
+ 	{:name name
+ 		:rule (fn order-fn [tokens]
+        			(let [origin (first tokens)]
+          			(loop [ps parsers 
+                				results [] 
+                				ts tokens]
+            			(let [result (apply-parser (first ps) ts)
+                 				res-rem (remaining result)]
+             				(if (empty? (rest ps))
+             						;; Nothing more: return 
+             						(case (:status result)
+              							:ok {:status :group 
+                  								:type name 
+                  								:data (conj results result) 
+                  								:token origin 
+                  								:remaining res-rem}
+          							
+              							:quiet {:status :group
+                     								:type name 
+                     								:data results 
+                     								:token origin 
+                     								:remaining res-rem}
+
+              							:group {:status :group
+                     								:type name
+                     								:data (vec (concat results (:data result)))
+                     								:token origin 
+                     								:remaining res-rem}
+          							
+              							(:err :none)
+              							(assoc (update result :trace #(conj % name)) :status :err))
+             						
+             						;; Still parsers left in the vector: recur
+              					(case (:status result)  
+                					:ok 	(recur (rest ps) (conj results result) res-rem)
+                					:group	(recur (rest ps) 
+                        						(vec (concat results (:data result)))
+                        						res-rem)
+                					:quiet 	(recur (rest ps) results res-rem)
+                					(:err :none) 	
+                					(assoc (update result :trace #(conj % name)) :status :err)))))))})
+
 (defn quiet [parser]
  	{:name (kw+str (? (:name parser) parser) "-quiet")
  		:rule (fn quiet-fn [tokens]
@@ -158,11 +205,23 @@
           				(case (:status first-result)
            					(:ok :group)
            					(let [rest-result (apply-parser rest-parser (remaining first-result))]
-            						{:status :group
-            							:type name 
-            							:data (vec (concat [first-result] (data rest-result)))
-            							:token (first tokens)
-            							:remaining (remaining rest-result)})
+            						(case (:status rest-result)
+
+             							(:ok :group :quiet) 
+             							{:status :group
+ 	            							:type name 
+ 	            							:data (vec (concat [first-result] (data rest-result)))
+ 	            							:token (first tokens)
+ 	            							:remaining (remaining rest-result)}
+
+             							:none {:status :group :type name
+                   								:data first-result
+                   								:token (first tokens)
+                   								:remaining (remaining rest-result)}
+
+             							:err (update rest-result :trace #(conj % name)))
+            							
+            						)
     						
           						:quiet
           						(let [rest-result (apply-parser rest-parser (remaining first-result))]
@@ -203,49 +262,6 @@
            					(assoc result :status :ok)
            					result)))}))
 
-(defn weak
- 	([parser] (weak (pname parser) parser))
- 	([name parser]
- 		{:name (kw+str name "-weak")
-  		:rule (fn weak-fn [tokens]
-         			(let [result (apply-parser parser tokens)]
-          				(if (= :err (:status result))
-           					(assoc result :status :none)
-           					result)))}))
-
 (defn err-msg [{token :token trace :trace}]
  	(println "Unexpected token " (:type token) " on line " (:line token))
  	(println "Expected token " (first trace)))
-
-(comment
- 	"
- 	If I'm not mistaken, the Ludus grammer requires *no* lookahead, the first token in an expression tells you what kind of expression it is:
-
- 	Rather, there is one ambiguity: synthetic expressions can start with words or keywords.
- 	A bare word can be assimilated to synthetic expressions. Interestingly, so can synthetic.
-
- 	The parsing strategy is the same: consume as many things until you can't get anymore.
-
- 	The fact that a bare keyword is evaluated like a literal doesn't matter.
-
- 	So:
- 	literal -> literal
- 	keyword -> synthetic
- 	word -> synthetic
- 	( -> tuple
- 	[ -> list
- 	#{ -> dict
- 	@{ -> struct
- 	ns -> ns
- 	let -> let
- 	do -> pipeline
-
- 	etc.
-
- 	Because there's now NO lookahead, we can easily distinguish between orderings that don't match at all, and ones which match on the first token.
-
- 	Because of that, we can also distinguish between no-match and errors
-
- 	")
-
-
