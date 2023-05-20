@@ -70,19 +70,15 @@
           							{:status :none :token (first tokens) :trace [name] :remaining rem-ts}
 
           							:else (recur rem-ps)))))})
-;; TODO - figure out a scheme for zero and one lookahead
-;; Lookahead isn't even the right term here
+
 (defn order-1 [name parsers]
  	{:name name
  		:rule (fn order-fn [tokens]
         			(let [origin (first tokens)
              				first-result (apply-parser (first parsers) tokens)]
           			(case (:status first-result)
-           				(:err :none) 
-           				{:status :none 
-           					:token (first tokens) 
-           					:trace [name]
-           					:remaining tokens}
+           				(:err :none)
+           				(update (assoc first-result :trace #(conj % name)) :status :none)
 
            				(:ok :quiet :group)
             			(loop [ps (rest parsers) 
@@ -122,6 +118,7 @@
                           						(vec (concat results (:data result)))
                           						res-rem)
                   					:quiet 	(recur (rest ps) results res-rem)
+                  					
                   					(:err :none) 	
                   					(assoc (update result :trace #(conj % name)) :status :err))))))))})
 
@@ -165,8 +162,54 @@
                         						(vec (concat results (:data result)))
                         						res-rem)
                 					:quiet 	(recur (rest ps) results res-rem)
-                					(:err :none) 	
+
+                					(:err :none)
                 					(assoc (update result :trace #(conj % name)) :status :err)))))))})
+
+(defn weak-order [name parsers]
+ 	{:name name
+ 		:rule (fn order-fn [tokens]
+        			(let [origin (first tokens)]
+          			(loop [ps parsers 
+                				results [] 
+                				ts tokens]
+            			(let [result (apply-parser (first ps) ts)
+                 				res-rem (remaining result)]
+             				(if (empty? (rest ps))
+             						;; Nothing more: return 
+             						(case (:status result)
+              							:ok {:status :group 
+                  								:type name 
+                  								:data (conj results result) 
+                  								:token origin 
+                  								:remaining res-rem}
+          							
+              							:quiet {:status :group
+                     								:type name 
+                     								:data results 
+                     								:token origin 
+                     								:remaining res-rem}
+
+              							:group {:status :group
+                     								:type name
+                     								:data (vec (concat results (:data result)))
+                     								:token origin 
+                     								:remaining res-rem}
+          							
+              							(:err :none)
+              							(update result :trace #(conj % name)))
+             						
+             						;; Still parsers left in the vector: recur
+              					(case (:status result)  
+                					:ok 	(recur (rest ps) (conj results result) res-rem)
+                					:group	(recur (rest ps) 
+                        						(vec (concat results (:data result)))
+                        						res-rem)
+                					:quiet 	(recur (rest ps) results res-rem)
+
+                					(:err :none)
+                					(update result :trace #(conj % name))))))))})
+
 
 (defn quiet [parser]
  	{:name (kw+str (? (:name parser) parser) "-quiet")
@@ -219,9 +262,7 @@
                    								:token (first tokens)
                    								:remaining (remaining rest-result)}
 
-             							:err (update rest-result :trace #(conj % name)))
-            							
-            						)
+             							:err (update rest-result :trace #(conj % name))))
     						
           						:quiet
           						(let [rest-result (apply-parser rest-parser (remaining first-result))]

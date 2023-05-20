@@ -22,7 +22,7 @@
 
 (def tuple-pattern-term (flat (choice :tuple-pattern-term [pattern splattern])))
 
-(def tuple-pattern-entry (order-1 :tuple-pattern-entry [tuple-pattern-term (quiet (one+ separator))]))
+(def tuple-pattern-entry (weak-order :tuple-pattern-entry [tuple-pattern-term separators]))
 
 (def tuple-pattern (group (order-1 :tuple-pattern
                            	[(quiet :lparen)
@@ -40,7 +40,7 @@
 
 (def dict-pattern-term (flat (choice :dict-pattern-term [pair-pattern :word splattern])))
 
-(def dict-pattern-entry (order-1 :dict-pattern-entry [dict-pattern-term (quiet (one+ separator))]))
+(def dict-pattern-entry (weak-order :dict-pattern-entry [dict-pattern-term separators]))
 
 (def dict-pattern (group (order-1 :dict-pattern 
                           	[(quiet :startdict)
@@ -63,7 +63,7 @@
 (def match-clause (group (order-0 :match-clause 
                           	[pattern (maybe constraint) (quiet :rarrow) expression])))
 
-(def match-entry (order-0 :match-entry [match-clause (quiet (one+ terminator))]))
+(def match-entry (weak-order :match-entry [match-clause terminators]))
 
 (def match (group (order-1 :match 
                    	[(quiet :match) expression nls? 
@@ -87,7 +87,7 @@
 
 (def cond-clause (group (order-0 :cond-clause [cond-lhs (quiet :rarrow) expression])))
 
-(def cond-entry (order-0 :cond-entry [cond-clause (quiet (one+ terminator))]))
+(def cond-entry (weak-order :cond-entry [cond-clause terminators]))
 
 (def condd (order-1 :cond [(quiet :cond) (quiet :lbrace)
                           	(quiet (zero+ terminator))
@@ -100,7 +100,7 @@
                                	nls?
                                	expression])))
 
-(def tuple-entry (order-1 :tuple-entry [expression separators]))
+(def tuple-entry (weak-order :tuple-entry [expression separators]))
  
 (def tuple (group (order-1 :tuple [(quiet :lparen)
                                  		(quiet (zero+ separator))
@@ -181,7 +181,7 @@
 
 (def fnn (group (order-1 :fn [(quiet :fn) body])))
 
-(def block-line (order-1 :block-line [expression terminators]))
+(def block-line (weak-order :block-line [expression terminators]))
 
 (def block (group (order-1 :block [(quiet :lbrace) 
                                   	(quiet (zero+ terminator))
@@ -251,7 +251,7 @@
 
 (def toplevel (flat (choice :toplevel [importt nss expression testt])))
 
-(def script-line (order-0 :script-line [toplevel terminators]))
+(def script-line (weak-order :script-line [toplevel terminators]))
 
 (def script (order-0 :script [nls?
                               (one+ script-line)
@@ -260,20 +260,18 @@
 
 ;;;;;;;;;;;;;;;; REPL CRUFT
 
-;;TODO: improve current bug reporting in the parser
-;; --e.g., give functions better names in the stack trace
-;; --I think this might require a macro (::facepalm::)
 ;;TODO: fix forward declaration errors
-;;TODO: in, e.g., script-line (repeated, separated entities -- zero/one+->order), order-0 gives an error before a closing token (in this case, :eof), because it's not a line; but using order-1 parses correctly but swallows orders further down. I need to revisit how no match vs. errors pass through the system, esp. the combination of repeats and orders
 
 
 (def eg (:tokens (scan/scan
-                   "{1; 2; 3; (1, _)}"
+                   "
+                   test \"foo\" bar
+                    "
                    )))
 
 
 
-(def result (apply-parser block eg))
+(def result (apply-parser script eg))
 
 
 (defn report [node]
