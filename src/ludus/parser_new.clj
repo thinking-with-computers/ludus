@@ -28,7 +28,7 @@
 
 (defn apply-kw-parser [kw tokens]
  	(let [token (first tokens)]
-  		(if (= kw (:type token)) (println "Matched " kw))
+  		;(if (= kw (:type token)) (println "Matched " kw))
   		(if (= kw (:type token))
    			{:status :ok 
    				:type kw 
@@ -39,16 +39,16 @@
 
 (defn apply-fn-parser [parser tokens]
  	(let [rule (:rule parser) name (:name parser) result (rule tokens)]
-  		(if (pass? result) (println "Matched " (:name parser)))
+  		;(if (pass? result) (println "Matched " (:name parser)))
   		result))
 
 (defn apply-parser [parser tokens]
- 	(println "Applying parser " (? (:name parser) parser))
+ 	;(println "Applying parser " (? (:name parser) parser))
  	(let [result (cond 
                		(keyword? parser) (apply-kw-parser parser tokens)
                		(:rule parser) (apply-fn-parser parser tokens)
                		:else (throw (Exception. "`apply-parser` requires a parser")))]
-  		(println "Parser result " (? (:name parser) parser) (:status result))
+  		;(println "Parser result " (? (:name parser) parser) (:status result))
   		result
    	))
 
