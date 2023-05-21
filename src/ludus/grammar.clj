@@ -58,9 +58,11 @@
 
 (def constraint (order-0 :constraint [(quiet :when) expression]))
 
-(def pattern (choice :pattern [literal :ignored :placeholder :word :keyword tuple-pattern dict-pattern struct-pattern list-pattern]))
+(def typed (group (weak-order :typed [:word (quiet :as) :keyword])))
 
-(def match-clause (group (order-0 :match-clause 
+(def pattern (flat (choice :pattern [literal :ignored :placeholder typed :word :keyword tuple-pattern dict-pattern struct-pattern list-pattern])))
+
+(def match-clause (group (weak-order :match-clause 
                           	[pattern (maybe constraint) (quiet :rarrow) expression])))
 
 (def match-entry (weak-order :match-entry [match-clause terminators]))
@@ -73,26 +75,26 @@
                     	(quiet :rbrace)
                     	])))
 
-(def iff (order-1 :if [(quiet :if) 
-                      	nls? 
-                      	expression 
-                      	nls? 
-                      	(quiet :then) 
-                      	expression 
-                      	nls? 
-                      	(quiet :else) 
-                      	expression]))
+(def iff (group (order-1 :if [(quiet :if) 
+                              nls? 
+                              expression 
+                              nls? 
+                              (quiet :then) 
+                              expression 
+                              nls? 
+                              (quiet :else) 
+                              expression])))
 
 (def cond-lhs (flat (choice :cond-lhs [expression :placeholder :else])))
 
-(def cond-clause (group (order-0 :cond-clause [cond-lhs (quiet :rarrow) expression])))
+(def cond-clause (group (weak-order :cond-clause [cond-lhs (quiet :rarrow) expression])))
 
 (def cond-entry (weak-order :cond-entry [cond-clause terminators]))
 
-(def condd (order-1 :cond [(quiet :cond) (quiet :lbrace)
-                          	(quiet (zero+ terminator))
-                          	(one+ cond-entry)
-                          	(quiet :rbrace)]))
+(def condd (group (order-1 :cond [(quiet :cond) (quiet :lbrace)
+                                  (quiet (zero+ terminator))
+                                  (one+ cond-entry)
+                                  (quiet :rbrace)])))
 
 (def lett (group (order-1 :let [(quiet :let)
                                	pattern
@@ -147,19 +149,19 @@
 
 (def arg-expr (flat (choice :arg-expr [:placeholder expression])))
 
-(def arg-entry (order-1 :arg-entry [arg-expr separators]))
+(def arg-entry (weak-order :arg-entry [arg-expr separators]))
 
-(def arg-tuple (order-1 :arg-tuple
-                	[(quiet :lparen)
-                		(quiet (zero+ separator))
-                		(zero+ arg-entry)
-                		(quiet :rparen)]))
+(def args (group (order-1 :args
+                   [(quiet :lparen)
+                    (quiet (zero+ separator))
+                    (zero+ arg-entry)
+                    (quiet :rparen)])))
 
-(def synth-root (choice :synth-root [:keyword :word :recur]))
+(def synth-root (flat (choice :synth-root [:keyword :word :recur])))
 
-(def synth-term (choice :synth-term [arg-tuple :keyword]))
+(def synth-term (flat (choice :synth-term [args :keyword])))
 
-(def synthetic (order-1 :synthetic [synth-root (zero+ synth-term)]))
+(def synthetic (group (order-1 :synthetic [synth-root (zero+ synth-term)])))
 
 (def fn-clause (group (order-0 :fn-clause [tuple-pattern (maybe constraint) (quiet :rarrow) expression])))
 
@@ -185,7 +187,7 @@
 
 (def block (group (order-1 :block [(quiet :lbrace) 
                                   	(quiet (zero+ terminator))
-                                  	(zero+ block-line)
+                                  	(one+ block-line)
                                   	(quiet :rbrace)])))
 
 (def pipeline (order-0 :pipeline [nls? :pipeline]))
@@ -256,3 +258,37 @@
 (def script (order-0 :script [nls?
                               (one+ script-line)
                               (quiet :eof)]))
+
+
+;;; REPL
+
+(comment (def source 
+           "if 1 then 2 else 3"
+           )
+
+  (def result (apply-parser script source))  
+
+
+  (defn report [node] 
+    (when (fail? node) (err-msg node))  
+    node)   
+
+  (defn clean [node]  
+    (if (map? node) 
+      (-> node    
+        (report)    
+        (dissoc     
+          ;:status     
+          :remaining  
+          :token) 
+        (update :data #(into [] (map clean) %)))    
+      node))  
+
+  (defn tap [x] (println "\n\n\n\n******NEW RUN\n\n:::=> " x "\n\n") x)   
+
+  (def my-data (-> result     
+                 clean   
+                 tap 
+                 ))
+
+  (println my-data))

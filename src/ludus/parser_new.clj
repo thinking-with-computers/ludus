@@ -253,7 +253,7 @@
              							(:ok :group :quiet) 
              							{:status :group
  	            							:type name 
- 	            							:data (vec (concat [first-result] (data rest-result)))
+ 	            							:data (vec (concat (:data first-result) (data rest-result)))
  	            							:token (first tokens)
  	            							:remaining (remaining rest-result)}
 

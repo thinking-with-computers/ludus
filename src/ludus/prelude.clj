@@ -95,10 +95,13 @@
            :body get})
 
 (def draw {:name "draw"
-  ::data/type ::data/clj
-  :body d/ludus-draw})
+           ::data/type ::data/clj
+           :body d/ludus-draw})
 
-(def prelude {"eq" eq
+(def prelude {
+              "foo" :foo
+              "bar" :bar
+              "eq" eq
               "add" add
               "print" print-
               "sub" sub
