@@ -1,0 +1,4 @@
+[ ] Wire up interpreter for spawn and receive
+[ ] Write send function
+[ ] ---- Investigate weird timing issue in current send implementation
+[ ] Investigate with-bindings and virtual threads
