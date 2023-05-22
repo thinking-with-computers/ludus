@@ -157,7 +157,9 @@
                     (zero+ arg-entry)
                     (quiet :rparen)])))
 
-(def synth-root (flat (choice :synth-root [:keyword :word :recur])))
+(def recurr (group (order-1 :recur [(quiet :recur) tuple])))
+
+(def synth-root (flat (choice :synth-root [:keyword :word])))
 
 (def synth-term (flat (choice :synth-term [args :keyword])))
 
@@ -190,13 +192,12 @@
                                   	(one+ block-line)
                                   	(quiet :rbrace)])))
 
-(def pipeline (order-0 :pipeline [nls? :pipeline]))
+(def pipeline (quiet (order-0 :pipeline [nls? :pipeline])))
 
-(def do-entry (order-0 :do-entry [pipeline expression]))
+(def do-entry (order-1 :do-entry [pipeline expression]))
 
 (def doo (group (order-1 :do [(quiet :do)
                              	expression
-                             	;; should this be zero+?
                              	(one+ do-entry)
                              	])))
 
@@ -230,6 +231,7 @@
                                           	spawn
                                           	receive
                                           	synthetic 
+                                           recurr
                                           	block 
                                           	doo
                                           	reff
