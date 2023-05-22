@@ -264,6 +264,8 @@
 
 ;;; REPL
 
+;; TODO: fix this recursive def bullshit problem
+
 (comment (def source 
            "if 1 then 2 else 3"
            )
