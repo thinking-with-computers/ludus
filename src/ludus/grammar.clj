@@ -163,7 +163,7 @@
 
 (def synthetic (group (order-1 :synthetic [synth-root (zero+ synth-term)])))
 
-(def fn-clause (group (order-0 :fn-clause [tuple-pattern (maybe constraint) (quiet :rarrow) expression])))
+(def fn-clause (group (order-1 :fn-clause [tuple-pattern (maybe constraint) (quiet :rarrow) expression])))
 
 (def fn-entry (order-1 :fn-entry [fn-clause terminators]))
 

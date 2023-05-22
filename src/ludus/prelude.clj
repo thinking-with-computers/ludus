@@ -98,7 +98,45 @@
            ::data/type ::data/clj
            :body d/ludus-draw})
 
+(defn get-type [value]
+  (let [t (type value)]
+    (cond
+      (nil? value) :nil
+
+      (= clojure.lang.Keyword t) :keyword
+
+      (= java.lang.Long t) :number
+
+      (= java.lang.Double t) :number
+
+      (= java.lang.String t) :string
+
+      (= java.lang.Boolean t) :boolean
+
+      (= clojure.lang.PersistentHashSet t) :set
+
+      ;; tuples and lists
+      (= clojure.lang.PersistentVector t)
+      (if (= ::data/tuple (first value)) :tuple :list)
+
+      ;; structs dicts namespaces refs
+      (= clojure.lang.PersistentArrayMap t)
+      (cond
+        (::data/type value) (case (::data/type value)
+                              (::data/fn ::data/clj) :fn
+                              ::data/ns :ns)
+        (::data/dict value) :dict
+        (::data/struct value) :struct
+
+        :else :none
+        ))))
+
+(def type- {:name "type"
+            ::data/type ::data/clj
+            :body get-type})
+
 (def prelude {
+              "id" id
               "foo" :foo
               "bar" :bar
               "eq" eq
@@ -120,4 +158,5 @@
               "conj" conj-
               "get" get-
               "draw" draw
+              "type" type
               })

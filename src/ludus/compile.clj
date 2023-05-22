@@ -16,11 +16,11 @@
 	What sorts of compiling and validation do we want to do? Be specific.
 
 	- check used names are bound (validation)
-	- check bound names are available (validation)
-	- check `recur` is only ever in `loop` and in `fn` bodies (validation)
+	- check bound names are free (validation)
+	- check `recur` is only ever in `loop` (and in `fn` bodies?), in tail position (validation)
 	- separate function arities into different functions (optimization)
-	- desugar partially applied functions (simplification)
-	- desugar keyword entry shorthand (simplification)
+	- desugar partially applied functions (?) (simplification)
+	- desugar keyword entry shorthand (?) (simplification)
 	- flag tail calls for optimization (optimization)
 		- direct tail calls
 		- through different expressions
@@ -29,6 +29,6 @@
 			- cond
 			- match
 			- let
-	- check ns access
+	- check ns access (validation)
 
 	")

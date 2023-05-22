@@ -57,31 +57,35 @@
               )))))))
 
 (defn- match-tuple [pattern value ctx-vol]
-  (cond
-    (not (vector? value)) {:success false :reason "Could not match non-tuple value to tuple"}
-
-    (not (= ::data/tuple (first value))) {:success false :reason "Could not match list to tuple"}
-
-    (= ::ast/splat (::ast/type (last (:members pattern))))
-    (match-splatted-tuple pattern value ctx-vol)
-
-    (not (= (:length pattern) (dec (count value))))
-    {:success false :reason "Cannot match tuples of different lengths"}
-
-    (= 0 (:length pattern) (dec (count value))) {:success true :ctx {}}
-
-    :else 
-    (let [members (:members pattern)
-          ctx-diff (volatile! @ctx-vol)]
-      (loop [i (:length pattern)]
-        (if (= 0 i)
-          {:success true :ctx @ctx-diff}
-          (let [match? (match (nth members (dec i)) (nth value i) ctx-diff)]
-            (if (:success match?)
-              (do
-                (vswap! ctx-diff #(merge % (:ctx match?)))
-                (recur (dec i)))
-              {:success false :reason (str "Could not match " pattern " with " value " because " (:reason match?))})))))))
+  ;(println "\n\n\n**********Matching tuple")
+  ;(println "*****Value:   " value)
+  ;(println "*****Pattern: " pattern)
+  (let [members (:data pattern)
+        length (count members)]
+    (cond
+      (not (vector? value)) {:success false :reason "Could not match non-tuple value to tuple"}
+  
+      (not (= ::data/tuple (first value))) {:success false :reason "Could not match list to tuple"}
+  
+      (= ::ast/splat (::ast/type (last members)))
+      (match-splatted-tuple pattern value ctx-vol)
+  
+      (not (= length (dec (count value))))
+      {:success false :reason "Cannot match tuples of different lengths"}
+  
+      (= 0 length (dec (count value))) {:success true :ctx {}}
+  
+      :else 
+      (let [ctx-diff (volatile! @ctx-vol)]
+        (loop [i length]
+          (if (= 0 i)
+            {:success true :ctx @ctx-diff}
+            (let [match? (match (nth members (dec i)) (nth value i) ctx-diff)]
+              (if (:success match?)
+                (do
+                  (vswap! ctx-diff #(merge % (:ctx match?)))
+                  (recur (dec i)))
+                {:success false :reason (str "Could not match " pattern " with " value " because " (:reason match?))}))))))))
 
 (defn- match-list [pattern value ctx-vol]
   (cond
@@ -128,7 +132,7 @@
               (let [match? (match (kw members) (kw value) ctx-diff)]
                 (if (:success match?)
                   (do
-                    (println (:ctx match?))
+                    ;(println (:ctx match?))
                     (vswap! ctx-diff #(merge % (:ctx match?)))
                     (recur (dec i)))
                   {:success false :reason (str "Could not match " pattern " with " value " at key " kw " because " (:reason match?))}))
@@ -160,49 +164,17 @@
                   {:success false :reason (str "Could not match " pattern " with " value " at key " kw " because " (:reason match?))}))
               {:success false :reason (str "Could not match " pattern " with " value " at key " kw ", because there is no value at " kw)})))))))
 
-(defn- get-type [value]
-  (let [t (type value)]
-    (cond
-      (nil? value) :nil
-
-      (= clojure.lang.Keyword t) :keyword
-
-      (= java.lang.Long t) :number
-
-      (= java.lang.Double t) :number
-
-      (= java.lang.String t) :string
-
-      (= java.lang.Boolean t) :boolean
-
-      (= clojure.lang.PersistentHashSet t) :set
-
-      ;; tuples and lists
-      (= clojure.lang.PersistentVector t)
-      (if (= ::data/tuple (first value)) :tuple :list)
-
-      ;; structs dicts namespaces refs
-      (= clojure.lang.PersistentArrayMap t)
-      (cond
-        (::data/dict value) :dict
-        (::data/struct value) :struct
-        :else :none
-        )
-
-      )))
-
-(get-type [::data/tuple])
-
 (defn- match-typed [pattern value ctx]
   (let [data (:data pattern)
         name (-> data first :data)
         type (-> data second :data)]
     (cond
       (contains? ctx name) {:success false :reason (str "Name " name "is already bound") :code :name-error}
-      (not (= type (get-type value))) {:success false :reason (str "Could not match " pattern " with " value ", because types do not match")}
+      (not (= type (prelude/get-type value))) {:success false :reason (str "Could not match " pattern " with " value ", because types do not match")}
       :else {:success true :ctx {name value}})))
 
 (defn- match [pattern value ctx-vol]
+  ;(println "Matching " value " with pattern type " (:type pattern))
   (let [ctx @ctx-vol]
     (case (:type pattern)
       (:placeholder :ignored)
@@ -223,15 +195,15 @@
 
       :typed (match-typed pattern value ctx)
 
-      :tuple (match-tuple pattern value ctx-vol)
+      :tuple-pattern (match-tuple pattern value ctx-vol)
 
-      :list (match-list pattern value ctx-vol)
+      :list-pattern (match-list pattern value ctx-vol)
 
-      :dict (match-dict pattern value ctx-vol)
+      :dict-pattern (match-dict pattern value ctx-vol)
 
-      :struct (match-struct pattern value ctx-vol)
+      :struct-pattern (match-struct pattern value ctx-vol)
 
-      (throw (ex-info "Unknown pattern on line " {:pattern pattern})))))
+      (throw (ex-info "Unknown pattern on line " {:pattern pattern :value value})))))
 
 (defn- update-ctx [ctx new-ctx]
   (merge ctx new-ctx))
@@ -294,13 +266,15 @@
               match? (match pattern value new-ctx)
               success (:success match?)
               clause-ctx (:ctx match?)]
-          (if success            
-            (do
-              (vswap! new-ctx #(merge % clause-ctx))
-              (if constraint
-                (if (interpret-ast constraint new-ctx)
-                  (interpret-ast body new-ctx)
-                  (recur (first clauses) (rest clauses)))
+          (if success
+            (if constraint 
+              (if (interpret-ast constraint (volatile! clause-ctx))
+                (do
+                  (vswap! new-ctx #(merge % clause-ctx))
+                  (interpret-ast body new-ctx))
+                (recur (first clauses) (rest clauses)))
+              (do
+                (vswap! new-ctx #(merge % clause-ctx))
                 (interpret-ast body new-ctx)))
             (recur (first clauses) (rest clauses))))
         (throw (ex-info "Match Error: No match found" {:ast ast}))))))
@@ -323,56 +297,88 @@
             (interpret-ast body ctx)
             (recur (first clauses) (rest clauses))))))))
 
-(defn- interpret-called-kw [kw tuple ctx]
-  ;; TODO: check this statically
-  (if (not (= 1 (:length tuple)))
-    (throw (ex-info "Called keywords must be unary" {:ast kw}))
-    (let [kw (interpret-ast kw ctx)
-          map (second (interpret-ast tuple ctx))]
-      (if (::data/struct map)
-        (if (contains? map kw)
-          (kw map)
-          (if (= (::data/type map) ::data/ns)
-            (throw (ex-info (str "Namespace error: no member " kw " in ns " (::data/name map)) {:ast kw}))
-            (throw (ex-info (str "Struct error: no member at " kw) {:ast kw}))))
-        (get map kw)))))
+(defn- validate-args [args]
+  (>= 1 (count (filter #(= :placeholder (:type %)) args))))
 
-(defn- call-fn [lfn tuple ctx]
+(defn- partial? [args]
+  (some #(= :placeholder (:type %)) args))
+
+(defn- interpret-called-kw [kw tuple ctx]
+  (let [members (:data tuple)
+        length (count members)]
+    ;; TODO: check this statically
+    (cond 
+      (not (= 1 length)) 
+      (throw (ex-info "Called keywords must be unary" {:ast tuple}))
+
+      (partial? tuple) 
+      (throw (ex-info "Called keywords may not be partially applied" {:ast tuple}))
+
+      :else
+      (let [kw (interpret-ast kw ctx)
+            map (second (interpret-ast tuple ctx))]
+        (if (::data/struct map)
+          (if (contains? map kw)
+            (kw map)
+            (if (= (::data/type map) ::data/ns)
+              (throw (ex-info (str "Namespace error: no member " kw " in ns " (::data/name map)) {:ast kw}))
+              (throw (ex-info (str "Struct error: no member at " kw) {:ast kw}))))
+          (get map kw))))))
+
+(defn- call-fn [lfn args ctx]
   (cond
-    (= ::data/partial (first tuple))
+    (= ::data/partial (first args))
     {::data/type ::data/clj
      :name (str (:name lfn) "{partial}")
      :body (fn [arg]
              (call-fn
                lfn
-               (concat [::data/tuple] (replace {::data/placeholder arg} (rest tuple)))
+               (concat [::data/tuple] (replace {::data/placeholder arg} (rest args)))
                ctx))}
 
-    (= (::data/type lfn) ::data/clj) (apply (:body lfn) (next tuple))
+    (= (::data/type lfn) ::data/clj) (apply (:body lfn) (next args))
 
     (= (::data/type lfn) ::data/fn)
     (let [clauses (:clauses lfn)
           closed-over (:ctx lfn)]
       (loop [clause (first clauses)
              clauses (rest clauses)]
+        ;(println "Matching clause " clause)
+        ;(println "With args " args)
         (if clause
-          (let [pattern (:pattern clause)
-                body (:body clause)
+          (let [pattern (first clause)
+                constraint (if (= 3 (count clause))
+                             (second clause)
+                             nil)
+                body (peek clause)
                 fn-ctx (volatile! {::parent closed-over})
-                match? (match pattern tuple fn-ctx)
+                match? (match pattern args fn-ctx)
                 success (:success match?)
-                clause-ctx (:ctx match?)]
+                clause-ctx (:ctx match?)
+                vclause (volatile! (assoc clause-ctx ::parent closed-over))]
+            ;(println "Pattern: " pattern)
+            ;(println "Body: " body)
             (if success
-              (do
-                (vswap! fn-ctx #(merge % clause-ctx))
-                (interpret-ast body fn-ctx))
+              (if constraint 
+                (if (do
+                      ;(println "######### Testing constraint")
+                      ;(println "Context: " clause-ctx)
+                      (interpret-ast constraint vclause))
+                  (do
+                    ;(println "passed constraint")
+                    (vswap! fn-ctx #(merge % clause-ctx))
+                    (interpret-ast body fn-ctx))
+                  (recur (first clauses) (rest clauses)))
+                (do
+                  (vswap! fn-ctx #(merge % clause-ctx))
+                  (interpret-ast body fn-ctx)))
               (recur (first clauses) (rest clauses))))
 
           (throw (ex-info "Match Error: No match found" {:ast (:ast lfn)})))))
 
     (keyword? lfn)
-    (if (= 2 (count tuple))
-      (let [target (second tuple) kw lfn]
+    (if (= 2 (count args))
+      (let [target (second args) kw lfn]
         (if (::data/struct target)
           (if (contains? target kw)
             (kw target)
@@ -385,24 +391,20 @@
 
     :else (throw (ex-info "I don't know how to call that" {:ast lfn}))))
 
-(defn- validate-args [args]
-  (>= 1 (count (filter #(= :placeholder (:type %)) args))))
-
-(defn- partial? [args]
-  (some #(= :placeholder (:type %)) args))
-
-(defn- interpret-args [ast ctx]
-  (let [members (:data ast)]
-    (if (partial? args)
-      (if (validate-args)
-        () ; do the thing
-        (throw (ex-info "Partially applied functions may only take a single argument")))
-      (map #(interpret-ast % ctx) args)
-      )))
+(defn- interpret-args [args ctx]
+  ;(println "interpreting arg" args)
+  (if (partial? args)
+    (if (validate-args args)
+      (into [::data/partial] (map #(interpret-ast % ctx)) args) ; do the thing
+      (throw (ex-info "Partially applied functions may only take a single argument" {:ast args})))
+    (into [::data/tuple] (map #(interpret-ast % ctx)) args))
+  )
 
 (defn- interpret-synthetic-term [prev-value curr ctx]
   (let [type (:type curr)
         data (:data curr)]
+    ;(println "interpreting synthetic type " type)
+    ;(println "interpreting synthetic node " curr)
     (if (= type :keyword)
       (if (::data/struct prev-value)
         (if (contains? prev-value (first data))
@@ -411,24 +413,26 @@
             (throw (ex-info (str "Namespace error: no member " (:value curr) " in ns " (::data/name prev-value)) {:ast curr}))
             (throw (ex-info (str "Struct error: no member " (:value curr)) {:ast curr}))))
         (get prev-value (first data)))
-      (call-fn prev-value (interpret-args curr ctx) ctx))))
+      (call-fn prev-value (interpret-args data ctx) ctx))))
 
 (defn- interpret-synthetic [ast ctx]
+  ;;(println "interpreting synthetic " ast)
   (let [data (:data ast)
-        first-term (first data)
-        terms (-> data second :data)]
-    (if terms
-      (let [second-term (first terms)
-            rest (rest terms)
-            first-val (if (= (:type first) :keyword)
-                        (interpret-called-kw first-term second-term ctx)
-                        (interpret-synthetic-term (interpret-ast first-term ctx) second-term ctx))]
-        (reduce #(interpret-synthetic-term %1 %2 ctx) first-val rest))
+        root (first data)
+        terms (rest data)]
+    ;(println "!!!!!!!!!Interpreting synthetic w/ root " (:data root))
+    (if (seq terms)
       (do
-        ;(println "interpreting " (:type first-term))
-        (interpret-ast first-term ctx)))))
+        ;;(println "I've got terms!: " terms)
+        (let [first-term (first terms)
+              remaining (rest terms)
+              first-val (if (= (:type root) :keyword)
+                          (interpret-called-kw root first-term ctx)
+                          (interpret-synthetic-term (interpret-ast root ctx) first-term ctx))]
+          (reduce #(interpret-synthetic-term %1 %2 ctx) first-val remaining)))
+      (interpret-ast root ctx))))
 
-(defn- interpret-fn [ast ctx] ;; TODO: fix context/closure (no cycles)?
+(defn- interpret-fn-inner [ast ctx] ;; TODO: fix context/closure (no cycles)?
   (let [name (:name ast)
         clauses (:clauses ast)]
     (if (= name ::ast/anon)
@@ -447,11 +451,44 @@
             (vswap! ctx update-ctx {name fn})
             fn))))))
 
+(defn- build-fn
+  ([ast ctx name clauses] (build-fn ast ctx name clauses nil))
+  ([ast ctx name clauses docstring]
+   (let [fnn {::data/type ::data/fn
+              :name name
+              :ast ast
+              :clauses clauses
+              :ctx ctx
+              :doc docstring}]
+     (if (= name :anon) 
+       fnn
+       (if (contains? @ctx name)
+         (throw (ex-info (str "Name " name " is already bound") {:ast ast}))
+         (do
+           (vswap! ctx update-ctx {name fnn})
+           fnn))))))
+
+(defn- build-named-fn [ast ctx data]
+  (let [name (-> data first :data first)
+        body (-> data second)
+        compound? (= :compound (:type body))]
+    (if compound?
+      (if (= :string (-> body :data first :type))
+        (build-fn ast ctx name (map :data (rest (:data body))) (-> body :data first :data))
+        (build-fn ast ctx name (map :data (:data body))))
+      (build-fn ast ctx name [(:data body)]))))
+
+(defn- interpret-fn [ast ctx]
+  (let [data (:data ast)]
+    (case (:type (first data))
+      :fn-clause (build-fn ast ctx :anon (-> data first :data))
+      :named (build-named-fn ast ctx (-> data first :data)))))
+
 (defn- interpret-do [ast ctx]
-  (let [exprs (:exprs ast)
-        origin (interpret-ast (first exprs) ctx)
-        fns (rest exprs)]
-    (reduce #(call-fn (interpret-ast %2 ctx) [::data/tuple %1] ctx) origin fns)))
+  (let [data (:data ast)
+        root (interpret-ast (first data) ctx)
+        fns (rest data)]
+    (reduce #(call-fn (interpret-ast %2 ctx) [::data/tuple %1] ctx) root fns)))
 
 (defn- map-values [f]
   (map (fn [kv]
@@ -501,27 +538,40 @@
       ref)))
 
 (defn- interpret-loop [ast ctx]
-  (let [tuple (interpret-ast (:expr ast) ctx)
-        clauses (:clauses ast)]
+  (let [data (:data ast)
+        tuple (interpret-ast (first data) ctx)
+        loop-type (-> data second :type)
+        clauses (if (= loop-type :fn-clause)
+                  [(-> data second :data)]
+                  (into [] (map :data) (-> data second :data)))]
     (loop [input tuple]
       (let [output (loop [clause (first clauses)
                           clauses (rest clauses)]
                      (if clause
-                       (let [pattern (:pattern clause)
-                             body (:body clause)
+                       (let [pattern (first clause)
+                             constraint (if (= 3 (count clause))
+                                          (second clause)
+                                          nil)
+                             body (peek clause)
                              new-ctx (volatile! {::parent ctx})
                              match? (match pattern input new-ctx)
                              success (:success match?)
                              clause-ctx (:ctx match?)]
                          (if success
-                           (do
-                             (vswap! new-ctx #(merge % clause-ctx))
-                             (interpret-ast body new-ctx))
+                           (if constraint 
+                             (if (interpret-ast constraint (volatile! (assoc clause-ctx ::parent ctx)))
+                               (do
+                                 (vswap! new-ctx #(merge % clause-ctx))
+                                 (interpret-ast body new-ctx))
+                               (recur (first clauses) (rest clauses)))
+                             (do
+                               (vswap! new-ctx #(merge % clause-ctx))
+                               (interpret-ast body new-ctx)))
                            (recur (first clauses) (rest clauses))))
 
                        (throw (ex-info (str "Match Error: No match found in loop for " input) {:ast ast}))))]
         (if (::data/recur output)
-          (recur (:tuple output))
+          (recur (:args output))
           output)))))
 
 (defn- panic [ast ctx]
@@ -633,6 +683,8 @@
 
 (defn- interpret-literal [ast] (-> ast :data first))
 
+(interpret-literal {:data [false]})
+
 (defn interpret-ast [ast ctx]
   (println "interpreting ast type" (:type ast))
   ;(println "AST: " ast)
@@ -652,11 +704,11 @@
 
     :cond (interpret-cond ast ctx)
 
-    ::ast/fn (interpret-fn ast ctx)
+    :fn (interpret-fn ast ctx)
 
-    ::ast/pipeline (interpret-do ast ctx)
+    :do (interpret-do ast ctx)
 
-    ::ast/placeholder ::data/placeholder
+    :placeholder ::data/placeholder
 
     ::ast/ns (interpret-ns ast ctx)
 
@@ -664,21 +716,19 @@
 
     ::ast/ref (interpret-ref ast ctx)
 
-    ::ast/panic (panic ast ctx)
-
     ::ast/spawn (interpret-spawn ast ctx)
 
     ::ast/send (interpret-send ast ctx)
 
     ::ast/receive (interpret-receive ast ctx)
 
-    ::ast/recur
-    {::data/recur true :tuple (interpret-ast (:tuple ast) ctx)}
+    :recur
+    {::data/recur true :args (interpret-ast (-> ast :data first) ctx)}
 
-    ::ast/loop (interpret-loop ast ctx)
+    :loop (interpret-loop ast ctx)
 
     :block
-    (let [exprs (:exprs ast)
+    (let [exprs (:data ast)
           inner (pop exprs)
           last (peek exprs)
           ctx (volatile! {::parent ctx})]
@@ -695,7 +745,7 @@
     ;; note that, excepting tuples and structs,
     ;; runtime representations are bare
     ;; tuples are vectors with a special first member
-    :tuple
+    (:tuple :args)
     (let [members (:data ast)]
       (into [::data/tuple] (map #(interpret-ast % ctx)) members))
 
@@ -785,7 +835,13 @@
 (do
   (process/start-vm)
   (def source "
-    id (1)
+    loop (4) with {
+      (0) -> print (:done)
+      (x) -> {
+        print (x)
+        recur (dec (x))
+      }
+    }
       ")
 
   (println "")
@@ -798,10 +854,13 @@
                  :tokens
                  (p/apply-parser g/script)
                  interpret-safe
-                 ;(show/show)
+                 show/show
                  )]
     (println result)
     result))
+
+
+(show/show false)
 
 (comment "
 

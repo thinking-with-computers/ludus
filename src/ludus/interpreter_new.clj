@@ -5,9 +5,8 @@
   		[ludus.scanner :as s]))
 
 (def source 
-  "
-foo (1, _)
-  "
+  "fn () -> {recur (x)}
+"
   )
 
 (def tokens (-> source s/scan :tokens))
@@ -37,5 +36,3 @@ foo (1, _)
               	clean 	
               	tap	
               	))
-
-(println my-data)

@@ -7,7 +7,7 @@
 
 (def failing #{:err :none})
 
-(def passing #{:ok :group :silent})
+(def passing #{:ok :group :quiet})
 
 (defn pass? [{status :status}] (contains? passing status))
 
@@ -32,7 +32,7 @@
   		(if (= kw (:type token))
    			{:status :ok 
    				:type kw 
-   				:data (if (value token) [(value token)] [])
+   				:data (if (some? (value token)) [(value token)] [])
    				:token token 
    				:remaining (rest tokens)}
    			{:status :none :token token :trace [kw] :remaining (rest tokens)})))
@@ -78,7 +78,7 @@
              				first-result (apply-parser (first parsers) tokens)]
           			(case (:status first-result)
            				(:err :none)
-           				(update (assoc first-result :trace #(conj % name)) :status :none)
+           				(assoc (update first-result :trace #(conj % name)) :status :none)
 
            				(:ok :quiet :group)
             			(loop [ps (rest parsers) 
@@ -164,7 +164,9 @@
                 					:quiet 	(recur (rest ps) results res-rem)
 
                 					(:err :none)
-                					(assoc (update result :trace #(conj % name)) :status :err)))))))})
+                					(assoc (update result :trace #(conj % name)) :status :err)
+
+                					(throw (ex-info (str "Got bad result: " (:status result)) result))))))))})
 
 (defn weak-order [name parsers]
  	{:name name
