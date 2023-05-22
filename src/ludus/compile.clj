@@ -30,5 +30,6 @@
 			- match
 			- let
 	- check ns access (validation)
+	- check constraints: only use specific fns (checked against a constraint-specific ctx) (validation)
 
 	")
