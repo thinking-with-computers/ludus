@@ -495,21 +495,10 @@
          (let [[k v] kv]
            [k (f v)]))))
 
-(defn- interpret-ns [ast ctx]
-  (let [members (:members ast)
-        name (:name ast)]
-    (if (contains? @ctx name)
-      (throw (ex-info (str "ns name " name " is already bound") {:ast ast}))
-      (let [ns (into
-                 {::data/struct true ::data/type ::data/ns ::data/name name}
-                 (map-values #(interpret-ast % ctx))
-                 members)]
-        (vswap! ctx update-ctx {name ns})
-        ns))))
-
 (defn- interpret-import [ast ctx]
-  (let [path (:path ast)
-        name (:name ast)
+  (let [data (:data ast)
+        path (-> data first :data first)
+        name (-> data second :data first)
         file (ludus-resolve :file ctx)
         from (if (= ::not-found file) :cwd file)]
     (if (contains? @ctx name)
@@ -521,14 +510,14 @@
                          (throw (ex-info (ex-message e) {:ast ast}))
                          (throw e))))
             result (-> source (scanner/scan) (parser/parse) (interpret-file path))]
-        ;; (pp/pprint @ctx)
         (vswap! ctx update-ctx {name result})
-        ;; (pp/pprint @ctx)
         result
         ))))
 
 (defn- interpret-ref [ast ctx]
-  (let [name (:name ast) expr (:expr ast)]
+  (let [data (:data ast)
+        name (-> data first :data first) 
+        expr (-> data second)]
     (when (contains? @ctx name)
       (throw (ex-info (str "Name " name " is already bound") {:ast ast})))
     (let [value (interpret-ast expr ctx)
@@ -579,24 +568,25 @@
 
 (defn- list-term [ctx]
   (fn [list member]
-    (if (= (::ast/type member) ::ast/splat)
-      (let [splatted (interpret-ast (:expr member) ctx)
-            splat-list? (and
-                          (vector? splatted)
-                          (not (= (first splatted) ::data/tuple)))]
-        (if splat-list?
-          (concat list splatted)
+    (if (= (:type member) :splat)
+      (let [splatted (interpret-ast (-> member :data first) ctx)
+            splattable? (vector? splatted)
+            tuple-splat? (= (first splatted) ::data/tuple)]
+        (if splattable?
+          (if tuple-splat?
+            (into [] (concat list (rest splatted)))  
+            (concat list splatted))
           (throw (ex-info "Cannot splat non-list into list" {:ast member}))))
-      (concat list [(interpret-ast member ctx)]))))
+      (conj list (interpret-ast member ctx)))))
 
 (defn- interpret-list [ast ctx]
-  (let [members (:members ast)]
+  (let [members (:data ast)]
     (into [] (reduce (list-term ctx) [] members))))
 
 (defn- set-term [ctx]
   (fn [set member]
-    (if (= (::ast/type member) ::ast/splat)
-      (let [splatted (interpret-ast (:expr member) ctx)
+    (if (= (:type member) :splat)
+      (let [splatted (interpret-ast (-> member :data first) ctx)
             splat-set? (set? splatted)]
         (if splat-set?
           (clojure.set/union set splatted)
@@ -604,25 +594,67 @@
       (conj set (interpret-ast member ctx)))))
 
 (defn- interpret-set [ast ctx]
-  (let [members (:members ast)]
+  (let [members (:data ast)]
     (reduce (set-term ctx) #{} members)))
 
 (defn- dict-term [ctx]
   (fn [dict member]
-    (if (= (::ast/type member) ::ast/splat)
-      (let [splatted (interpret-ast (:expr member) ctx)
-            splat-map? (and
-                         (map? splatted)
-                         (::data/dict splatted))]
-        (if splat-map?
-          (merge dict splatted)
-          (throw (ex-info "Cannot splat non-dict into dict" {:ast member}))))
-      (let [k (first member) v (second member)]
-        (assoc dict k (interpret-ast v ctx))))))
+    (case (:type member)
+      :splat (let [splatted (interpret-ast (-> member :data first) ctx)
+                   splat-map? (or (::data/dict splatted)
+                                (::data/struct splatted))]
+               (if splat-map?
+                 (merge dict splatted)
+                 (throw (ex-info "Cannot splat non-dict into dict" {:ast member}))))
+      :word (let [data (:data member) k (-> data first keyword)]
+              (assoc dict k (interpret-ast member ctx)))
+
+      :pair (let [data (:data member) k (-> data first :data first) v (second data)]
+              (assoc dict k (interpret-ast v ctx))))))
 
 (defn- interpret-dict [ast ctx]
-  (let [members (:members ast)]
+  (let [members (:data ast)]
     (assoc (reduce (dict-term ctx) {} members) ::data/dict true)))
+
+(defn- struct-term [ctx]
+  (fn [struct member]
+    (case (:type member)
+      :splat (throw (ex-info "Cannot splat into struct" {:ast member}))
+
+      :word (let [data (:data member) k (-> data first keyword)]
+              (assoc struct k (interpret-ast member ctx)))
+
+      :pair (let [data (:data member) k (-> data first :data first) v (second data)]
+              (assoc struct k (interpret-ast v ctx))))))
+
+(defn- interpret-struct [ast ctx]
+  (let [members (:data ast)]
+    (assoc (reduce (struct-term ctx) {} members) ::data/struct true)))
+
+(defn- ns-term [ctx]
+  (fn [ns member]
+    (case (:type member)
+      :splat (throw (ex-info "Cannot splat into ns" {:ast member}))
+
+      :word (let [data (:data member) k (-> data first keyword)]
+              (assoc ns k (interpret-ast member ctx)))
+
+      :pair (let [data (:data member) k (-> data first :data first) v (second data)]
+              (assoc ns k (interpret-ast v ctx))))))
+
+(defn- interpret-ns [ast ctx]
+  (let [data (:data ast)
+        name (-> data first :data first)
+        members (rest data)]
+    (if (contains? @ctx name)
+      (throw (ex-info (str "ns name " name " is already bound") {:ast ast}))
+      (let [ns (merge {
+                       ::data/struct true 
+                       ::data/type ::data/ns
+                       ::data/name name}
+                 (reduce (ns-term ctx) {} members))]
+        (vswap! ctx update-ctx {name ns})
+        ns))))
 
 (defn- interpret-receive [ast ctx]
   (let [process-atom (get @process/processes self)
@@ -668,7 +700,7 @@
     msg))
 
 (defn- interpret-spawn [ast ctx]
-  (let [expr (:expr ast)
+  (let [expr (-> ast :data first)
         process (process/new-process)
         pid (:pid @process)]
     (with-bindings {#'self pid}
@@ -710,15 +742,13 @@
 
     :placeholder ::data/placeholder
 
-    ::ast/ns (interpret-ns ast ctx)
+    :ns (interpret-ns ast ctx)
 
-    ::ast/import (interpret-import ast ctx)
+    :import (interpret-import ast ctx)
 
-    ::ast/ref (interpret-ref ast ctx)
+    :ref (interpret-ref ast ctx)
 
     ::ast/spawn (interpret-spawn ast ctx)
-
-    ::ast/send (interpret-send ast ctx)
 
     ::ast/receive (interpret-receive ast ctx)
 
@@ -749,15 +779,14 @@
     (let [members (:data ast)]
       (into [::data/tuple] (map #(interpret-ast % ctx)) members))
 
-    ::ast/list (interpret-list ast ctx)
+    :list (interpret-list ast ctx)
 
-    ::ast/set (interpret-set ast ctx)
+    :set (interpret-set ast ctx)
 
-    ::ast/dict (interpret-dict ast ctx)
+    :dict (interpret-dict ast ctx)
 
-    ::ast/struct
-    (let [members (:members ast)]
-      (into {::data/struct true} (map-values #(interpret-ast % ctx)) members))
+    :struct
+    (let [members (:members ast)] (interpret-struct ast ctx))
 
     (throw (ex-info "Unknown AST node type" {:ast ast}))))
 
@@ -777,7 +806,7 @@
           process (process/new-process)]
       (process/start-vm)
       (with-bindings {#'self (:pid @process)}
-        (let [result (interpret-ast (::parser/ast parsed) base-ctx)]
+        (let [result (interpret-ast (::parser/ast parsed) {::parent base-ctx})]
           (swap! process #(assoc % :status :dead))
           (process/stop-vm)
           result)))
@@ -789,7 +818,7 @@
 
 (defn interpret-safe [parsed]
   (try
-    (let [base-ctx (volatile! (merge {} prelude/prelude))
+    (let [base-ctx (volatile! {::parent (volatile! prelude/prelude)})
           process (process/new-process)]
       (process/start-vm)
       (with-bindings {#'self (:pid @process)}
@@ -835,13 +864,7 @@
 (do
   (process/start-vm)
   (def source "
-    loop (4) with {
-      (0) -> print (:done)
-      (x) -> {
-        print (x)
-        recur (dec (x))
-      }
-    }
+    ref a = 1
       ")
 
   (println "")

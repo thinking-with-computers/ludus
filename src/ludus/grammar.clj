@@ -137,7 +137,7 @@
                       	(zero+ struct-entry)
                       	(quiet :rbrace)])))
 
-(def dict-term (flat (choice :dict-term [:word pair splat])))
+(def dict-term (flat (choice :dict-term [splat :word pair])))
 
 (def dict-entry (order-1 :dict-entry [dict-term separators]))
 
@@ -246,12 +246,12 @@
 
 (def importt (group (order-1 :import [(quiet :import) :string (quiet :as) :word])))
 
-(def nss (group (order-1 :nss [(quiet :ns) 
-                              	:word 
-                              	(quiet :lbrace)
-                              	(quiet (zero+ separator))
-                              	(zero+ struct-entry)
-                              	(quiet :rbrace)])))
+(def nss (group (order-1 :ns [(quiet :ns) 
+                             	:word 
+                             	(quiet :lbrace)
+                             	(quiet (zero+ separator))
+                             	(zero+ struct-entry)
+                             	(quiet :rbrace)])))
 
 (def toplevel (flat (choice :toplevel [importt nss expression testt])))
 

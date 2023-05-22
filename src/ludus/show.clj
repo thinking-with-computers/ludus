@@ -25,7 +25,7 @@
     (str "@{" (apply str (into [] show-keyed (dissoc v ::data/struct))) "}")
 
     (::data/ref v) ;; TODO: reconsider this
-    (str "ref:" (::data/name v) " <" (deref (::data/value v)) ">")
+    (str "ref: " (::data/name v) " [" (deref (::data/value v)) "]")
 
     (::data/dict v)
     (str "#{" (apply str (into [] show-keyed (dissoc v ::data/dict))) "}")
