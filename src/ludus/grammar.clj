@@ -4,295 +4,306 @@
 
 (declare expression pattern)
 
-(def separator (choice :separator [:comma :newline :break]))
+;(def separator (choice :separator [:comma :newline :break]))
+(defp separator [choice] [:comma :newline :break])
 
-(def separators (quiet (one+ separator)))
+;(def separators (quiet (one+ separator)))
+(defp separators quiet one+ separator)
 
-(def terminator (choice :terminator [:newline :semicolon :break]))
+;(def terminator (choice :terminator [:newline :semicolon :break]))
+(defp terminator choice [:newline :semicolon :break])
 
-(def terminators (quiet (one+ terminator)))
+;(def terminators (quiet (one+ terminator)))
+(defp terminators quiet one+ terminator)
 
-(def nls? (quiet (zero+ :nls :newline)))
+;(def nls? (quiet (zero+ :nls :newline)))
+(defp nls? quiet zero+ :newline)
 
-(def splat (group (order-1 :splat [(quiet :splat) :word])))
+;(def splat (group (order-1 :splat [(quiet :splat) :word])))
+(defp splat group order-1 [(quiet :splat) :word])
 
-(def splattern (group (order-1 :splat [(quiet :splat) (flat (choice :splatted [:word :ignored :placeholder]))])))
+;(def splattern (group (order-1 :splat [(quiet :splat) (maybe (flat (choice :splatted [:word :ignored :placeholder])))])))
+(defp patt-splat-able quiet flat choice [:word :ignored :placeholder])
+(defp splattern group order-1 [(quiet :splat) (maybe patt-splat-able)])
 
-(def literal (flat (choice :literal [:nil :true :false :number :string])))
+;(def literal (flat (choice :literal [:nil :true :false :number :string])))
+(defp literal flat choice [:nil :true :false :number :string])
 
-(def tuple-pattern-term (flat (choice :tuple-pattern-term [pattern splattern])))
+;(def tuple-pattern-term (flat (choice :tuple-pattern-term [pattern splattern])))
+(defp tuple-pattern-term flat choice [pattern splattern])
 
-(def tuple-pattern-entry (weak-order :tuple-pattern-entry [tuple-pattern-term separators]))
+;(def tuple-pattern-entry (weak-order :tuple-pattern-entry [tuple-pattern-term separators]))
+(defp tuple-pattern-entry weak-order [tuple-pattern-term separators])
 
-(def tuple-pattern (group (order-1 :tuple-pattern
-                           	[(quiet :lparen)
-                           		(quiet (zero+ separator))
-                           		(zero+ tuple-pattern-entry)
-                           		(quiet :rparen)])))
-
-(def list-pattern (group (order-1 :list-pattern 
-                          	[(quiet :lbracket)
-                           	(quiet (zero+ separator))
-                           	(zero+ tuple-pattern-entry)
-                           	(quiet :rbracket)])))
-
-(def pair-pattern (order-0 :pair-pattern [:keyword pattern]))
-
-(def dict-pattern-term (flat (choice :dict-pattern-term [pair-pattern :word splattern])))
-
-(def dict-pattern-entry (weak-order :dict-pattern-entry [dict-pattern-term separators]))
-
-(def dict-pattern (group (order-1 :dict-pattern 
-                          	[(quiet :startdict)
-                          	 (quiet (zero+ separator))
-                          	 (zero+ dict-pattern-entry)
-                          	 (quiet :rbrace)
-                           	])))
-
-(def struct-pattern (group (order-1 :struct-pattern
-                            	[(quiet :startstruct)
-                             	(quiet (zero+ separator))
-                             	(zero+ dict-pattern-entry)
-                             	(quiet :rbrace)
-                             	])))
-
-(def constraint (order-0 :constraint [(quiet :when) expression]))
-
-(def typed (group (weak-order :typed [:word (quiet :as) :keyword])))
-
-(def pattern (flat (choice :pattern [literal :ignored :placeholder typed :word :keyword tuple-pattern dict-pattern struct-pattern list-pattern])))
-
-(def match-clause (group (weak-order :match-clause 
-                          	[pattern (maybe constraint) (quiet :rarrow) expression])))
-
-(def match-entry (weak-order :match-entry [match-clause terminators]))
-
-(def match (group (order-1 :match 
-                   	[(quiet :match) expression nls? 
-                    	(quiet :with) (quiet :lbrace)
-                    	(quiet (zero+ terminator))
-                    	(one+ match-entry)
-                    	(quiet :rbrace)
-                    	])))
-
-(def iff (group (order-1 :if [(quiet :if) 
-                              nls? 
-                              expression 
-                              nls? 
-                              (quiet :then) 
-                              expression 
-                              nls? 
-                              (quiet :else) 
-                              expression])))
-
-(def cond-lhs (flat (choice :cond-lhs [expression :placeholder :else])))
-
-(def cond-clause (group (weak-order :cond-clause [cond-lhs (quiet :rarrow) expression])))
-
-(def cond-entry (weak-order :cond-entry [cond-clause terminators]))
-
-(def condd (group (order-1 :cond [(quiet :cond) (quiet :lbrace)
-                                  (quiet (zero+ terminator))
-                                  (one+ cond-entry)
-                                  (quiet :rbrace)])))
-
-(def lett (group (order-1 :let [(quiet :let)
-                               	pattern
-                               	(quiet :equals)
-                               	nls?
-                               	expression])))
-
-(def tuple-entry (weak-order :tuple-entry [expression separators]))
- 
-(def tuple (group (order-1 :tuple [(quiet :lparen)
+(defp tuple-pattern group order-1 [(quiet :lparen)
                                  		(quiet (zero+ separator))
-                                 		(zero+ tuple-entry)
-                                 		(quiet :rparen)])))
+                                 		(zero+ tuple-pattern-entry)
+                                 		(quiet :rparen)])
 
-(def list-term (flat (choice :list-term [splat expression])))
+(defp list-pattern group order-1 [(quiet :lbracket)
+                                 	(quiet (zero+ separator))
+                                 	(zero+ tuple-pattern-entry)
+                                 	(quiet :rbracket)])
 
-(def list-entry (order-1 :list-entry [list-term separators]))
+(defp pair-pattern order-0 [:keyword #'pattern])
 
-(def listt (group (order-1 :list
-                   	[(quiet :lbracket)
-                   		(quiet (zero+ separator))
-                   		(zero+ list-entry)
-                   		(quiet :rbracket)])))
+(defp dict-pattern-term flat choice [pair-pattern :word splattern])
 
-(def sett (group (order-1 :set [
-                               	(quiet :startset)
-                               	(quiet (zero+ separator))
-                               	(zero+ list-entry)
-                               	(quiet :rbrace)])))
+(defp dict-pattern-entry weak-order [dict-pattern-term separators])
 
-(def pair (group (order-0 :pair [:keyword expression])))
+(defp dict-pattern group order-1 [(quiet :startdict)
+                                	 (quiet (zero+ separator))
+                                	 (zero+ dict-pattern-entry)
+                                	 (quiet :rbrace)
+                                 	])
 
-(def struct-term (flat (choice :struct-term [:word pair])))
+(defp struct-pattern group order-1 [(quiet :startstruct)
+                                   	(quiet (zero+ separator))
+                                   	(zero+ dict-pattern-entry)
+                                   	(quiet :rbrace)
+                                   	])
 
-(def struct-entry (order-1 :struct-entry [struct-term separators]))
+(defp guard order-0 [(quiet :when) expression])
 
-(def structt (group (order-1 :struct 
-                     	[(quiet :startstruct)
-                      	(quiet (zero+ separator))
-                      	(zero+ struct-entry)
-                      	(quiet :rbrace)])))
+(defp typed group weak-order [:word (quiet :as) :keyword])
 
-(def dict-term (flat (choice :dict-term [splat :word pair])))
+(defp pattern flat choice [literal 
+                           :ignored 
+                           :placeholder 
+                           typed 
+                           :word 
+                           :keyword 
+                           tuple-pattern 
+                           dict-pattern 
+                           struct-pattern 
+                           list-pattern])
 
-(def dict-entry (order-1 :dict-entry [dict-term separators]))
+(defp match-clause group weak-order :match-clause [pattern (maybe guard) (quiet :rarrow) expression])
 
-(def dict (group (order-1 :dict
-                  	[(quiet :startdict)
-                   	(quiet (zero+ separator))
-                   	(zero+ dict-entry)
-                   	(quiet :rbrace)])))
+(defp match-entry weak-order [match-clause terminators])
 
-(def arg-expr (flat (choice :arg-expr [:placeholder expression])))
+(defp match group order-1 [(quiet :match) expression nls? 
+                          	(quiet :with) (quiet :lbrace)
+                          	(quiet (zero+ terminator))
+                          	(one+ match-entry)
+                          	(quiet :rbrace)
+                          	])
 
-(def arg-entry (weak-order :arg-entry [arg-expr separators]))
+(defp if-expr group order-1 [(quiet :if) 
+                             nls? 
+                             expression 
+                             nls? 
+                             (quiet :then) 
+                             expression 
+                             nls? 
+                             (quiet :else) 
+                             expression])
 
-(def args (group (order-1 :args
-                   [(quiet :lparen)
-                    (quiet (zero+ separator))
-                    (zero+ arg-entry)
-                    (quiet :rparen)])))
+(defp cond-lhs flat choice [expression :placeholder :else])
 
-(def recurr (group (order-1 :recur [(quiet :recur) tuple])))
+(defp cond-clause group weak-order [cond-lhs (quiet :rarrow) expression])
 
-(def synth-root (flat (choice :synth-root [:keyword :word])))
+(defp cond-entry weak-order [cond-clause terminators])
 
-(def synth-term (flat (choice :synth-term [args :keyword])))
+(defp cond-expr group order-1 [(quiet :cond) (quiet :lbrace)
+                               (quiet (zero+ terminator))
+                               (one+ cond-entry)
+                               (quiet :rbrace)])
 
-(def synthetic (group (order-1 :synthetic [synth-root (zero+ synth-term)])))
+(defp let-expr group order-1 [(quiet :let)
+                             	pattern
+                             	(quiet :equals)
+                             	nls?
+                             	expression])
 
-(def fn-clause (group (order-1 :fn-clause [tuple-pattern (maybe constraint) (quiet :rarrow) expression])))
+(defp tuple-entry weak-order [expression separators])
+ 
+(defp tuple group order-1 [(quiet :lparen)
+                         		(quiet (zero+ separator))
+                         		(zero+ tuple-entry)
+                         		(quiet :rparen)])
 
-(def fn-entry (order-1 :fn-entry [fn-clause terminators]))
+(defp list-term flat choice [splat expression])
 
-(def compound (group (order-1 :compound [(quiet :lbrace)
-                                       		nls?
-                                        	(maybe :string)
-                                        	(quiet (zero+ terminator))
-                                        	(one+ fn-entry)
-                                        	(quiet :rbrace)
-                                        	])))
+(defp list-entry order-1 [list-term separators])
 
-(def clauses (flat (choice :clauses [fn-clause compound])))
+(defp list-literal group order-1 [(quiet :lbracket)
+                                		(quiet (zero+ separator))
+                                		(zero+ list-entry)
+                                		(quiet :rbracket)])
 
-(def named (group (order-1 :named [:word clauses])))
+(defp set-literal group order-1 [(quiet :startset)
+                                	(quiet (zero+ separator))
+                                	(zero+ list-entry)
+                                	(quiet :rbrace)])
 
-(def body (flat (choice :body [fn-clause named])))
+(defp pair group order-0 [:keyword expression])
 
-(def fnn (group (order-1 :fn [(quiet :fn) body])))
+(defp struct-term flat choice [:word pair])
 
-(def block-line (weak-order :block-line [expression terminators]))
+(defp struct-entry order-1 [struct-term separators])
 
-(def block (group (order-1 :block [(quiet :lbrace) 
-                                  	(quiet (zero+ terminator))
-                                  	(one+ block-line)
-                                  	(quiet :rbrace)])))
+(defp struct-literal group order-1 [(quiet :startstruct)
+                                   	(quiet (zero+ separator))
+                                   	(zero+ struct-entry)
+                                   	(quiet :rbrace)])
 
-(def pipeline (quiet (order-0 :pipeline [nls? :pipeline])))
+(defp dict-term flat choice [splat :word pair])
 
-(def do-entry (order-1 :do-entry [pipeline expression]))
+(defp dict-entry order-1 [dict-term separators])
 
-(def doo (group (order-1 :do [(quiet :do)
-                             	expression
-                             	(one+ do-entry)
-                             	])))
+(defp dict group order-1 [(quiet :startdict)
+                         	(quiet (zero+ separator))
+                         	(zero+ dict-entry)
+                         	(quiet :rbrace)])
 
-(def reff (group (order-1 :ref [(quiet :ref) :word (quiet :equals) expression])))
+(defp arg-expr flat choice [:placeholder expression])
 
-(def spawn (group (order-1 :spawn [(quiet :spawn) expression])))
+(defp arg-entry weak-order [arg-expr separators])
 
-(def receive (group (order-1 :receive 
-                     	[(quiet :receive) (quiet :lbrace)
-                      	(quiet (zero+ terminator))
-                      	(one+ match-entry)
-                      	(quiet :rbrace)
-                      	])))
+(defp args group order-1 [(quiet :lparen)
+                          (quiet (zero+ separator))
+                          (zero+ arg-entry)
+                          (quiet :rparen)])
 
-(def compound-loop (group (order-0 :compound-loop
-                           	[(quiet :lbrace)
-                           		(quiet (zero+ terminator))
-                           		(one+ fn-entry)
-                            	(quiet :rbrace)])))
+(defp recur-call group order-1 [(quiet :recur) tuple])
 
-(def loopp (group (order-1 :loop 
-                   	[(quiet :loop) tuple (quiet :with)
-                    	(flat (choice :loop-body [fn-clause compound-loop]))])))
+(defp synth-root flat choice [:keyword :word])
 
-(def expression (flat (choice :expression [fnn 
-                                          	match
-                                          	loopp
-                                          	lett 
-                                          	iff 
-                                          	condd
-                                          	spawn
-                                          	receive
-                                          	synthetic 
-                                           recurr
-                                          	block 
-                                          	doo
-                                          	reff
-                                          	structt 
-                                          	dict
-                                          	listt 
-                                          	sett
-                                          	tuple 
-                                          	literal])))
+(defp synth-term flat choice [args :keyword])
 
-(def testt (group (order-1 :test [(quiet :test) :string expression])))
+(defp synthetic group order-1 [synth-root (zero+ synth-term)])
 
-(def importt (group (order-1 :import [(quiet :import) :string (quiet :as) :word])))
+(defp fn-clause group order-1 [tuple-pattern (maybe constraint) (quiet :rarrow) expression])
 
-(def nss (group (order-1 :ns [(quiet :ns) 
-                             	:word 
-                             	(quiet :lbrace)
-                             	(quiet (zero+ separator))
-                             	(zero+ struct-entry)
-                             	(quiet :rbrace)])))
+(defp fn-entry order-1 [fn-clause terminators])
 
-(def toplevel (flat (choice :toplevel [importt nss expression testt])))
+(defp compound group order-1 [(quiet :lbrace)
+                            		nls?
+                             	(maybe :string)
+                             	(quiet (zero+ terminator))
+                             	(one+ fn-entry)
+                             	(quiet :rbrace)
+                             	])
 
-(def script-line (weak-order :script-line [toplevel terminators]))
+(defp clauses flat choice [fn-clause compound])
 
-(def script (order-0 :script [nls?
-                              (one+ script-line)
-                              (quiet :eof)]))
+(defp named group order-1 [:word clauses])
+
+(defp body flat choice [fn-clause named])
+
+(defp fn-expr group order-1 [(quiet :fn) body])
+
+(defp block-line weak-order [expression terminators])
+
+(defp block group order-1 [(quiet :lbrace) 
+                          	(quiet (zero+ terminator))
+                          	(one+ block-line)
+                          	(quiet :rbrace)])
+
+(defp pipeline quiet order-0 [nls? :pipeline])
+
+(defp do-entry order-1 [pipeline expression])
+
+(defp do-expr group order-1 [(quiet :do)
+                            	expression
+                            	(one+ do-entry)
+                            	])
+
+(defp ref-expr group order-1 [(quiet :ref) :word (quiet :equals) expression])
+
+(defp spawn group order-1 [(quiet :spawn) expression])
+
+(defp receive group order-1 [(quiet :receive) (quiet :lbrace)
+                            	(quiet (zero+ terminator))
+                            	(one+ match-entry)
+                            	(quiet :rbrace)
+                            	])
+
+(defp compound-loop group order-0 [(quiet :lbrace)
+                                 		(quiet (zero+ terminator))
+                                 		(one+ fn-entry)
+                                  	(quiet :rbrace)])
+
+(defp loop-expr group order-1 [(quiet :loop) tuple (quiet :with)
+                              	(flat (choice :loop-body [fn-clause compound-loop]))])
+
+(defp expression flat choice [fn-expr
+                             	match
+                             	loop-expr
+                             	let-expr
+                             	if-expr 
+                             	cond-expr
+                             	spawn
+                             	receive
+                             	synthetic
+                              recur-call
+                             	block 
+                             	do-expr
+                             	ref-expr
+                             	struct-literal
+                             	dict
+                             	list-literal
+                             	set-literal
+                             	tuple 
+                             	literal])
+
+(defp test-expr group order-1 [(quiet :test) :string expression])
+
+(defp import-expr group order-1 [(quiet :import) :string (quiet :as) :word])
+
+(defp ns-expr group order-1 [(quiet :ns) 
+                            	:word 
+                            	(quiet :lbrace)
+                            	(quiet (zero+ separator))
+                            	(zero+ struct-entry)
+                            	(quiet :rbrace)])
+
+(defp toplevel flat choice [import-expr
+                            ns-expr
+                            expression 
+                            test-expr])
+
+(defp script-line weak-order [toplevel terminators])
+
+(defp script order-0 [nls?
+                      (one+ script-line)
+                      (quiet :eof)])
 
 
 ;;; REPL
 
-;; TODO: fix this recursive def bullshit problem
+(def source 
+  "2"
+  )
 
-(comment (def source 
-           "if 1 then 2 else 3"
-           )
+(def rule (literal))
 
-  (def result (apply-parser script source))  
+(def tokens (-> source scan/scan :tokens))
+
+(def result (apply-parser literal tokens))
 
 
-  (defn report [node] 
-    (when (fail? node) (err-msg node))  
-    node)   
+(defn report [node] 
+  (when (fail? node) (err-msg node))  
+  node)   
 
-  (defn clean [node]  
-    (if (map? node) 
-      (-> node    
-        (report)    
-        (dissoc     
-          ;:status     
-          :remaining  
-          :token) 
-        (update :data #(into [] (map clean) %)))    
-      node))  
+(defn clean [node]  
+  (if (map? node) 
+    (-> node    
+      (report)    
+      (dissoc     
+        ;:status     
+        :remaining  
+        :token) 
+      (update :data #(into [] (map clean) %)))    
+    node))  
 
-  (defn tap [x] (println "\n\n\n\n******NEW RUN\n\n:::=> " x "\n\n") x)   
+(defn tap [x] (println "\n\n\n\n******NEW RUN\n\n:::=> " x "\n\n") x)   
 
-  (def my-data (-> result     
-                 clean   
-                 tap 
-                 ))
+(def my-data (-> result     
+               clean   
+               tap 
+               ))
 
-  (println my-data))
+(println my-data)

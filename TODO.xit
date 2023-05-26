@@ -2,3 +2,13 @@
 [ ] Write send function
 [ ] ---- Investigate weird timing issue in current send implementation
 [ ] Investigate with-bindings and virtual threads
+
+[ ] Fix recursive definition problems in grammar.clj
+
+[ ] Wire up new interpreter to repl, script situation
+
+[ ] Write compiler
+
+[ ] Merge new interpreter
+
+[ ] Get drawing working?

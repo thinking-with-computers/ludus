@@ -47,6 +47,7 @@
  	(let [result (cond 
                		(keyword? parser) (apply-kw-parser parser tokens)
                		(:rule parser) (apply-fn-parser parser tokens)
+               		(fn? parser) (apply-fn-parser (parser) tokens)
                		:else (throw (Exception. "`apply-parser` requires a parser")))]
   		;(println "Parser result " (? (:name parser) parser) (:status result))
   		result
@@ -308,3 +309,26 @@
 (defn err-msg [{token :token trace :trace}]
  	(println "Unexpected token " (:type token) " on line " (:line token))
  	(println "Expected token " (first trace)))
+
+(defmacro defp [name & items]
+ 	(let [arg (last items)
+     			fns (into [] (butlast items))]
+  		`(defn ~name [] ((apply comp ~fns) (keyword '~name) ~arg))))
+
+(macroexpand '(defp foo group choice [:one :two]))
+
+(comment (defp foo quiet choice [:one :two])
+
+  (def group-choice (apply comp '(group choice)))
+
+  (group-choice :thing [:a :b])
+
+  ((apply comp [group choice]) :foo [:one :two])
+
+  (fn? foo)
+
+  foo
+
+  (keyword 'foo)
+
+  (foo))

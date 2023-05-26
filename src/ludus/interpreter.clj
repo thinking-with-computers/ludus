@@ -87,6 +87,7 @@
                   (recur (dec i)))
                 {:success false :reason (str "Could not match " pattern " with " value " because " (:reason match?))}))))))))
 
+;; TODO: update this to use new AST representation
 (defn- match-list [pattern value ctx-vol]
   (cond
     (not (vector? value)) {:success false :reason "Could not match non-list value to list"}
@@ -112,6 +113,7 @@
                 (recur (dec i)))
               {:success false :reason (str "Could not match " pattern " with " value " because " (:reason match?))})))))))
 
+;; TODO: update this to match new AST representation
 (defn- match-dict [pattern value ctx-vol]
   (cond
     (not (map? value))
@@ -139,6 +141,7 @@
               {:success false
                :reason (str "Could not match " pattern " with " value " at key " kw " because there is no value at " kw)})))))))
 
+;; TODO: update this to use new AST representation
 (defn- match-struct [pattern value ctx-vol]
   (cond
     (not (map? value))
@@ -242,7 +245,7 @@
         if-expr (first data)
         then-expr (second data)
         else-expr (nth data 2)]
-    (if (= (:type if-expr) :let)
+    (if (= (:type if-expr) :let-expr)
       (interpret-if-let ast ctx)
       (if (interpret-ast if-expr ctx)
       	 (interpret-ast then-expr ctx)
@@ -563,9 +566,6 @@
           (recur (:args output))
           output)))))
 
-(defn- panic [ast ctx]
-  (throw (ex-info (show/show (interpret-ast (:expr ast) ctx)) {:ast ast})))
-
 (defn- list-term [ctx]
   (fn [list member]
     (if (= (:type member) :splat)
@@ -656,6 +656,7 @@
         (vswap! ctx update-ctx {name ns})
         ns))))
 
+;; TODO: update this to use new AST representation
 (defn- interpret-receive [ast ctx]
   (let [process-atom (get @process/processes self)
         inbox (promise)
@@ -684,6 +685,7 @@
               (recur (first clauses) (rest clauses))))
           (throw (ex-info "Match Error: No match found" {:ast ast})))))))
 
+;; TODO: update send to be a function (here or in prelude)
 (defn- interpret-send [ast ctx]
   (let [msg (interpret-ast (:msg ast) ctx) 
         pid (interpret-ast (:pid ast) ctx)
@@ -715,8 +717,6 @@
 
 (defn- interpret-literal [ast] (-> ast :data first))
 
-(interpret-literal {:data [false]})
-
 (defn interpret-ast [ast ctx]
   (println "interpreting ast type" (:type ast))
   ;(println "AST: " ast)
@@ -724,9 +724,9 @@
 
     (:nil :true :false :number :string :keyword) (interpret-literal ast)
 
-    :let (interpret-let ast ctx)
+    :let-expr (interpret-let ast ctx)
 
-    :if (interpret-if ast ctx)
+    :if-expr (interpret-if ast ctx)
 
     :word (resolve-word ast ctx)
 
@@ -734,28 +734,28 @@
 
     :match (interpret-match ast ctx)
 
-    :cond (interpret-cond ast ctx)
+    :cond-expr (interpret-cond ast ctx)
 
-    :fn (interpret-fn ast ctx)
+    :fn-expr (interpret-fn ast ctx)
 
-    :do (interpret-do ast ctx)
+    :do-expr (interpret-do ast ctx)
 
     :placeholder ::data/placeholder
 
-    :ns (interpret-ns ast ctx)
+    :ns-expr (interpret-ns ast ctx)
 
-    :import (interpret-import ast ctx)
+    :import-expr (interpret-import ast ctx)
 
-    :ref (interpret-ref ast ctx)
+    :ref-expr (interpret-ref ast ctx)
 
-    ::ast/spawn (interpret-spawn ast ctx)
+    ; ::ast/spawn (interpret-spawn ast ctx)
 
-    ::ast/receive (interpret-receive ast ctx)
+    ; ::ast/receive (interpret-receive ast ctx)
 
-    :recur
+    :recur-call
     {::data/recur true :args (interpret-ast (-> ast :data first) ctx)}
 
-    :loop (interpret-loop ast ctx)
+    :loop-expr (interpret-loop ast ctx)
 
     :block
     (let [exprs (:data ast)
@@ -779,17 +779,18 @@
     (let [members (:data ast)]
       (into [::data/tuple] (map #(interpret-ast % ctx)) members))
 
-    :list (interpret-list ast ctx)
+    :list-literal (interpret-list ast ctx)
 
-    :set (interpret-set ast ctx)
+    :set-literal (interpret-set ast ctx)
 
     :dict (interpret-dict ast ctx)
 
-    :struct
+    :struct-literal
     (let [members (:members ast)] (interpret-struct ast ctx))
 
     (throw (ex-info "Unknown AST node type" {:ast ast}))))
 
+;; TODO: update this to use new parser pipeline & new AST representation
 (defn interpret-file [parsed file]
   (try 
     (let [base-ctx (volatile! (merge {:file file} prelude/prelude process/process))]
@@ -800,6 +801,7 @@
       (println (ex-message e))
       (System/exit 67))))
 
+;; TODO: update this to use new parser pipeline & new AST representation
 (defn interpret [parsed file]
   (try
     (let [base-ctx (volatile! (merge {:file file} prelude/prelude process/process))
@@ -833,6 +835,7 @@
       (println (ex-message e))
       (pp/pprint (ex-data e)))))
 
+;; TODO: update this to use new parser pipeline & new AST representation
 (defn interpret-repl
   ([parsed ctx]
    (let [orig-ctx @ctx
