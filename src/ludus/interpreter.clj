@@ -261,17 +261,17 @@
       (if clause
         (let [clause-data (:data clause)
               pattern (first clause-data)
-              constraint (if (= 3 (count clause-data))
-                           (second clause-data)
-                           nil)
+              guard (if (= 3 (count clause-data))
+                      (second clause-data)
+                      nil)
               body (peek clause-data)
               new-ctx (volatile! {::parent ctx})
               match? (match pattern value new-ctx)
               success (:success match?)
               clause-ctx (:ctx match?)]
           (if success
-            (if constraint 
-              (if (interpret-ast constraint (volatile! clause-ctx))
+            (if guard 
+              (if (interpret-ast guard (volatile! clause-ctx))
                 (do
                   (vswap! new-ctx #(merge % clause-ctx))
                   (interpret-ast body new-ctx))
@@ -350,9 +350,9 @@
         ;(println "With args " args)
         (if clause
           (let [pattern (first clause)
-                constraint (if (= 3 (count clause))
-                             (second clause)
-                             nil)
+                guard (if (= 3 (count clause))
+                        (second clause)
+                        nil)
                 body (peek clause)
                 fn-ctx (volatile! {::parent closed-over})
                 match? (match pattern args fn-ctx)
@@ -362,13 +362,13 @@
             ;(println "Pattern: " pattern)
             ;(println "Body: " body)
             (if success
-              (if constraint 
+              (if guard 
                 (if (do
-                      ;(println "######### Testing constraint")
+                      ;(println "######### Testing guard")
                       ;(println "Context: " clause-ctx)
-                      (interpret-ast constraint vclause))
+                      (interpret-ast guard vclause))
                   (do
-                    ;(println "passed constraint")
+                    ;(println "passed guard")
                     (vswap! fn-ctx #(merge % clause-ctx))
                     (interpret-ast body fn-ctx))
                   (recur (first clauses) (rest clauses)))
@@ -541,17 +541,17 @@
                           clauses (rest clauses)]
                      (if clause
                        (let [pattern (first clause)
-                             constraint (if (= 3 (count clause))
-                                          (second clause)
-                                          nil)
+                             guard (if (= 3 (count clause))
+                                     (second clause)
+                                     nil)
                              body (peek clause)
                              new-ctx (volatile! {::parent ctx})
                              match? (match pattern input new-ctx)
                              success (:success match?)
                              clause-ctx (:ctx match?)]
                          (if success
-                           (if constraint 
-                             (if (interpret-ast constraint (volatile! (assoc clause-ctx ::parent ctx)))
+                           (if guard 
+                             (if (interpret-ast guard (volatile! (assoc clause-ctx ::parent ctx)))
                                (do
                                  (vswap! new-ctx #(merge % clause-ctx))
                                  (interpret-ast body new-ctx))
