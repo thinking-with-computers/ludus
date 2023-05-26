@@ -174,7 +174,7 @@
 
 (defp synthetic group order-1 [synth-root (zero+ synth-term)])
 
-(defp fn-clause group order-1 [tuple-pattern (maybe constraint) (quiet :rarrow) expression])
+(defp fn-clause group order-1 [tuple-pattern (maybe guard) (quiet :rarrow) expression])
 
 (defp fn-entry order-1 [fn-clause terminators])
 
