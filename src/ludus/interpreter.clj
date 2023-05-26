@@ -718,7 +718,7 @@
 (defn- interpret-literal [ast] (-> ast :data first))
 
 (defn interpret-ast [ast ctx]
-  (println "interpreting ast type" (:type ast))
+  ;(println "interpreting ast type" (:type ast))
   ;(println "AST: " ast)
   (case (:type ast)
 
@@ -865,9 +865,8 @@
 
 
 (do
-  (process/start-vm)
   (def source "
-    ref a = 1
+    if 1 then 2 else 3
       ")
 
   (println "")
@@ -884,9 +883,6 @@
                  )]
     (println result)
     result))
-
-
-(show/show false)
 
 (comment "
 

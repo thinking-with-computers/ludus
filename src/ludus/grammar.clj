@@ -273,37 +273,39 @@
 
 ;;; REPL
 
-(def source 
-  "2"
-  )
+(comment
 
-(def rule (literal))
+  (def source 
+    "if 1 then 2 else 3"
+    )
 
-(def tokens (-> source scan/scan :tokens))
+  (def rule (literal))
 
-(def result (apply-parser literal tokens))
+  (def tokens (-> source scan/scan :tokens))
+
+  (def result (apply-parser script tokens))
 
 
-(defn report [node] 
-  (when (fail? node) (err-msg node))  
-  node)   
+  (defn report [node] 
+    (when (fail? node) (err-msg node))  
+    node)   
 
-(defn clean [node]  
-  (if (map? node) 
-    (-> node    
-      (report)    
-      (dissoc     
-        ;:status     
-        :remaining  
-        :token) 
-      (update :data #(into [] (map clean) %)))    
-    node))  
+  (defn clean [node]  
+    (if (map? node) 
+      (-> node    
+        (report)    
+        (dissoc     
+          ;:status     
+          :remaining  
+          :token) 
+        (update :data #(into [] (map clean) %)))    
+      node))  
 
-(defn tap [x] (println "\n\n\n\n******NEW RUN\n\n:::=> " x "\n\n") x)   
+  (defn tap [x] (println "\n\n\n\n******NEW RUN\n\n:::=> " x "\n\n") x)   
 
-(def my-data (-> result     
-               clean   
-               tap 
-               ))
+  (def my-data (-> result     
+                 clean   
+                 tap 
+                 ))
 
-(println my-data)
+  (println my-data))

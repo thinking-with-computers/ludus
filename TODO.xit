@@ -1,14 +1,39 @@
-[ ] Wire up interpreter for spawn and receive
-[ ] Write send function
+
+[x] Fix recursive definition problems in grammar.clj
+
+TODOS from interpreter
+[ ] implement tuple splat patterns
+[ ] update match-list to use new AST representation
+[ ] fix length comparison when pattern includes splats
+[ ] update match-dict to use new AST representation
+[ ] update match-struct to use new AST representation
+[ ] update interpret-receive to use new AST representation
+[ ] Check interpret-fn-inner ctx for cycles/bugs
+
+Re-add processes to the language
+[ ] Write send as function
+[ ] update interpret-spawn to use new AST representation
 [ ] ---- Investigate weird timing issue in current send implementation
-[ ] Investigate with-bindings and virtual threads
+[ ] Investigate `with-bindings` and virtual threads
 
-[ ] Fix recursive definition problems in grammar.clj
-
+Finish interpreter
 [ ] Wire up new interpreter to repl, script situation
-
-[ ] Write compiler
-
 [ ] Merge new interpreter
 
+Write a compiler: desugaring
+[ ] `...` to `..._` in tuple & list patterns
+[ ] placeholder partial application to anonymous lambda
+[ ] word -> :[word] word in pairs (patterns & expressions)
+
+Write a compiler: correctness
+[ ] check for unbound names
+[ ] check for re-binding names
+[ ] check that recur is in tail position
+[ ] check that recur is only called inside loop or fn forms
+[ ] check ns accesses
+
+Write a compiler: optimization
+[ ] devise tail call optimization
+
+Next steps
 [ ] Get drawing working?
