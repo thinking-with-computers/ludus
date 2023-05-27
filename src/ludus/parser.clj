@@ -155,8 +155,8 @@
                                   :token (current origin)
                                   :partial (contains-placeholder? ms)}]
                          (if (unary-placeholder? ast)
-                          (panic parser "You may not use a placeholder in a tuple of length 1. You may only partially apply functions that take more than one argument.")
-                          (assoc (advance parser) ::ast ast)))
+                           (panic parser "You may not use a placeholder in a tuple of length 1. You may only partially apply functions that take more than one argument.")
+                           (assoc (advance parser) ::ast ast)))
 
         (::token/comma ::token/newline)
         (recur
@@ -684,7 +684,7 @@
 
       ::token/word (parse-word parser)
 
-      (::token/number ::token/string ::token/keyword) (parse-atom parser)
+      (::token/number ::token/string ::token/keyword ::token/nil) (parse-atom parser)
 
       ::token/lparen (parse-tuple-pattern parser)
 
@@ -1224,7 +1224,7 @@
     (parser)
     (parse-script)))
 
-(do
+(comment
   (def my-source "
 data Foo {foo, bar}
 data Bar as {

@@ -2,7 +2,8 @@
   (:require
     [ludus.data :as data]
     [ludus.show :as show]
-    [ludus.draw :as d]))
+    ;[ludus.draw :as d]
+    ))
 
 ;; TODO: make eq, and, or special forms that short-circuit
 ;; Right now, they evaluate all their args
@@ -94,13 +95,14 @@
            ::data/type ::data/clj
            :body get})
 
-(def draw {:name "draw"
-           ::data/type ::data/clj
-           :body draw/ludus-draw})
+(comment 
+  (def draw {:name "draw"
+             ::data/type ::data/clj
+             :body draw/ludus-draw})
 
-(def draw {:name "draw"
-  ::data/type ::data/clj
-  :body d/draw})
+  (def draw {:name "draw"
+             ::data/type ::data/clj
+             :body d/draw}))
 
 (def prelude {"eq" eq
               "add" add
@@ -120,5 +122,5 @@
               "assoc" assoc-
               "conj" conj-
               "get" get-
-              "draw" draw
+              ;"draw" draw
               })
