@@ -275,7 +275,7 @@
   ;(println "Matching " value " with pattern type " (:type pattern))
   (let [ctx @ctx-vol]
     (case (:type pattern)
-      (:placeholder :ignored)
+      (:placeholder :ignored :else)
       {:success true :ctx {}}
 
       (:number :nil :true :false :string :keyword)
@@ -843,6 +843,8 @@
 
     :ref-expr (interpret-ref ast ctx)
 
+    :when-expr (interpret-ast (-> ast :data first) ctx)
+
     ; ::ast/spawn (interpret-spawn ast ctx)
 
     ; ::ast/receive (interpret-receive ast ctx)
@@ -961,8 +963,11 @@
 
 (do
   (def source "
-    let @{...x} = @{:a 1, :b 2, :c 3}
-    x
+    let x = (1, 2)
+    when x is {
+      (y, 2) if eq (y, 1) -> :onetwo
+      _ -> :not_x
+    }
       ")
 
   (println "")

@@ -21,7 +21,7 @@ Finish interpreter
 [ ] Merge new interpreter
 
 Write a compiler: desugaring
-[ ] `...` to `..._` in tuple & list patterns
+[~] `...` to `..._` in tuple & list patterns
 [ ] placeholder partial application to anonymous lambda
 [ ] word -> :[word] word in pairs (patterns & expressions)
 
@@ -31,10 +31,10 @@ Write a compiler: correctness
 [ ] check that recur is in tail position
 [ ] check that recur is only called inside loop or fn forms
 [ ] check ns accesses
+[ ] prevent import cycles
 [ ] splattern is last member in a pattern
 [ ] -----List/Tuple
 [ ] -----Dict/Struct/Set
-[ ] prevent import cycles
 
 Write a compiler: optimization
 [ ] devise tail call optimization

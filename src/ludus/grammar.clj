@@ -4,35 +4,25 @@
 
 (declare expression pattern)
 
-;(def separator (choice :separator [:comma :newline :break]))
 (defp separator choice [:comma :newline :break])
 
-;(def separators (quiet (one+ separator)))
 (defp separators quiet one+ separator)
 
-;(def terminator (choice :terminator [:newline :semicolon :break]))
 (defp terminator choice [:newline :semicolon :break])
 
-;(def terminators (quiet (one+ terminator)))
 (defp terminators quiet one+ terminator)
 
-;(def nls? (quiet (zero+ :nls :newline)))
 (defp nls? quiet zero+ :newline)
 
-;(def splat (group (order-1 :splat [(quiet :splat) :word])))
 (defp splat group order-1 [(quiet :splat) :word])
 
-;(def splattern (group (order-1 :splat [(quiet :splat) (maybe (flat (choice :splatted [:word :ignored :placeholder])))])))
 (defp patt-splat-able flat choice [:word :ignored :placeholder])
 (defp splattern group order-1 [(quiet :splat) (maybe patt-splat-able)])
 
-;(def literal (flat (choice :literal [:nil :true :false :number :string])))
 (defp literal flat choice [:nil :true :false :number :string])
 
-;(def tuple-pattern-term (flat (choice :tuple-pattern-term [pattern splattern])))
 (defp tuple-pattern-term flat choice [pattern splattern])
 
-;(def tuple-pattern-entry (weak-order :tuple-pattern-entry [tuple-pattern-term separators]))
 (defp tuple-pattern-entry weak-order [tuple-pattern-term separators])
 
 (defp tuple-pattern group order-1 [(quiet :lparen)
@@ -65,29 +55,30 @@
                                    	(quiet :rbrace)
                                    	])
 
-(defp guard order-0 [(quiet :when) expression])
+(defp guard order-0 [(quiet :if) expression])
 
 (defp pattern flat choice [literal 
                            :ignored 
                            :placeholder 
                            typed 
                            :word 
-                           :keyword 
+                           :keyword
+                           :else 
                            tuple-pattern 
                            dict-pattern 
                            struct-pattern 
                            list-pattern])
 
-(defp match-clause group weak-order :match-clause [pattern (maybe guard) (quiet :rarrow) expression])
+(defp match-clause group weak-order [pattern (maybe guard) (quiet :rarrow) expression])
 
 (defp match-entry weak-order [match-clause terminators])
 
-(defp match group order-1 [(quiet :match) expression nls? 
-                          	(quiet :with) (quiet :lbrace)
-                          	(quiet (zero+ terminator))
-                          	(one+ match-entry)
-                          	(quiet :rbrace)
-                          	])
+(defp match-old group order-1 [(quiet :match) expression nls? 
+                              	(quiet :with) (quiet :lbrace)
+                              	(quiet (zero+ terminator))
+                              	(one+ match-entry)
+                              	(quiet :rbrace)
+                              	])
 
 (defp if-expr group order-1 [(quiet :if) 
                              nls? 
@@ -105,10 +96,25 @@
 
 (defp cond-entry weak-order [cond-clause terminators])
 
-(defp cond-expr group order-1 [(quiet :cond) (quiet :lbrace)
+(defp cond-old group order-1 [(quiet :cond) (quiet :lbrace)
+                              (quiet (zero+ terminator))
+                              (one+ cond-entry)
+                              (quiet :rbrace)])
+
+(defp match group order-1 [expression nls? 
+                           (quiet :is) (quiet :lbrace)
+                           (quiet (zero+ terminator))
+                           (one+ match-entry)
+                           (quiet :rbrace)])
+
+(defp cond-expr group order-1 [(quiet :lbrace)
                                (quiet (zero+ terminator))
                                (one+ cond-entry)
                                (quiet :rbrace)])
+
+(defp when-tail flat choice [match cond-expr])
+
+(defp when-expr weak-order [(quiet :when) when-tail])
 
 (defp let-expr group order-1 [(quiet :let)
                              	pattern
@@ -229,11 +235,12 @@
                               	(flat (choice :loop-body [fn-clause compound-loop]))])
 
 (defp expression flat choice [fn-expr
-                             	match
+                             	;match
                              	loop-expr
                              	let-expr
                              	if-expr 
-                             	cond-expr
+                             	;cond-expr
+                              when-expr
                              	spawn
                              	receive
                              	synthetic

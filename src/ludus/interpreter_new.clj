@@ -5,13 +5,13 @@
   		[ludus.scanner :as s]))
 
 (def source 
-  "#{a as :number}
+  "when x is { true -> true }
 "
   )
 
 (def tokens (-> source s/scan :tokens))
 
-(def result (p/apply-parser g/dict-pattern tokens))	
+(def result (p/apply-parser g/when-expr tokens))	
 
 (-> result :data) 
 

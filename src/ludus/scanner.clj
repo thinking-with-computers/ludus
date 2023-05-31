@@ -8,7 +8,7 @@
   "List of Ludus reserved words."
   ;; see ludus-spec repo for more info
   {"as" :as ;; impl for `import`; not yet for patterns
-   "cond" :cond ;; impl
+   ;"cond" :cond ;; impl
    "do" :do ;; impl
    "else" :else ;; impl
    "false" :false ;; impl -> literal word
@@ -17,7 +17,7 @@
    "import" :import ;; impl
    "let" :let ;; impl
    "loop" :loop ;; impl
-   "match" :match ;; impl
+   ; "match" :match ;; impl
    "nil" :nil ;; impl -> literal word
    "ns" :ns ;; impl
    ;; "panic!" :panic ;; impl (should be a function)
@@ -25,7 +25,7 @@
    "ref" :ref ;; impl
    "then" :then ;; impl
    "true" :true ;; impl -> literal word
-   "with" :with ;; impl
+   ;"with" :with ;; impl
 
    ;; actor model/concurrency
    "receive" :receive
@@ -40,6 +40,7 @@
    "test" :test
    "when" :when
    ;; "module" :module ;; not necessary if we don't have datatypes
+   "is" :is
    })
 
 (def literal-words {
