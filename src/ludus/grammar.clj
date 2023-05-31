@@ -45,7 +45,7 @@
                                  	(zero+ tuple-pattern-entry)
                                  	(quiet :rbracket)])
 
-(defp pair-pattern order-0 [:keyword #'pattern])
+(defp pair-pattern group weak-order [:keyword pattern])
 
 (defp dict-pattern-term flat choice [pair-pattern :word splattern])
 

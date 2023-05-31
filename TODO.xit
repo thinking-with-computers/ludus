@@ -32,6 +32,9 @@ Write a compiler: correctness
 [ ] check that recur is only called inside loop or fn forms
 [ ] check ns accesses
 [ ] splattern is last member in a pattern
+[ ] -----List/Tuple
+[ ] -----Dict/Struct/Set
+[ ] prevent import cycles
 
 Write a compiler: optimization
 [ ] devise tail call optimization
