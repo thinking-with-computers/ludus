@@ -158,5 +158,5 @@
               "conj" conj-
               "get" get-
               "draw" draw
-              "type" type
+              "type" type-
               })
