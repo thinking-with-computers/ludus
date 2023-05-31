@@ -170,7 +170,6 @@
       (let [ctx-diff (volatile! @ctx-vol)
             splat? (= :splattern (-> members peek :type))
             length (count kws)]
-        (if splat? (println "Pattern has splat!!"))
         (loop [i 0]
           (cond
             (> length i)
@@ -193,11 +192,9 @@
             (let [splat (-> members peek)
                   splat-data (-> splat :data first)
                   splat-type (-> splat-data :type)]
-              (println "!!!!Matching splat")
               (if (= :word splat-type)
-                (let [unmatched (apply dissoc dict kws)
+                (let [unmatched (assoc (apply dissoc dict kws) ::data/dict true)
                       match? (match splat-data unmatched ctx-diff)]
-                  (println "Splatting " unmatched "\ninto " )
                   (if (:success match?)
                     {:success true :ctx (merge @ctx-diff (:ctx match?))}
                     {:success false
@@ -211,31 +208,59 @@
 
             ))))))
 
-;; TODO: update this to use new AST representation
-(defn- match-struct [pattern value ctx-vol]
-  (cond
-    (not (map? value))
-    {:success false :reason "Could not match non-struct value to struct pattern"}
+(defn- match-struct [pattern dict ctx-vol]
+  (let [members (:data pattern)
+        pattern-map (pattern-to-map pattern)
+        kws (keys pattern-map)]
+    (cond
+      (not (map? dict))
+      {:success false :reason "Could not match non-struct value to struct pattern"}
+  
+      (not (::data/dict dict))
+      {:success false :reason "Cannot match non-struct value to struct pattern"}
 
-    (not (::data/struct value))
-    {:success false :reason "Cannot match non-struct data types a struct pattern"}
+      (empty? members)
+      {:success true :ctx {}}
+  
+      :else
+      (let [ctx-diff (volatile! @ctx-vol)
+            splat? (= :splattern (-> members peek :type))
+            length (count kws)]
+        (loop [i 0]
+          (cond
+            (> length i)
+            (let [kw (nth kws i)
+                  pattern-at (kw pattern-map)
+                  value (kw dict)]
+              (if (contains? dict kw)
+                (let [match? (match pattern-at value ctx-diff)]
+                  (if (:success match?)
+                    (do
+                      (vswap! ctx-diff #(merge % (:ctx match?)))
+                      (recur (inc i)))
+                    {:success false
+                     :reason (str "Could not match " pattern " with value " dict " at key " kw " because " (:reason match?))}
+                    ))
+                {:success false
+                 :reason (str "Could not match " pattern " with " dict " at key " kw " because there is no value at " kw)}))
 
-    :else
-    (let [members (:members pattern)
-          kws (keys members)
-          ctx-diff (volatile! @ctx-vol)]
-      (loop [i (dec (count kws))]
-        (if (> 0 i)
-          {:success true :ctx @ctx-diff}
-          (let [kw (nth kws i)]
-            (if (contains? value kw)
-              (let [match? (match (kw members) (kw value) ctx-diff)]
-                (if (:success match?)
-                  (do
-                    (vswap! ctx-diff #(merge % (:ctx match?)))
-                    (recur (dec i)))
-                  {:success false :reason (str "Could not match " pattern " with " value " at key " kw " because " (:reason match?))}))
-              {:success false :reason (str "Could not match " pattern " with " value " at key " kw ", because there is no value at " kw)})))))))
+            splat?
+            (let [splat (-> members peek)
+                  splat-data (-> splat :data first)
+                  splat-type (-> splat-data :type)]
+              (if (= :word splat-type)
+                (let [unmatched (assoc (apply dissoc dict kws) ::data/dict true)
+                      match? (match splat-data unmatched ctx-diff)]
+                  (if (:success match?)
+                    {:success true :ctx (merge @ctx-diff (:ctx match?))}
+                    {:success false
+                     :reason (str "Could not match " pattern " with value " dict " because " (:reason match?))}
+                    ))
+                {:success true :ctx @ctx-diff}
+                ))
+
+            :else
+            {:success true :ctx @ctx-diff}))))))
 
 (defn- match-typed [pattern value ctx]
   (let [data (:data pattern)
@@ -936,8 +961,8 @@
 
 (do
   (def source "
-    let #{a as :number} = #{:a 1}
-    a
+    let #{...x} = #{:a 1}
+    x
       ")
 
   (println "")
