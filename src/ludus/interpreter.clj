@@ -193,7 +193,7 @@
                   splat-data (-> splat :data first)
                   splat-type (-> splat-data :type)]
               (if (= :word splat-type)
-                (let [unmatched (assoc (apply dissoc dict kws) ::data/dict true)
+                (let [unmatched (apply dissoc dict kws)
                       match? (match splat-data unmatched ctx-diff)]
                   (if (:success match?)
                     {:success true :ctx (merge @ctx-diff (:ctx match?))}
@@ -216,7 +216,7 @@
       (not (map? dict))
       {:success false :reason "Could not match non-struct value to struct pattern"}
   
-      (not (::data/dict dict))
+      (not (::data/struct dict))
       {:success false :reason "Cannot match non-struct value to struct pattern"}
 
       (empty? members)
@@ -249,7 +249,7 @@
                   splat-data (-> splat :data first)
                   splat-type (-> splat-data :type)]
               (if (= :word splat-type)
-                (let [unmatched (assoc (apply dissoc dict kws) ::data/dict true)
+                (let [unmatched (assoc (apply dissoc dict ::data/struct kws) ::data/dict true)
                       match? (match splat-data unmatched ctx-diff)]
                   (if (:success match?)
                     {:success true :ctx (merge @ctx-diff (:ctx match?))}
@@ -961,7 +961,7 @@
 
 (do
   (def source "
-    let #{...x} = #{:a 1}
+    let @{...x} = @{:a 1, :b 2, :c 3}
     x
       ")
 

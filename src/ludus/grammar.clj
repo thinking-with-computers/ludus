@@ -49,7 +49,7 @@
 
 (defp typed group weak-order [:word (quiet :as) :keyword])
 
-(defp dict-pattern-term flat choice [pair-pattern :word typed splattern])
+(defp dict-pattern-term flat choice [pair-pattern typed :word splattern])
 
 (defp dict-pattern-entry weak-order [dict-pattern-term separators])
 
