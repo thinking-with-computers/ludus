@@ -31,9 +31,11 @@ Write a compiler: correctness
 [ ] check that recur is in tail position
 [ ] check that recur is only called inside loop or fn forms
 [ ] check ns accesses
+[ ] splattern is last member in a pattern
 
 Write a compiler: optimization
 [ ] devise tail call optimization
 
 Next steps
 [ ] Get drawing working?
+[ ] Add stack traces for panics

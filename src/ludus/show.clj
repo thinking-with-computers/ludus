@@ -8,7 +8,7 @@
 (defn- show-vector [v]
   (if (= (first v) ::data/tuple)
     (str "(" (apply str (into [] show-linear (next v))) ")")
-    (str "[" (apply str (into [] show-linear v)) "]")))
+    (str "[" (apply str (into [] show-linear (next v))) "]")))
 
 (defn- show-map [v]
   (cond

@@ -5,7 +5,7 @@
 (declare expression pattern)
 
 ;(def separator (choice :separator [:comma :newline :break]))
-(defp separator [choice] [:comma :newline :break])
+(defp separator choice [:comma :newline :break])
 
 ;(def separators (quiet (one+ separator)))
 (defp separators quiet one+ separator)
@@ -23,7 +23,7 @@
 (defp splat group order-1 [(quiet :splat) :word])
 
 ;(def splattern (group (order-1 :splat [(quiet :splat) (maybe (flat (choice :splatted [:word :ignored :placeholder])))])))
-(defp patt-splat-able quiet flat choice [:word :ignored :placeholder])
+(defp patt-splat-able flat choice [:word :ignored :placeholder])
 (defp splattern group order-1 [(quiet :splat) (maybe patt-splat-able)])
 
 ;(def literal (flat (choice :literal [:nil :true :false :number :string])))

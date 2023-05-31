@@ -36,23 +36,31 @@
 
 (declare interpret-ast match interpret interpret-file)
 
-;; TODO: actually implement this!
-(defn- match-splatted-tuple [pattern value ctx-vol]
-  (let [length (:length pattern) members (:members pattern)
+(defn- match-splatted [pattern value ctx-vol]
+  (let [members (:data pattern)
+        non-splat (pop members)
+        splattern (peek members)
+        length (count members)
         ctx-diff (volatile! @ctx-vol)]
-    (if (> length (count value))
-      {:success false :reason "Could not match tuple lengths"}
-      (loop [i 0 ctx {}]
+    (if (> length (-> value count dec))
+      {:success false :reason "Could not match different lengths"}
+      (loop [i 0]
         (if (= (dec length) i)
-          (
-            ;; TODO: write the actual splat here
-            ;; check if the name is already bound
-            ;; then pack everything into a list
-            ;; and return success with the list bound to the name
-            )
-          (let [match? (match (nth members i) (nth value (inc i)) ctx-diff)]
+          (let [last-binding (-> splattern :data first)
+                binding-type (:type last-binding)]
+            (if (= binding-type :word)
+              (let [splat-ctx (:ctx (match
+                                      last-binding
+                                      (into [::data/list] (subvec value (inc i)))
+                                      ctx-diff))] 
+                {:success true :ctx (merge @ctx-diff splat-ctx)})
+              {:success true :ctx @ctx-diff}))
+          (let [match? (match (nth non-splat i) (nth value (inc i)) ctx-diff)]
             (if (:success match?)
-              (recur (inc i) (vswap! ctx-diff #(merge % (:ctx match?))))
+              (do
+                (vswap! ctx-diff #(merge % (:ctx match?)))
+                (println "current context: " (dissoc @ctx-diff ::parent))
+                (recur (inc i)))
               {:success :false :reason (str "Could not match " pattern " with " value)}
               )))))))
 
@@ -67,8 +75,8 @@
   
       (not (= ::data/tuple (first value))) {:success false :reason "Could not match list to tuple"}
   
-      (= ::ast/splat (::ast/type (last members)))
-      (match-splatted-tuple pattern value ctx-vol)
+      (= :splattern (:type (peek members)))
+      (match-splatted pattern value ctx-vol)
   
       (not (= length (dec (count value))))
       {:success false :reason "Cannot match tuples of different lengths"}
@@ -88,30 +96,38 @@
                 {:success false :reason (str "Could not match " pattern " with " value " because " (:reason match?))}))))))))
 
 ;; TODO: update this to use new AST representation
+;; TODO: update this to reflect first element of list is ::data/list
 (defn- match-list [pattern value ctx-vol]
-  (cond
-    (not (vector? value)) {:success false :reason "Could not match non-list value to list"}
+  (let [members (:data pattern)
+        splatted? (= :splattern (-> members peek :type))]
+    (cond
+      (not (vector? value)) 
+      {:success false :reason "Could not match non-list value to list"}
+  
+      (= ::data/tuple (first value)) 
+      {:success false :reason "Could not match tuple value to list pattern"}
 
-    (= ::data/tuple (first value)) {:success false :reason "Could not match tuple value to list pattern"}
-
-    ;; TODO: fix this with splats
-    (not (= (count (:members pattern)) (count value)))
-    {:success false :reason "Cannot match lists of different lengths"}
-
-    (= 0 (count (:members pattern)) (count value)) {:success true :ctx {}}
-
-    :else 
-    (let [members (:members pattern)
-          ctx-diff (volatile! @ctx-vol)]
-      (loop [i (dec (count members))]
-        (if (> 0 i)
-          {:success true :ctx @ctx-diff}
-          (let [match? (match (nth members i) (nth value i) ctx-diff)]
-            (if (:success match?)
-              (do
-                (vswap! ctx-diff #(merge % (:ctx match?))) 
-                (recur (dec i)))
-              {:success false :reason (str "Could not match " pattern " with " value " because " (:reason match?))})))))))
+      splatted? 
+      (match-splatted pattern value ctx-vol)
+  
+      ;; TODO: fix this with splats
+      (not= (count members) (dec (count value)))
+      {:success false :reason "Cannot match lists of different lengths"}
+  
+      (= 0 (count members) (dec (count value))) 
+      {:success true :ctx {}}
+  
+      :else
+      (let [ctx-diff (volatile! @ctx-vol)]
+        (loop [i (dec (count members))]
+          (if (> 0 i)
+            {:success true :ctx @ctx-diff}
+            (let [match? (match (nth members i) (nth value (inc i)) ctx-diff)]
+              (if (:success match?)
+                (do
+                  (vswap! ctx-diff #(merge % (:ctx match?))) 
+                  (recur (dec i)))
+                {:success false :reason (str "Could not match " pattern " with " value " because " (:reason match?))}))))))))
 
 ;; TODO: update this to match new AST representation
 (defn- match-dict [pattern value ctx-vol]
@@ -574,14 +590,14 @@
             tuple-splat? (= (first splatted) ::data/tuple)]
         (if splattable?
           (if tuple-splat?
-            (into [] (concat list (rest splatted)))  
+            (into [::data/list] (concat list (rest splatted)))  
             (concat list splatted))
           (throw (ex-info "Cannot splat non-list into list" {:ast member}))))
       (conj list (interpret-ast member ctx)))))
 
 (defn- interpret-list [ast ctx]
   (let [members (:data ast)]
-    (into [] (reduce (list-term ctx) [] members))))
+    (into [::data/list] (reduce (list-term ctx) [] members))))
 
 (defn- set-term [ctx]
   (fn [set member]
@@ -866,7 +882,8 @@
 
 (do
   (def source "
-    if 1 then 2 else 3
+    let (...a) = (1, 2, 3)
+    a
       ")
 
   (println "")
