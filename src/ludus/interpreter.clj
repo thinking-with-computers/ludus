@@ -139,6 +139,9 @@
       :pair-pattern
       (assoc map (-> data first :data first) (second data))
 
+      :typed
+      (assoc map (-> data first :data first keyword) member)
+
       map ;;ignore splats
       )))
 
@@ -933,7 +936,7 @@
 
 (do
   (def source "
-    let #{:a a as :number} = #{:a 1}
+    let #{a as :number} = #{:a 1}
     a
       ")
 

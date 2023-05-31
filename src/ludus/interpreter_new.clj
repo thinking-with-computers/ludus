@@ -5,13 +5,13 @@
   		[ludus.scanner :as s]))
 
 (def source 
-  "spawn foo
+  "#{a as :number}
 "
   )
 
 (def tokens (-> source s/scan :tokens))
 
-(def result (p/apply-parser g/spawn tokens))	
+(def result (p/apply-parser g/dict-pattern tokens))	
 
 (-> result :data) 
 
