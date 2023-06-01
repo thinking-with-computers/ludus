@@ -963,7 +963,9 @@
 
 (do
   (def source "
-    
+    let xs = [1, 2, 3]
+    let ys = #{:a 1, :b 2}
+    get (:c, ys)
       ")
 
   (println "")

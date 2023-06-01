@@ -92,11 +92,35 @@
 
 (def get- {:name "get"
            ::data/type ::data/clj
-           :body get})
+           :body (fn 
+                   ([key, map]
+                    (if (map? map)
+                      (get map key)
+                      nil))
+                   ([key, map, default]
+                    (if (map? map)
+                      (get map key default)
+                      default)))})
 
 (def draw {:name "draw"
            ::data/type ::data/clj
            :body d/ludus-draw})
+
+(def first- {:name "first"
+             ::data/type ::data/clj
+             :body (fn [v] (second v))})
+
+(def rest- {:name "rest"
+            ::data/type ::data/clj
+            :body (fn [v]
+                    (into [::data/list] (nthrest v 2)))})
+
+(def nth- {:name "nth"
+           ::data/type ::data/clj
+           :body (fn [i, xs]
+                   (if (contains? xs (inc i))
+                     (nth xs (inc i))
+                     nil))})
 
 (defn get-type [value]
   (let [t (type value)]
@@ -149,8 +173,6 @@
 
 (def prelude {
               "id" id
-              "foo" :foo
-              "bar" :bar
               "eq" eq
               "add" add
               "print" print-
@@ -172,4 +194,7 @@
               "draw" draw
               "type" type-
               "clj" clj
+              "first" first-
+              "rest" rest-
+              "nth" nth-
               })
