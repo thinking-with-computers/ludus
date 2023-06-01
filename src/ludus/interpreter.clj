@@ -963,11 +963,7 @@
 
 (do
   (def source "
-    let x = (1, 2)
-    when x is {
-      (y, 2) if eq (y, 1) -> :onetwo
-      _ -> :not_x
-    }
+    
       ")
 
   (println "")
@@ -984,18 +980,4 @@
                  )]
     (println result)
     result))
-
-(comment "
-
-	Left to do:
-	* improve panics
-	* add location info for panics
-  * refactor calling keywords
-  * refactor accessing structs vs. hashes
-
-  ")
-
-
-
-
 

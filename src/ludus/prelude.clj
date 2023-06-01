@@ -135,6 +135,18 @@
             ::data/type ::data/clj
             :body get-type})
 
+(defn strpart [kw] (->> kw str rest (apply str)))
+
+(def clj {:name "clj"
+          ::data/type ::data/clj
+          :body (fn [& args]
+                  (println "Args passed: " args)
+                  (let [called (-> args first strpart read-string eval)
+                        fn-args (rest args)]
+                    (println "Fn: " called)
+                    (println "Args: " fn-args)
+                    (apply called fn-args)))})
+
 (def prelude {
               "id" id
               "foo" :foo
@@ -159,4 +171,5 @@
               "get" get-
               "draw" draw
               "type" type-
+              "clj" clj
               })
