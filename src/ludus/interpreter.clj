@@ -11,8 +11,8 @@
     [ludus.loader :as loader]
     [ludus.token :as token]
     [ludus.process :as process]
-    [clojure.pprint :as pp]
-    [clojure.set]))
+    [clojure.set]
+    [clojure.string]))
 
 (def ^:dynamic self @process/current-pid)
 
@@ -301,7 +301,7 @@
 
       :struct-pattern (match-struct pattern value ctx-vol)
 
-      (throw (ex-info "Unknown pattern on line " {:pattern pattern :value value})))))
+      (throw (ex-info "Unknown pattern on line " {:ast pattern :value value})))))
 
 (defn- update-ctx [ctx new-ctx]
   (merge ctx new-ctx))
@@ -607,9 +607,15 @@
                        (if (::loader/error (ex-data e))
                          (throw (ex-info (ex-message e) {:ast ast}))
                          (throw e))))
-            result (-> source (scanner/scan) (parser/parse) (interpret-file path))]
-        (vswap! ctx update-ctx {name result})
-        result
+            parsed (->> source (scanner/scan) :tokens (p/apply-parser g/script))] 
+        (if (p/fail? parsed)
+          (throw (ex-info 
+                   (str "Parse error in file " path "\n"
+                     (p/err-msg parsed))
+                   {:ast ast}))        
+          (let [interpret-result (interpret-file source path parsed)]
+            (vswap! ctx update-ctx {name interpret-result})
+            interpret-result))
         ))))
 
 (defn- interpret-ref [ast ctx]
@@ -883,35 +889,42 @@
     :dict (interpret-dict ast ctx)
 
     :struct-literal
-    (let [members (:members ast)] (interpret-struct ast ctx))
+    (interpret-struct ast ctx)
 
-    (throw (ex-info "Unknown AST node type" {:ast ast}))))
+    (throw (ex-info (str "Unknown AST node type: " (:type ast)) {:ast ast}))))
+
+(defn get-line [source line]
+  (if line
+    (let [lines (clojure.string/split source #"\n")]
+      (clojure.string/trim (nth lines (dec line))))))
 
 ;; TODO: update this to use new parser pipeline & new AST representation
-(defn interpret-file [parsed file]
+(defn interpret-file [source path parsed]
   (try 
-    (let [base-ctx (volatile! (merge {:file file} prelude/prelude process/process))]
-      (interpret-ast (::parser/ast parsed) base-ctx))
+    (let [base-ctx (volatile! {::parent (volatile! prelude/prelude) :file path})]
+      (interpret-ast parsed base-ctx))
     (catch clojure.lang.ExceptionInfo e
-      (println "Ludus panicked in" file)
-      (println "On line" (get-in (ex-data e) [:ast :token ::token/line]))
+      (println "Ludus panicked in" path)
+      (println "On line" (get-in (ex-data e) [:ast :token :line]))
+      (println ">>> " (get-line source (get-in (ex-data e) [:ast :token :line])))
       (println (ex-message e))
       (System/exit 67))))
 
 ;; TODO: update this to use new parser pipeline & new AST representation
-(defn interpret [parsed file]
+(defn interpret [source path parsed]
   (try
-    (let [base-ctx (volatile! (merge {:file file} prelude/prelude process/process))
+    (let [base-ctx (volatile! {::parent (volatile! prelude/prelude) :file path})
           process (process/new-process)]
       (process/start-vm)
       (with-bindings {#'self (:pid @process)}
-        (let [result (interpret-ast (::parser/ast parsed) {::parent base-ctx})]
+        (let [result (interpret-ast parsed base-ctx)]
           (swap! process #(assoc % :status :dead))
           (process/stop-vm)
           result)))
     (catch clojure.lang.ExceptionInfo e
-      (println "Ludus panicked in" file)
-      (println "On line" (get-in (ex-data e) [:ast :token ::token/line]))
+      (println "Ludus panicked in" path)
+      (println "On line" (get-in (ex-data e) [:ast :token :line]))
+      (println ">>> " (get-line source (get-in (ex-data e) [:ast :token :line])))
       (println (ex-message e))
       (System/exit 67))))
 
@@ -927,10 +940,11 @@
           result)))
     (catch clojure.lang.ExceptionInfo e
       (process/stop-vm)
-      (println "Ludus panicked!")
-      (println "On line" (get-in (ex-data e) [:ast :token :line]))
+      (println "Ludus panicked on line " (get-in (ex-data e) [:ast :token :line]))
+      (println "> " (get-in (ex-data e) [:ast :token]))
       (println (ex-message e))
-      (pp/pprint (ex-data e)))))
+      ;(pp/pprint (ex-data e))
+      )))
 
 ;; TODO: update this to use new parser pipeline & new AST representation
 (defn interpret-repl
@@ -941,7 +955,7 @@
      (try
        (process/start-vm)
        (with-bindings {#'self pid}
-         (let [result (interpret-ast (::parser/ast parsed) ctx)]
+         (let [result (interpret-ast parsed ctx)]
            {:result result :ctx ctx :pid pid}))
        (catch clojure.lang.ExceptionInfo e
          (println "Ludus panicked!")
@@ -952,7 +966,7 @@
      (try
        (process/start-vm)
        (with-bindings {#'self pid}
-         (let [result (interpret-ast (::parser/ast parsed) ctx)]
+         (let [result (interpret-ast parsed ctx)]
            {:result result :ctx ctx :pid pid}))
        (catch clojure.lang.ExceptionInfo e
          (println "Ludus panicked!")
@@ -961,11 +975,9 @@
          )))))
 
 
-(do
+(comment
   (def source "
-    let xs = [1, 2, 3]
-    let ys = #{:a 1, :b 2}
-    get (:c, ys)
+    let 2 = 1
       ")
 
   (println "")

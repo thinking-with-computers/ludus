@@ -2,7 +2,8 @@
   (:require
     [ludus.data :as data]
     [ludus.show :as show]
-    [ludus.draw :as d]))
+    ;[ludus.draw :as d]
+    ))
 
 ;; TODO: make eq, and, or special forms that short-circuit
 ;; Right now, they evaluate all their args
@@ -102,10 +103,6 @@
                       (get map key default)
                       default)))})
 
-(def draw {:name "draw"
-           ::data/type ::data/clj
-           :body d/ludus-draw})
-
 (def first- {:name "first"
              ::data/type ::data/clj
              :body (fn [v] (second v))})
@@ -191,7 +188,6 @@
               "assoc" assoc-
               "conj" conj-
               "get" get-
-              "draw" draw
               "type" type-
               "clj" clj
               "first" first-
