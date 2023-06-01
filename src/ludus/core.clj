@@ -23,7 +23,7 @@
         (if (p/fail? parsed)
           (do
             (println "I found some parsing errors!")
-            (println p/err-msg parsed)
+            (println (p/err-msg parsed))
             (System/exit 66))
           (let [interpreted (interpreter/interpret source file parsed)]
             (println (show/show interpreted))

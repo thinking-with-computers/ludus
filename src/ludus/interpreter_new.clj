@@ -5,13 +5,13 @@
   		[ludus.scanner :as s]))
 
 (def source 
-  "when x is { true -> true }
+  "(1 2)
 "
   )
 
 (def tokens (-> source s/scan :tokens))
 
-(def result (p/apply-parser g/when-expr tokens))	
+(def result (p/apply-parser g/script tokens))	
 
 (-> result :data) 
 
@@ -24,7 +24,7 @@
   		(-> node	
    			(report)	
    			(dissoc 	
-    				:status 	
+    				;:status 	
     				:remaining 	
     				:token)	
    			(update :data #(into [] (map clean) %)))	

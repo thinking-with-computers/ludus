@@ -37,6 +37,22 @@
           ::data/type ::data/clj
           :body /})
 
+(def gt {:name "gt"
+         ::data/type ::data/clj
+         :body >})
+
+(def gte {:name "gte"
+          ::data/type ::data/clj
+          :body >=})
+
+(def lt {:name "lt"
+         ::data/type ::data/clj
+         :body <})
+
+(def lte {:name "lte"
+          ::data/type ::data/clj
+          :body <=})
+
 (def inc- {:name "inc"
            ::data/type ::data/clj
            :body inc})
@@ -114,10 +130,17 @@
 
 (def nth- {:name "nth"
            ::data/type ::data/clj
-           :body (fn [i, xs]
-                   (if (contains? xs (inc i))
-                     (nth xs (inc i))
-                     nil))})
+           :body (fn 
+                   ([i, xs]
+                    (cond
+                      (> 0 i) nil
+                      (contains? xs (inc i)) (nth xs (inc i))
+                      :else nil))
+                   ([i, xs, default]
+                    (cond
+                      (> 0 i) default
+                      (contains? xs (inc i)) (nth xs (inc i))
+                      :else default)))})
 
 (defn get-type [value]
   (let [t (type value)]
@@ -168,6 +191,10 @@
                     (println "Args: " fn-args)
                     (apply called fn-args)))})
 
+(def count- {:name "count"
+             ::data/type ::data/clj
+             :body (fn [xs] (dec (count xs)))})
+
 (def prelude {
               "id" id
               "eq" eq
@@ -176,6 +203,10 @@
               "sub" sub
               "mult" mult
               "div" div
+              "gt" gt
+              "gte" gte
+              "lt" lt
+              "lte" lte
               "inc" inc-
               "dec" dec-
               "not" not
@@ -193,4 +224,5 @@
               "first" first-
               "rest" rest-
               "nth" nth-
+              "count" count-
               })

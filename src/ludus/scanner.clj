@@ -25,7 +25,7 @@
    "ref" :ref ;; impl
    "then" :then ;; impl
    "true" :true ;; impl -> literal word
-   ;"with" :with ;; impl
+   "with" :with ;; impl
 
    ;; actor model/concurrency
    "receive" :receive
