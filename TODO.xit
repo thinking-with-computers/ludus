@@ -1,6 +1,11 @@
 
 [x] Fix recursive definition problems in grammar.clj
 
+TODOS for parser
+[ ] Make parser errors pretty
+[ ] Use synchronization to make parsing more robust
+[ ] Decide on synchronization tokens: [then else ] ) } , ; \n]
+
 TODOS from interpreter
 [x] implement tuple splat patterns
 [x] update match-list to use new AST representation
