@@ -22,8 +22,8 @@ Re-add processes to the language
 [ ] Investigate `with-bindings` and virtual threads
 
 Finish interpreter
-[ ] Wire up new interpreter to repl, script situation
-[ ] Merge new interpreter
+[x] Wire up new interpreter to repl, script situation
+[x] Merge new interpreter
 
 Write a compiler: desugaring
 [~] `...` to `..._` in tuple & list patterns
