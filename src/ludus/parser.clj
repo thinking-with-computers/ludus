@@ -1224,8 +1224,10 @@
     (parser)
     (parse-script)))
 
+
 (comment
-  (def my-source "
+  (do
+    (def my-source "
 data Foo {foo, bar}
 data Bar as {
     Bar
@@ -1234,7 +1236,7 @@ data Bar as {
 
 ")
 
-  (::ast (parse (scanner/scan my-source))))
+    (::ast (parse (scanner/scan my-source)))))
 
 (comment "
 	Further thoughts/still to do:

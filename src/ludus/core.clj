@@ -1,13 +1,15 @@
 (ns ludus.core
   "A tree-walk interpreter for the Ludus language."
   (:require
-   [ludus.scanner :as scanner]
-   [ludus.parser :as parser]
-   [ludus.interpreter :as interpreter]
-   [ludus.show :as show]
-   [clojure.pprint :as pp]
-   [ludus.loader :as loader]
-   [ludus.repl :as repl])
+    [ludus.scanner :as scanner]
+    ;[ludus.parser :as parser]
+    [ludus.parser-new :as p]
+    [ludus.grammar :as g]
+    [ludus.interpreter :as interpreter]
+    [ludus.show :as show]
+    [clojure.pprint :as pp]
+    [ludus.loader :as loader]
+    [ludus.repl :as repl])
   (:gen-class))
 
 (defn- run [file source]
@@ -17,13 +19,13 @@
         (println "I found some scanning errors!")
         (pp/pprint (:errors scanned))
         (System/exit 65))
-      (let [parsed (parser/parse scanned)]
-        (if (not-empty (:errors parsed))
+      (let [parsed (p/apply-parser g/script (:tokens scanned))]
+        (if (p/fail? parsed)
           (do
             (println "I found some parsing errors!")
-            (pp/pprint (:errors parsed))
+            (println (p/err-msg parsed))
             (System/exit 66))
-          (let [interpreted (interpreter/interpret parsed file)]
+          (let [interpreted (interpreter/interpret source file parsed)]
             (println (show/show interpreted))
             (System/exit 0)))))))
 

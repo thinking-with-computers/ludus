@@ -1,6 +1,8 @@
 (ns ludus.interpreter
   (:require
     [ludus.parser :as parser]
+    [ludus.parser-new :as p]
+    [ludus.grammar :as g]
     [ludus.scanner :as scanner]
     [ludus.ast :as ast]
     [ludus.prelude :as prelude]
@@ -9,8 +11,8 @@
     [ludus.loader :as loader]
     [ludus.token :as token]
     [ludus.process :as process]
-    [clojure.pprint :as pp]
-    [clojure.set]))
+    [clojure.set]
+    [clojure.string]))
 
 (def ^:dynamic self @process/current-pid)
 
@@ -27,173 +29,287 @@
         ::not-found))))
 
 (defn- resolve-word [word ctx]
-  (let [value (ludus-resolve (:word word) ctx)]
+  (let [value (ludus-resolve (-> word :data first) ctx)]
     (if (= ::not-found value)
-      (throw (ex-info (str "Unbound name: " (:word word)) {:ast word}))
+      (throw (ex-info (str "Unbound name: " (-> word :data first)) {:ast word}))
       value)))
 
 (declare interpret-ast match interpret interpret-file)
 
-;; TODO: actually implement this!
-(defn- match-splatted-tuple [pattern value ctx-vol]
-  (let [length (:length pattern) members (:members pattern)
+(defn- match-splatted [pattern value ctx-vol]
+  (let [members (:data pattern)
+        non-splat (pop members)
+        splattern (peek members)
+        length (count members)
         ctx-diff (volatile! @ctx-vol)]
-    (if (> length (count value))
-      {:success false :reason "Could not match tuple lengths"}
-      (loop [i 0 ctx {}]
+    (if (> length (-> value count dec))
+      {:success false :reason "Could not match different lengths"}
+      (loop [i 0]
         (if (= (dec length) i)
-          (
-            ;; TODO: write the actual splat here
-            ;; check if the name is already bound
-            ;; then pack everything into a list
-            ;; and return success with the list bound to the name
-            )
-          (let [match? (match (nth members i) (nth value (inc i)) ctx-diff)]
+          (let [last-binding (-> splattern :data first)
+                binding-type (:type last-binding)]
+            (if (= binding-type :word)
+              (let [splat-ctx (:ctx (match
+                                      last-binding
+                                      (into [::data/list] (subvec value (inc i)))
+                                      ctx-diff))] 
+                {:success true :ctx (merge @ctx-diff splat-ctx)})
+              {:success true :ctx @ctx-diff}))
+          (let [match? (match (nth non-splat i) (nth value (inc i)) ctx-diff)]
             (if (:success match?)
-              (recur (inc i) (vswap! ctx-diff #(merge % (:ctx match?))))
+              (do
+                (vswap! ctx-diff #(merge % (:ctx match?)))
+                (println "current context: " (dissoc @ctx-diff ::parent))
+                (recur (inc i)))
               {:success :false :reason (str "Could not match " pattern " with " value)}
               )))))))
 
 (defn- match-tuple [pattern value ctx-vol]
-  (cond
-    (not (vector? value)) {:success false :reason "Could not match non-tuple value to tuple"}
+  ;(println "\n\n\n**********Matching tuple")
+  ;(println "*****Value:   " value)
+  ;(println "*****Pattern: " pattern)
+  (let [members (:data pattern)
+        length (count members)]
+    (cond
+      (not (vector? value)) {:success false :reason "Could not match non-tuple value to tuple"}
+  
+      (not (= ::data/tuple (first value))) {:success false :reason "Could not match list to tuple"}
+  
+      (= :splattern (:type (peek members)))
+      (match-splatted pattern value ctx-vol)
+  
+      (not (= length (dec (count value))))
+      {:success false :reason "Cannot match tuples of different lengths"}
+  
+      (= 0 length (dec (count value))) {:success true :ctx {}}
+  
+      :else 
+      (let [ctx-diff (volatile! @ctx-vol)]
+        (loop [i length]
+          (if (= 0 i)
+            {:success true :ctx @ctx-diff}
+            (let [match? (match (nth members (dec i)) (nth value i) ctx-diff)]
+              (if (:success match?)
+                (do
+                  (vswap! ctx-diff #(merge % (:ctx match?)))
+                  (recur (dec i)))
+                {:success false :reason (str "Could not match " pattern " with " value " because " (:reason match?))}))))))))
 
-    (not (= ::data/tuple (first value))) {:success false :reason "Could not match list to tuple"}
-
-    (= ::ast/splat (::ast/type (last (:members pattern))))
-    (match-splatted-tuple pattern value ctx-vol)
-
-    (not (= (:length pattern) (dec (count value))))
-    {:success false :reason "Cannot match tuples of different lengths"}
-
-    (= 0 (:length pattern) (dec (count value))) {:success true :ctx {}}
-
-    :else 
-    (let [members (:members pattern)
-          ctx-diff (volatile! @ctx-vol)]
-      (loop [i (:length pattern)]
-        (if (= 0 i)
-          {:success true :ctx @ctx-diff}
-          (let [match? (match (nth members (dec i)) (nth value i) ctx-diff)]
-            (if (:success match?)
-              (do
-                (vswap! ctx-diff #(merge % (:ctx match?)))
-                (recur (dec i)))
-              {:success false :reason (str "Could not match " pattern " with " value " because " (:reason match?))})))))))
-
+;; TODO: update this to use new AST representation
+;; TODO: update this to reflect first element of list is ::data/list
 (defn- match-list [pattern value ctx-vol]
-  (cond
-    (not (vector? value)) {:success false :reason "Could not match non-list value to list"}
+  (let [members (:data pattern)
+        splatted? (= :splattern (-> members peek :type))]
+    (cond
+      (not (vector? value)) 
+      {:success false :reason "Could not match non-list value to list"}
+  
+      (= ::data/tuple (first value)) 
+      {:success false :reason "Could not match tuple value to list pattern"}
 
-    (= ::data/tuple (first value)) {:success false :reason "Could not match tuple value to list pattern"}
+      splatted? 
+      (match-splatted pattern value ctx-vol)
+  
+      ;; TODO: fix this with splats
+      (not= (count members) (dec (count value)))
+      {:success false :reason "Cannot match lists of different lengths"}
+  
+      (= 0 (count members) (dec (count value))) 
+      {:success true :ctx {}}
+  
+      :else
+      (let [ctx-diff (volatile! @ctx-vol)]
+        (loop [i (dec (count members))]
+          (if (> 0 i)
+            {:success true :ctx @ctx-diff}
+            (let [match? (match (nth members i) (nth value (inc i)) ctx-diff)]
+              (if (:success match?)
+                (do
+                  (vswap! ctx-diff #(merge % (:ctx match?))) 
+                  (recur (dec i)))
+                {:success false :reason (str "Could not match " pattern " with " value " because " (:reason match?))}))))))))
 
-    ;; TODO: fix this with splats
-    (not (= (count (:members pattern)) (count value)))
-    {:success false :reason "Cannot match lists of different lengths"}
+(defn- member->kv [map member]
+  (let [type (:type member)
+        data (:data member)]  
+    (case type
+      :word
+      (assoc map (keyword (first data)) member)
 
-    (= 0 (count (:members pattern)) (count value)) {:success true :ctx {}}
+      :pair-pattern
+      (assoc map (-> data first :data first) (second data))
 
-    :else 
-    (let [members (:members pattern)
-      ctx-diff (volatile! @ctx-vol)]
-            (loop [i (dec (count members))]
-              (if (> 0 i)
-                {:success true :ctx @ctx-diff}
-                (let [match? (match (nth members i) (nth value i) ctx-diff)]
+      :typed
+      (assoc map (-> data first :data first keyword) member)
+
+      map ;;ignore splats
+      )))
+
+(defn- pattern-to-map [pattern]
+  (let [members (:data pattern)]
+    (reduce member->kv {} members)))
+
+;; TODO: update this to match new AST representation
+(defn- match-dict [pattern dict ctx-vol]
+  (let [
+        members (:data pattern)
+        pattern-map (pattern-to-map pattern)
+        kws (keys pattern-map)]
+    ;(println "Matching with " pattern-map)
+    (cond
+      (not (map? dict))
+      {:success false :reason "Could not match non-dict value to dict pattern"}
+  
+      (not (::data/dict dict))
+      {:success false :reason "Cannot match non-dict data types to a dict pattern"}
+
+      (empty? members)
+      {:success true :ctx {}}
+  
+      :else
+      (let [ctx-diff (volatile! @ctx-vol)
+            splat? (= :splattern (-> members peek :type))
+            length (count kws)]
+        (loop [i 0]
+          (cond
+            (> length i)
+            (let [kw (nth kws i)
+                  pattern-at (kw pattern-map)
+                  value (kw dict)]
+              (if (contains? dict kw)
+                (let [match? (match pattern-at value ctx-diff)]
                   (if (:success match?)
                     (do
-                      (vswap! ctx-diff #(merge % (:ctx match?))) 
-                      (recur (dec i)))
-                    {:success false :reason (str "Could not match " pattern " with " value " because " (:reason match?))})))))))
+                      (vswap! ctx-diff #(merge % (:ctx match?)))
+                      (recur (inc i)))
+                    {:success false
+                     :reason (str "Could not match " pattern " with value " dict " at key " kw " because " (:reason match?))}
+                    ))
+                {:success false
+                 :reason (str "Could not match " pattern " with " dict " at key " kw " because there is no value at " kw)}))
 
-(defn- match-dict [pattern value ctx-vol]
-  (cond
-    (not (map? value))
-    {:success false :reason "Could not match non-dict value to dict pattern"}
+            splat?
+            (let [splat (-> members peek)
+                  splat-data (-> splat :data first)
+                  splat-type (-> splat-data :type)]
+              (if (= :word splat-type)
+                (let [unmatched (apply dissoc dict kws)
+                      match? (match splat-data unmatched ctx-diff)]
+                  (if (:success match?)
+                    {:success true :ctx (merge @ctx-diff (:ctx match?))}
+                    {:success false
+                     :reason (str "Could not match " pattern " with value " dict " because " (:reason match?))}
+                    ))
+                {:success true :ctx @ctx-diff}
+                ))
 
-    (not (::data/dict value))
-    {:success false :reason "Cannot match non-dict data types to a dict pattern"}
+            :else
+            {:success true :ctx @ctx-diff}
 
-    :else
-    (let [members (:members pattern)
-          kws (keys members)
-          ctx-diff (volatile! @ctx-vol)]
-      (loop [i (dec (count kws))]
-        (if (> 0 i)
-          {:success true :ctx @ctx-diff}
-          (let [kw (nth kws i)]
-            (if (contains? value kw)
-              (let [match? (match (kw members) (kw value) ctx-diff)]
-                (if (:success match?)
-                  (do
-                    (println (:ctx match?))
-                    (vswap! ctx-diff #(merge % (:ctx match?)))
-                    (recur (dec i)))
-                  {:success false :reason (str "Could not match " pattern " with " value " at key " kw " because " (:reason match?))}))
-              {:success false
-                :reason (str "Could not match " pattern " with " value " at key " kw " because there is no value at " kw)})))))))
+            ))))))
 
-(defn- match-struct [pattern value ctx-vol]
-  (cond
-    (not (map? value))
-    {:success false :reason "Could not match non-struct value to struct pattern"}
+(defn- match-struct [pattern dict ctx-vol]
+  (let [members (:data pattern)
+        pattern-map (pattern-to-map pattern)
+        kws (keys pattern-map)]
+    (cond
+      (not (map? dict))
+      {:success false :reason "Could not match non-struct value to struct pattern"}
+  
+      (not (::data/struct dict))
+      {:success false :reason "Cannot match non-struct value to struct pattern"}
 
-    (not (::data/struct value))
-    {:success false :reason "Cannot match non-struct data types a struct pattern"}
+      (empty? members)
+      {:success true :ctx {}}
+  
+      :else
+      (let [ctx-diff (volatile! @ctx-vol)
+            splat? (= :splattern (-> members peek :type))
+            length (count kws)]
+        (loop [i 0]
+          (cond
+            (> length i)
+            (let [kw (nth kws i)
+                  pattern-at (kw pattern-map)
+                  value (kw dict)]
+              (if (contains? dict kw)
+                (let [match? (match pattern-at value ctx-diff)]
+                  (if (:success match?)
+                    (do
+                      (vswap! ctx-diff #(merge % (:ctx match?)))
+                      (recur (inc i)))
+                    {:success false
+                     :reason (str "Could not match " pattern " with value " dict " at key " kw " because " (:reason match?))}
+                    ))
+                {:success false
+                 :reason (str "Could not match " pattern " with " dict " at key " kw " because there is no value at " kw)}))
 
-    :else
-    (let [members (:members pattern)
-          kws (keys members)
-          ctx-diff (volatile! @ctx-vol)]
-      (loop [i (dec (count kws))]
-        (if (> 0 i)
-          {:success true :ctx @ctx-diff}
-          (let [kw (nth kws i)]
-            (if (contains? value kw)
-              (let [match? (match (kw members) (kw value) ctx-diff)]
-                (if (:success match?)
-                  (do
-                    (vswap! ctx-diff #(merge % (:ctx match?)))
-                    (recur (dec i)))
-                  {:success false :reason (str "Could not match " pattern " with " value " at key " kw " because " (:reason match?))}))
-              {:success false :reason (str "Could not match " pattern " with " value " at key " kw ", because there is no value at " kw)})))))))
+            splat?
+            (let [splat (-> members peek)
+                  splat-data (-> splat :data first)
+                  splat-type (-> splat-data :type)]
+              (if (= :word splat-type)
+                (let [unmatched (assoc (apply dissoc dict ::data/struct kws) ::data/dict true)
+                      match? (match splat-data unmatched ctx-diff)]
+                  (if (:success match?)
+                    {:success true :ctx (merge @ctx-diff (:ctx match?))}
+                    {:success false
+                     :reason (str "Could not match " pattern " with value " dict " because " (:reason match?))}
+                    ))
+                {:success true :ctx @ctx-diff}
+                ))
+
+            :else
+            {:success true :ctx @ctx-diff}))))))
+
+(defn- match-typed [pattern value ctx]
+  (let [data (:data pattern)
+        name (-> data first :data first)
+        type (-> data second :data first)]
+    (cond
+      (contains? ctx name) {:success false :reason (str "Name " name "is already bound") :code :name-error}
+      (not (= type (prelude/get-type value))) {:success false :reason (str "Could not match " pattern " with " value ", because types do not match")}
+      :else {:success true :ctx {name value}})))
 
 (defn- match [pattern value ctx-vol]
+  ;(println "Matching " value " with pattern type " (:type pattern))
   (let [ctx @ctx-vol]
-    (case (::ast/type pattern)
-      ::ast/placeholder {:success true :ctx {}}
+    (case (:type pattern)
+      (:placeholder :ignored :else)
+      {:success true :ctx {}}
 
-      ::ast/atom
-      (let [match-value (:value pattern)]
+      (:number :nil :true :false :string :keyword)
+      (let [match-value (-> pattern :data first)]
         (if (= match-value value)
           {:success true :ctx {}}
           {:success false
            :reason (str "No match: Could not match " match-value " with " value)}))
 
-      ::ast/word
-      (let [word (:word pattern)]
+      :word
+      (let [word (-> pattern :data first)]
         (if (contains? ctx word)
           {:success false :reason (str "Name " word " is already bound") :code :name-error}
           {:success true :ctx {word value}}))
 
-      ::ast/tuple (match-tuple pattern value ctx-vol)
+      :typed (match-typed pattern value ctx)
 
-      ::ast/list (match-list pattern value ctx-vol)
+      :tuple-pattern (match-tuple pattern value ctx-vol)
 
-      ::ast/dict (match-dict pattern value ctx-vol)
+      :list-pattern (match-list pattern value ctx-vol)
 
-      ::ast/struct (match-struct pattern value ctx-vol)
+      :dict-pattern (match-dict pattern value ctx-vol)
 
-      (throw (ex-info "Unknown pattern on line " {:pattern pattern})))))
+      :struct-pattern (match-struct pattern value ctx-vol)
+
+      (throw (ex-info "Unknown pattern on line " {:ast pattern :value value})))))
 
 (defn- update-ctx [ctx new-ctx]
   (merge ctx new-ctx))
 
-;; TODO: get "if let" pattern working
-;; TODO: get typed exceptions to distinguish panics
 (defn- interpret-let [ast ctx]
-  (let [pattern (:pattern ast)
-        expr (:expr ast)
+  (let [data (:data ast)
+        pattern (first data)
+        expr (second data)
         value (interpret-ast expr ctx)
         match (match pattern value ctx)
         success (:success match)]
@@ -203,113 +319,164 @@
     value))
 
 (defn- interpret-if-let [ast ctx]
-	(let [if-ast (:if ast)
-		  then-expr (:then ast)
-		  else-expr (:else ast)
-		  if-pattern (:pattern if-ast)
-		  if-expr (:expr if-ast)
-		  if-value (interpret-ast if-expr ctx)
-		  if-match (match if-pattern if-value ctx)
-		  success (:success if-match)]
-		(if success
-			(interpret-ast then-expr (volatile! (merge (:ctx if-match) {:parent ctx})))
-			(if (:code if-match)
-				(throw (ex-info (:reason if-match) {:ast if-ast}))
-				(interpret-ast else-expr ctx)))))
+ 	(let [data (:data ast)
+        if-ast (first data)
+    		  then-expr (second data)
+    		  else-expr (nth data 2)
+        if-data (:data if-ast)
+    		  let-pattern (first if-data)
+    		  let-expr (second if-data)
+    		  let-value (interpret-ast let-expr ctx)
+    		  if-match (match let-pattern let-value ctx)
+    		  success (:success if-match)]
+  		(if success
+   			(interpret-ast then-expr (volatile! (merge (:ctx if-match) {:parent ctx})))
+   			(if (:code if-match)
+    				(throw (ex-info (:reason if-match) {:ast if-ast}))
+    				(interpret-ast else-expr ctx)))))
 
 (defn- interpret-if [ast ctx]
-  (let [if-expr (:if ast)
-        then-expr (:then ast)
-        else-expr (:else ast)]
-     (if (= (::ast/type if-expr) ::ast/let)
-        (interpret-if-let ast ctx)
-        (if (interpret-ast if-expr ctx)
-        	 (interpret-ast then-expr ctx)
-        	 (interpret-ast else-expr ctx)))))
+  (let [data (:data ast)
+        if-expr (first data)
+        then-expr (second data)
+        else-expr (nth data 2)]
+    (if (= (:type if-expr) :let-expr)
+      (interpret-if-let ast ctx)
+      (if (interpret-ast if-expr ctx)
+      	 (interpret-ast then-expr ctx)
+      	 (interpret-ast else-expr ctx)))))
 
 (defn- interpret-match [ast ctx]
-  (let [match-expr (:expr ast)
-        expr (interpret-ast match-expr ctx)
-        clauses (:clauses ast)]
+  (let [data (:data ast)
+        match-expr (first data)
+        value (interpret-ast match-expr ctx)
+        clauses (rest data)]
     (loop [clause (first clauses)
            clauses (rest clauses)]
       (if clause
-        (let [pattern (:pattern clause)
-              body (:body clause)
+        (let [clause-data (:data clause)
+              pattern (first clause-data)
+              guard (if (= 3 (count clause-data))
+                      (second clause-data)
+                      nil)
+              body (peek clause-data)
               new-ctx (volatile! {::parent ctx})
-              match? (match pattern expr new-ctx)
+              match? (match pattern value new-ctx)
               success (:success match?)
               clause-ctx (:ctx match?)]
           (if success
-            (do
-              (vswap! new-ctx #(merge % clause-ctx))
-              (interpret-ast body new-ctx))
+            (if guard 
+              (if (interpret-ast guard (volatile! clause-ctx))
+                (do
+                  (vswap! new-ctx #(merge % clause-ctx))
+                  (interpret-ast body new-ctx))
+                (recur (first clauses) (rest clauses)))
+              (do
+                (vswap! new-ctx #(merge % clause-ctx))
+                (interpret-ast body new-ctx)))
             (recur (first clauses) (rest clauses))))
         (throw (ex-info "Match Error: No match found" {:ast ast}))))))
 
 (defn- interpret-cond [ast ctx]
-  (let [clauses (:clauses ast)]
+  (let [clauses (:data ast)]
     (loop [clause (first clauses)
            clauses (rest clauses)]
       (if (not clause)
         (throw (ex-info "Cond Error: No match found" {:ast ast}))
-        (let [test-expr (:test clause)
-              body (:body clause)
-              truthy? (boolean (interpret-ast test-expr ctx))]
+        (let [data (:data clause)
+              test-expr (first data)
+              test-type (:type test-expr)
+              body (second data)
+              truthy? (or
+                        (= :placeholder test-type)
+                        (= :else test-type)
+                        (interpret-ast test-expr ctx))]
           (if truthy?
             (interpret-ast body ctx)
             (recur (first clauses) (rest clauses))))))))
 
-(defn- interpret-called-kw [kw tuple ctx]
-  ;; TODO: check this statically
-  (if (not (= 1 (:length tuple)))
-    (throw (ex-info "Called keywords must be unary" {:ast kw}))
-    (let [kw (interpret-ast kw ctx)
-          map (second (interpret-ast tuple ctx))]
-      (if (::data/struct map)
-        (if (contains? map kw)
-          (kw map)
-          (if (= (::data/type map) ::data/ns)
-            (throw (ex-info (str "Namespace error: no member " kw " in ns " (::data/name map)) {:ast kw}))
-            (throw (ex-info (str "Struct error: no member at " kw) {:ast kw}))))
-        (get map kw)))))
+(defn- validate-args [args]
+  (>= 1 (count (filter #(= :placeholder (:type %)) args))))
 
-(defn- call-fn [lfn tuple ctx]
+(defn- partial? [args]
+  (some #(= :placeholder (:type %)) args))
+
+(defn- interpret-called-kw [kw tuple ctx]
+  (let [members (:data tuple)
+        length (count members)]
+    ;; TODO: check this statically
+    (cond 
+      (not (= 1 length)) 
+      (throw (ex-info "Called keywords must be unary" {:ast tuple}))
+
+      (partial? tuple) 
+      (throw (ex-info "Called keywords may not be partially applied" {:ast tuple}))
+
+      :else
+      (let [kw (interpret-ast kw ctx)
+            map (second (interpret-ast tuple ctx))]
+        (if (::data/struct map)
+          (if (contains? map kw)
+            (kw map)
+            (if (= (::data/type map) ::data/ns)
+              (throw (ex-info (str "Namespace error: no member " kw " in ns " (::data/name map)) {:ast kw}))
+              (throw (ex-info (str "Struct error: no member at " kw) {:ast kw}))))
+          (get map kw))))))
+
+(defn- call-fn [lfn args ctx]
   (cond
-    (= ::data/partial (first tuple))
+    (= ::data/partial (first args))
     {::data/type ::data/clj
      :name (str (:name lfn) "{partial}")
      :body (fn [arg]
              (call-fn
                lfn
-               (concat [::data/tuple] (replace {::data/placeholder arg} (rest tuple)))
+               (concat [::data/tuple] (replace {::data/placeholder arg} (rest args)))
                ctx))}
 
-    (= (::data/type lfn) ::data/clj) (apply (:body lfn) (next tuple))
+    (= (::data/type lfn) ::data/clj) (apply (:body lfn) (next args))
 
     (= (::data/type lfn) ::data/fn)
     (let [clauses (:clauses lfn)
           closed-over (:ctx lfn)]
       (loop [clause (first clauses)
              clauses (rest clauses)]
+        ;(println "Matching clause " clause)
+        ;(println "With args " args)
         (if clause
-          (let [pattern (:pattern clause)
-                body (:body clause)
+          (let [pattern (first clause)
+                guard (if (= 3 (count clause))
+                        (second clause)
+                        nil)
+                body (peek clause)
                 fn-ctx (volatile! {::parent closed-over})
-                match? (match pattern tuple fn-ctx)
+                match? (match pattern args fn-ctx)
                 success (:success match?)
-                clause-ctx (:ctx match?)]
+                clause-ctx (:ctx match?)
+                vclause (volatile! (assoc clause-ctx ::parent closed-over))]
+            ;(println "Pattern: " pattern)
+            ;(println "Body: " body)
             (if success
-              (do
-                (vswap! fn-ctx #(merge % clause-ctx))
-                (interpret-ast body fn-ctx))
+              (if guard 
+                (if (do
+                      ;(println "######### Testing guard")
+                      ;(println "Context: " clause-ctx)
+                      (interpret-ast guard vclause))
+                  (do
+                    ;(println "passed guard")
+                    (vswap! fn-ctx #(merge % clause-ctx))
+                    (interpret-ast body fn-ctx))
+                  (recur (first clauses) (rest clauses)))
+                (do
+                  (vswap! fn-ctx #(merge % clause-ctx))
+                  (interpret-ast body fn-ctx)))
               (recur (first clauses) (rest clauses))))
 
           (throw (ex-info "Match Error: No match found" {:ast (:ast lfn)})))))
 
     (keyword? lfn)
-    (if (= 2 (count tuple))
-      (let [target (second tuple) kw lfn]
+    (if (= 2 (count args))
+      (let [target (second args) kw lfn]
         (if (::data/struct target)
           (if (contains? target kw)
             (kw target)
@@ -322,30 +489,48 @@
 
     :else (throw (ex-info "I don't know how to call that" {:ast lfn}))))
 
+(defn- interpret-args [args ctx]
+  ;(println "interpreting arg" args)
+  (if (partial? args)
+    (if (validate-args args)
+      (into [::data/partial] (map #(interpret-ast % ctx)) args) ; do the thing
+      (throw (ex-info "Partially applied functions may only take a single argument" {:ast args})))
+    (into [::data/tuple] (map #(interpret-ast % ctx)) args))
+  )
+
 (defn- interpret-synthetic-term [prev-value curr ctx]
-  (let [type (::ast/type curr)]
-    (if (= type ::ast/atom)
+  (let [type (:type curr)
+        data (:data curr)]
+    ;(println "interpreting synthetic type " type)
+    ;(println "interpreting synthetic node " curr)
+    (if (= type :keyword)
       (if (::data/struct prev-value)
-        (if (contains? prev-value (:value curr))
-          (get prev-value (:value curr))
+        (if (contains? prev-value (first data))
+          (get prev-value (first data))
           (if (= (::data/type prev-value) ::data/ns)
             (throw (ex-info (str "Namespace error: no member " (:value curr) " in ns " (::data/name prev-value)) {:ast curr}))
             (throw (ex-info (str "Struct error: no member " (:value curr)) {:ast curr}))))
-        (get prev-value (:value curr)))
-      (call-fn prev-value (interpret-ast curr ctx) ctx))))
+        (get prev-value (first data)))
+      (call-fn prev-value (interpret-args data ctx) ctx))))
 
 (defn- interpret-synthetic [ast ctx]
-  (let [terms (:terms ast)
-        first (first terms)
-        second (second terms)
-        rest (rest (rest terms))
-        first-term-type (::ast/type first)
-        first-val (if (= first-term-type ::ast/atom)
-                    (interpret-called-kw first second ctx)
-                    (interpret-synthetic-term (interpret-ast first ctx) second ctx))]
-    (reduce #(interpret-synthetic-term %1 %2 ctx) first-val rest)))
+  ;;(println "interpreting synthetic " ast)
+  (let [data (:data ast)
+        root (first data)
+        terms (rest data)]
+    ;(println "!!!!!!!!!Interpreting synthetic w/ root " (:data root))
+    (if (seq terms)
+      (do
+        ;;(println "I've got terms!: " terms)
+        (let [first-term (first terms)
+              remaining (rest terms)
+              first-val (if (= (:type root) :keyword)
+                          (interpret-called-kw root first-term ctx)
+                          (interpret-synthetic-term (interpret-ast root ctx) first-term ctx))]
+          (reduce #(interpret-synthetic-term %1 %2 ctx) first-val remaining)))
+      (interpret-ast root ctx))))
 
-(defn- interpret-fn [ast ctx] ;; TODO: fix context/closure (no cycles)?
+(defn- interpret-fn-inner [ast ctx] ;; TODO: fix context/closure (no cycles)?
   (let [name (:name ast)
         clauses (:clauses ast)]
     (if (= name ::ast/anon)
@@ -364,32 +549,54 @@
             (vswap! ctx update-ctx {name fn})
             fn))))))
 
+(defn- build-fn
+  ([ast ctx name clauses] (build-fn ast ctx name clauses nil))
+  ([ast ctx name clauses docstring]
+   (let [fnn {::data/type ::data/fn
+              :name name
+              :ast ast
+              :clauses clauses
+              :ctx ctx
+              :doc docstring}]
+     (if (= name :anon) 
+       fnn
+       (if (contains? @ctx name)
+         (throw (ex-info (str "Name " name " is already bound") {:ast ast}))
+         (do
+           (vswap! ctx update-ctx {name fnn})
+           fnn))))))
+
+(defn- build-named-fn [ast ctx data]
+  (let [name (-> data first :data first)
+        body (-> data second)
+        compound? (= :compound (:type body))]
+    (if compound?
+      (if (= :string (-> body :data first :type))
+        (build-fn ast ctx name (map :data (rest (:data body))) (-> body :data first :data))
+        (build-fn ast ctx name (map :data (:data body))))
+      (build-fn ast ctx name [(:data body)]))))
+
+(defn- interpret-fn [ast ctx]
+  (let [data (:data ast)]
+    (case (:type (first data))
+      :fn-clause (build-fn ast ctx :anon (-> data first :data))
+      :named (build-named-fn ast ctx (-> data first :data)))))
+
 (defn- interpret-do [ast ctx]
-  (let [exprs (:exprs ast)
-        origin (interpret-ast (first exprs) ctx)
-        fns (rest exprs)]
-    (reduce #(call-fn (interpret-ast %2 ctx) [::data/tuple %1] ctx) origin fns)))
+  (let [data (:data ast)
+        root (interpret-ast (first data) ctx)
+        fns (rest data)]
+    (reduce #(call-fn (interpret-ast %2 ctx) [::data/tuple %1] ctx) root fns)))
 
 (defn- map-values [f]
   (map (fn [kv]
          (let [[k v] kv]
            [k (f v)]))))
 
-(defn- interpret-ns [ast ctx]
-  (let [members (:members ast)
-        name (:name ast)]
-    (if (contains? @ctx name)
-      (throw (ex-info (str "ns name " name " is already bound") {:ast ast}))
-      (let [ns (into
-                 {::data/struct true ::data/type ::data/ns ::data/name name}
-                 (map-values #(interpret-ast % ctx))
-                 members)]
-        (vswap! ctx update-ctx {name ns})
-        ns))))
-
 (defn- interpret-import [ast ctx]
-  (let [path (:path ast)
-        name (:name ast)
+  (let [data (:data ast)
+        path (-> data first :data first)
+        name (-> data second :data first)
         file (ludus-resolve :file ctx)
         from (if (= ::not-found file) :cwd file)]
     (if (contains? @ctx name)
@@ -400,15 +607,21 @@
                        (if (::loader/error (ex-data e))
                          (throw (ex-info (ex-message e) {:ast ast}))
                          (throw e))))
-            result (-> source (scanner/scan) (parser/parse) (interpret-file path))]
-        ;; (pp/pprint @ctx)
-        (vswap! ctx update-ctx {name result})
-        ;; (pp/pprint @ctx)
-        result
+            parsed (->> source (scanner/scan) :tokens (p/apply-parser g/script))] 
+        (if (p/fail? parsed)
+          (throw (ex-info 
+                   (str "Parse error in file " path "\n"
+                     (p/err-msg parsed))
+                   {:ast ast}))        
+          (let [interpret-result (interpret-file source path parsed)]
+            (vswap! ctx update-ctx {name interpret-result})
+            interpret-result))
         ))))
 
 (defn- interpret-ref [ast ctx]
-  (let [name (:name ast) expr (:expr ast)]
+  (let [data (:data ast)
+        name (-> data first :data first) 
+        expr (-> data second)]
     (when (contains? @ctx name)
       (throw (ex-info (str "Name " name " is already bound") {:ast ast})))
     (let [value (interpret-ast expr ctx)
@@ -418,52 +631,63 @@
       ref)))
 
 (defn- interpret-loop [ast ctx]
-  (let [tuple (interpret-ast (:expr ast) ctx)
-        clauses (:clauses ast)]
+  (let [data (:data ast)
+        tuple (interpret-ast (first data) ctx)
+        loop-type (-> data second :type)
+        clauses (if (= loop-type :fn-clause)
+                  [(-> data second :data)]
+                  (into [] (map :data) (-> data second :data)))]
     (loop [input tuple]
       (let [output (loop [clause (first clauses)
                           clauses (rest clauses)]
                      (if clause
-                       (let [pattern (:pattern clause)
-                             body (:body clause)
+                       (let [pattern (first clause)
+                             guard (if (= 3 (count clause))
+                                     (second clause)
+                                     nil)
+                             body (peek clause)
                              new-ctx (volatile! {::parent ctx})
                              match? (match pattern input new-ctx)
                              success (:success match?)
                              clause-ctx (:ctx match?)]
                          (if success
-                           (do
-                             (vswap! new-ctx #(merge % clause-ctx))
-                             (interpret-ast body new-ctx))
+                           (if guard 
+                             (if (interpret-ast guard (volatile! (assoc clause-ctx ::parent ctx)))
+                               (do
+                                 (vswap! new-ctx #(merge % clause-ctx))
+                                 (interpret-ast body new-ctx))
+                               (recur (first clauses) (rest clauses)))
+                             (do
+                               (vswap! new-ctx #(merge % clause-ctx))
+                               (interpret-ast body new-ctx)))
                            (recur (first clauses) (rest clauses))))
 
                        (throw (ex-info (str "Match Error: No match found in loop for " input) {:ast ast}))))]
         (if (::data/recur output)
-          (recur (:tuple output))
+          (recur (:args output))
           output)))))
-
-(defn- panic [ast ctx]
-  (throw (ex-info (show/show (interpret-ast (:expr ast) ctx)) {:ast ast})))
 
 (defn- list-term [ctx]
   (fn [list member]
-    (if (= (::ast/type member) ::ast/splat)
-      (let [splatted (interpret-ast (:expr member) ctx)
-            splat-list? (and
-                          (vector? splatted)
-                          (not (= (first splatted) ::data/tuple)))]
-        (if splat-list?
-          (concat list splatted)
+    (if (= (:type member) :splat)
+      (let [splatted (interpret-ast (-> member :data first) ctx)
+            splattable? (vector? splatted)
+            tuple-splat? (= (first splatted) ::data/tuple)]
+        (if splattable?
+          (if tuple-splat?
+            (into [::data/list] (concat list (rest splatted)))  
+            (concat list splatted))
           (throw (ex-info "Cannot splat non-list into list" {:ast member}))))
-      (concat list [(interpret-ast member ctx)]))))
+      (conj list (interpret-ast member ctx)))))
 
 (defn- interpret-list [ast ctx]
-  (let [members (:members ast)]
-    (into [] (reduce (list-term ctx) [] members))))
+  (let [members (:data ast)]
+    (into [::data/list] (reduce (list-term ctx) [] members))))
 
 (defn- set-term [ctx]
   (fn [set member]
-    (if (= (::ast/type member) ::ast/splat)
-      (let [splatted (interpret-ast (:expr member) ctx)
+    (if (= (:type member) :splat)
+      (let [splatted (interpret-ast (-> member :data first) ctx)
             splat-set? (set? splatted)]
         (if splat-set?
           (clojure.set/union set splatted)
@@ -471,26 +695,69 @@
       (conj set (interpret-ast member ctx)))))
 
 (defn- interpret-set [ast ctx]
-  (let [members (:members ast)]
+  (let [members (:data ast)]
     (reduce (set-term ctx) #{} members)))
 
 (defn- dict-term [ctx]
   (fn [dict member]
-    (if (= (::ast/type member) ::ast/splat)
-      (let [splatted (interpret-ast (:expr member) ctx)
-            splat-map? (and
-                         (map? splatted)
-                         (::data/dict splatted))]
-        (if splat-map?
-          (merge dict splatted)
-          (throw (ex-info "Cannot splat non-dict into dict" {:ast member}))))
-      (let [k (first member) v (second member)]
-        (assoc dict k (interpret-ast v ctx))))))
+    (case (:type member)
+      :splat (let [splatted (interpret-ast (-> member :data first) ctx)
+                   splat-map? (or (::data/dict splatted)
+                                (::data/struct splatted))]
+               (if splat-map?
+                 (merge dict splatted)
+                 (throw (ex-info "Cannot splat non-dict into dict" {:ast member}))))
+      :word (let [data (:data member) k (-> data first keyword)]
+              (assoc dict k (interpret-ast member ctx)))
+
+      :pair (let [data (:data member) k (-> data first :data first) v (second data)]
+              (assoc dict k (interpret-ast v ctx))))))
 
 (defn- interpret-dict [ast ctx]
-  (let [members (:members ast)]
+  (let [members (:data ast)]
     (assoc (reduce (dict-term ctx) {} members) ::data/dict true)))
 
+(defn- struct-term [ctx]
+  (fn [struct member]
+    (case (:type member)
+      :splat (throw (ex-info "Cannot splat into struct" {:ast member}))
+
+      :word (let [data (:data member) k (-> data first keyword)]
+              (assoc struct k (interpret-ast member ctx)))
+
+      :pair (let [data (:data member) k (-> data first :data first) v (second data)]
+              (assoc struct k (interpret-ast v ctx))))))
+
+(defn- interpret-struct [ast ctx]
+  (let [members (:data ast)]
+    (assoc (reduce (struct-term ctx) {} members) ::data/struct true)))
+
+(defn- ns-term [ctx]
+  (fn [ns member]
+    (case (:type member)
+      :splat (throw (ex-info "Cannot splat into ns" {:ast member}))
+
+      :word (let [data (:data member) k (-> data first keyword)]
+              (assoc ns k (interpret-ast member ctx)))
+
+      :pair (let [data (:data member) k (-> data first :data first) v (second data)]
+              (assoc ns k (interpret-ast v ctx))))))
+
+(defn- interpret-ns [ast ctx]
+  (let [data (:data ast)
+        name (-> data first :data first)
+        members (rest data)]
+    (if (contains? @ctx name)
+      (throw (ex-info (str "ns name " name " is already bound") {:ast ast}))
+      (let [ns (merge {
+                       ::data/struct true 
+                       ::data/type ::data/ns
+                       ::data/name name}
+                 (reduce (ns-term ctx) {} members))]
+        (vswap! ctx update-ctx {name ns})
+        ns))))
+
+;; TODO: update this to use new AST representation
 (defn- interpret-receive [ast ctx]
   (let [process-atom (get @process/processes self)
         inbox (promise)
@@ -519,6 +786,7 @@
               (recur (first clauses) (rest clauses))))
           (throw (ex-info "Match Error: No match found" {:ast ast})))))))
 
+;; TODO: update send to be a function (here or in prelude)
 (defn- interpret-send [ast ctx]
   (let [msg (interpret-ast (:msg ast) ctx) 
         pid (interpret-ast (:pid ast) ctx)
@@ -535,7 +803,7 @@
     msg))
 
 (defn- interpret-spawn [ast ctx]
-  (let [expr (:expr ast)
+  (let [expr (-> ast :data first)
         process (process/new-process)
         pid (:pid @process)]
     (with-bindings {#'self pid}
@@ -548,59 +816,60 @@
         (swap! process #(assoc % :status :dead))))
     pid))
 
+(defn- interpret-literal [ast] (-> ast :data first))
+
 (defn interpret-ast [ast ctx]
-  (case (::ast/type ast)
-    ::ast/self self
+  ;(println "interpreting ast type" (:type ast))
+  ;(println "AST: " ast)
+  (case (:type ast)
 
-    ::ast/atom (:value ast)
+    (:nil :true :false :number :string :keyword) (interpret-literal ast)
 
-    ::ast/word (resolve-word ast ctx)
+    :let-expr (interpret-let ast ctx)
 
-    ::ast/let (interpret-let ast ctx)
+    :if-expr (interpret-if ast ctx)
 
-    ::ast/if (interpret-if ast ctx)
+    :word (resolve-word ast ctx)
 
-    ::ast/match (interpret-match ast ctx)
+    :synthetic (interpret-synthetic ast ctx)
 
-    ::ast/cond (interpret-cond ast ctx)
+    :match (interpret-match ast ctx)
 
-    ::ast/synthetic (interpret-synthetic ast ctx)
+    :cond-expr (interpret-cond ast ctx)
 
-    ::ast/fn (interpret-fn ast ctx)
+    :fn-expr (interpret-fn ast ctx)
 
-    ::ast/pipeline (interpret-do ast ctx)
+    :do-expr (interpret-do ast ctx)
 
-    ::ast/placeholder ::data/placeholder
+    :placeholder ::data/placeholder
 
-    ::ast/ns (interpret-ns ast ctx)
+    :ns-expr (interpret-ns ast ctx)
 
-    ::ast/import (interpret-import ast ctx)
+    :import-expr (interpret-import ast ctx)
 
-    ::ast/ref (interpret-ref ast ctx)
+    :ref-expr (interpret-ref ast ctx)
 
-    ::ast/panic (panic ast ctx)
+    :when-expr (interpret-ast (-> ast :data first) ctx)
 
-    ::ast/spawn (interpret-spawn ast ctx)
+    ; ::ast/spawn (interpret-spawn ast ctx)
 
-    ::ast/send (interpret-send ast ctx)
+    ; ::ast/receive (interpret-receive ast ctx)
 
-    ::ast/receive (interpret-receive ast ctx)
+    :recur-call
+    {::data/recur true :args (interpret-ast (-> ast :data first) ctx)}
 
-    ::ast/recur
-    {::data/recur true :tuple (interpret-ast (:tuple ast) ctx)}
+    :loop-expr (interpret-loop ast ctx)
 
-    ::ast/loop (interpret-loop ast ctx)
-
-    ::ast/block
-    (let [exprs (:exprs ast)
+    :block
+    (let [exprs (:data ast)
           inner (pop exprs)
           last (peek exprs)
           ctx (volatile! {::parent ctx})]
       (run! #(interpret-ast % ctx) inner)
       (interpret-ast last ctx))
 
-    ::ast/script
-    (let [exprs (:exprs ast)
+    :script
+    (let [exprs (:data ast)
           inner (pop exprs)
           last (peek exprs)]
       (run! #(interpret-ast % ctx) inner)
@@ -609,68 +878,75 @@
     ;; note that, excepting tuples and structs,
     ;; runtime representations are bare
     ;; tuples are vectors with a special first member
-    ::ast/tuple
-    (let [members (:members ast)]
-      (into
-        [(if (:partial ast) ::data/partial ::data/tuple)]
-        (map #(interpret-ast % ctx)) members))
+    (:tuple :args)
+    (let [members (:data ast)]
+      (into [::data/tuple] (map #(interpret-ast % ctx)) members))
 
-    ::ast/list (interpret-list ast ctx)
+    :list-literal (interpret-list ast ctx)
 
-    ::ast/set
-    (interpret-set ast ctx)
+    :set-literal (interpret-set ast ctx)
 
-    ::ast/dict (interpret-dict ast ctx)
+    :dict (interpret-dict ast ctx)
 
-    ::ast/struct
-    (let [members (:members ast)]
-      (into {::data/struct true} (map-values #(interpret-ast % ctx)) members))
+    :struct-literal
+    (interpret-struct ast ctx)
 
-    (throw (ex-info "Unknown AST node type" {:ast ast}))))
+    (throw (ex-info (str "Unknown AST node type: " (:type ast)) {:ast ast}))))
 
-(defn interpret-file [parsed file]
+(defn get-line [source line]
+  (if line
+    (let [lines (clojure.string/split source #"\n")]
+      (clojure.string/trim (nth lines (dec line))))))
+
+;; TODO: update this to use new parser pipeline & new AST representation
+(defn interpret-file [source path parsed]
   (try 
-    (let [base-ctx (volatile! (merge {:file file} prelude/prelude process/process))]
-      (interpret-ast (::parser/ast parsed) base-ctx))
+    (let [base-ctx (volatile! {::parent (volatile! prelude/prelude) :file path})]
+      (interpret-ast parsed base-ctx))
     (catch clojure.lang.ExceptionInfo e
-      (println "Ludus panicked in" file)
-      (println "On line" (get-in (ex-data e) [:ast :token ::token/line]))
+      (println "Ludus panicked in" path)
+      (println "On line" (get-in (ex-data e) [:ast :token :line]))
+      (println ">>> " (get-line source (get-in (ex-data e) [:ast :token :line])))
       (println (ex-message e))
       (System/exit 67))))
 
-(defn interpret [parsed file]
+;; TODO: update this to use new parser pipeline & new AST representation
+(defn interpret [source path parsed]
   (try
-    (let [base-ctx (volatile! (merge {:file file} prelude/prelude process/process))
+    (let [base-ctx (volatile! {::parent (volatile! prelude/prelude) :file path})
           process (process/new-process)]
       (process/start-vm)
       (with-bindings {#'self (:pid @process)}
-        (let [result (interpret-ast (::parser/ast parsed) base-ctx)]
+        (let [result (interpret-ast parsed base-ctx)]
           (swap! process #(assoc % :status :dead))
           (process/stop-vm)
           result)))
     (catch clojure.lang.ExceptionInfo e
-      (println "Ludus panicked in" file)
-      (println "On line" (get-in (ex-data e) [:ast :token ::token/line]))
+      (println "Ludus panicked in" path)
+      (println "On line" (get-in (ex-data e) [:ast :token :line]))
+      (println ">>> " (get-line source (get-in (ex-data e) [:ast :token :line])))
       (println (ex-message e))
       (System/exit 67))))
 
 (defn interpret-safe [parsed]
   (try
-    (let [base-ctx (volatile! (merge {} prelude/prelude))
+    (let [base-ctx (volatile! {::parent (volatile! prelude/prelude)})
           process (process/new-process)]
       (process/start-vm)
       (with-bindings {#'self (:pid @process)}
-        (let [result (interpret-ast (::parser/ast parsed) base-ctx)]
+        (let [result (interpret-ast parsed base-ctx)]
           (swap! process #(assoc % :status :dead))
           (process/stop-vm)
           result)))
     (catch clojure.lang.ExceptionInfo e
       (process/stop-vm)
-      (println "Ludus panicked!")
-      (println "On line" (get-in (ex-data e) [:ast :token ::token/line]))
+      (println "Ludus panicked on line " (get-in (ex-data e) [:ast :token :line]))
+      (println "> " (get-in (ex-data e) [:ast :token]))
       (println (ex-message e))
-      (pp/pprint (ex-data e)))))
+      ;(pp/pprint (ex-data e))
+      )))
 
+;; TODO: update this to use new parser pipeline & new AST representation
 (defn interpret-repl
   ([parsed ctx]
    (let [orig-ctx @ctx
@@ -679,7 +955,7 @@
      (try
        (process/start-vm)
        (with-bindings {#'self pid}
-         (let [result (interpret-ast (::parser/ast parsed) ctx)]
+         (let [result (interpret-ast parsed ctx)]
            {:result result :ctx ctx :pid pid}))
        (catch clojure.lang.ExceptionInfo e
          (println "Ludus panicked!")
@@ -690,7 +966,7 @@
      (try
        (process/start-vm)
        (with-bindings {#'self pid}
-         (let [result (interpret-ast (::parser/ast parsed) ctx)]
+         (let [result (interpret-ast parsed ctx)]
            {:result result :ctx ctx :pid pid}))
        (catch clojure.lang.ExceptionInfo e
          (println "Ludus panicked!")
@@ -700,37 +976,22 @@
 
 
 (comment
-  (process/start-vm)
   (def source "
-    let #{a, a} = #{:a 1}
-    a
-    ")
+    let 2 = 1
+      ")
 
   (println "")
   (println "****************************************")
   (println "*** *** NEW INTERPRETATION *** ***")
   (println "")
 
-  (let [result (-> source
-                 (scanner/scan)
-                 (parser/parse)
-                 (interpret-safe)
-                 (show/show)
+  (let [result (->> source
+                 scanner/scan
+                 :tokens
+                 (p/apply-parser g/script)
+                 interpret-safe
+                 show/show
                  )]
+    (println result)
     result))
-
-(comment "
-
-	Left to do:
-	x if-let pattern
-	* improve panics
-	* add location info for panics
-  * refactor calling keywords
-  * refactor accessing structs vs. hashes
-
-  ")
-
-
-
-
 

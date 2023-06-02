@@ -37,6 +37,22 @@
           ::data/type ::data/clj
           :body /})
 
+(def gt {:name "gt"
+         ::data/type ::data/clj
+         :body >})
+
+(def gte {:name "gte"
+          ::data/type ::data/clj
+          :body >=})
+
+(def lt {:name "lt"
+         ::data/type ::data/clj
+         :body <})
+
+(def lte {:name "lte"
+          ::data/type ::data/clj
+          :body <=})
+
 (def inc- {:name "inc"
            ::data/type ::data/clj
            :body inc})
@@ -93,23 +109,104 @@
 
 (def get- {:name "get"
            ::data/type ::data/clj
-           :body get})
+           :body (fn 
+                   ([key, map]
+                    (if (map? map)
+                      (get map key)
+                      nil))
+                   ([key, map, default]
+                    (if (map? map)
+                      (get map key default)
+                      default)))})
 
-(comment 
-  (def draw {:name "draw"
+(def first- {:name "first"
              ::data/type ::data/clj
-             :body draw/ludus-draw})
+             :body (fn [v] (second v))})
 
-  (def draw {:name "draw"
+(def rest- {:name "rest"
+            ::data/type ::data/clj
+            :body (fn [v]
+                    (into [::data/list] (nthrest v 2)))})
+
+(def nth- {:name "nth"
+           ::data/type ::data/clj
+           :body (fn 
+                   ([i, xs]
+                    (cond
+                      (> 0 i) nil
+                      (contains? xs (inc i)) (nth xs (inc i))
+                      :else nil))
+                   ([i, xs, default]
+                    (cond
+                      (> 0 i) default
+                      (contains? xs (inc i)) (nth xs (inc i))
+                      :else default)))})
+
+(defn get-type [value]
+  (let [t (type value)]
+    (cond
+      (nil? value) :nil
+
+      (= clojure.lang.Keyword t) :keyword
+
+      (= java.lang.Long t) :number
+
+      (= java.lang.Double t) :number
+
+      (= java.lang.String t) :string
+
+      (= java.lang.Boolean t) :boolean
+
+      (= clojure.lang.PersistentHashSet t) :set
+
+      ;; tuples and lists
+      (= clojure.lang.PersistentVector t)
+      (if (= ::data/tuple (first value)) :tuple :list)
+
+      ;; structs dicts namespaces refs
+      (= clojure.lang.PersistentArrayMap t)
+      (cond
+        (::data/type value) (case (::data/type value)
+                              (::data/fn ::data/clj) :fn
+                              ::data/ns :ns)
+        (::data/dict value) :dict
+        (::data/struct value) :struct
+
+        :else :none
+        ))))
+
+(def type- {:name "type"
+            ::data/type ::data/clj
+            :body get-type})
+
+(defn strpart [kw] (->> kw str rest (apply str)))
+
+(def clj {:name "clj"
+          ::data/type ::data/clj
+          :body (fn [& args]
+                  (println "Args passed: " args)
+                  (let [called (-> args first strpart read-string eval)
+                        fn-args (rest args)]
+                    (println "Fn: " called)
+                    (println "Args: " fn-args)
+                    (apply called fn-args)))})
+
+(def count- {:name "count"
              ::data/type ::data/clj
-             :body d/draw}))
+             :body (fn [xs] (dec (count xs)))})
 
-(def prelude {"eq" eq
+(def prelude {
+              "id" id
+              "eq" eq
               "add" add
               "print" print-
               "sub" sub
               "mult" mult
               "div" div
+              "gt" gt
+              "gte" gte
+              "lt" lt
+              "lte" lte
               "inc" inc-
               "dec" dec-
               "not" not
@@ -122,5 +219,10 @@
               "assoc" assoc-
               "conj" conj-
               "get" get-
-              ;"draw" draw
+              "type" type-
+              "clj" clj
+              "first" first-
+              "rest" rest-
+              "nth" nth-
+              "count" count-
               })

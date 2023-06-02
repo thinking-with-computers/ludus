@@ -1,12 +1,15 @@
 (ns ludus.repl
   (:require
     [ludus.scanner :as scanner]
-    [ludus.parser :as parser]
+    ;[ludus.parser :as parser]
+    [ludus.parser-new :as p]
+    [ludus.grammar :as g]
     [ludus.interpreter :as interpreter]
     [ludus.prelude :as prelude]
     [ludus.show :as show]
     [ludus.data :as data]
-    [ludus.process :as process]))
+    ;[ludus.process :as process]
+    ))
 
 (declare repl-prelude new-session)
 
@@ -20,7 +23,7 @@
   (println "\nGoodbye!")
   (System/exit 0))
 
-(def base-ctx (merge prelude/prelude process/process
+(def base-ctx (merge prelude/prelude ;process/process
                 {::repl true
                  "repl"
                  {::data/struct true
@@ -91,20 +94,27 @@
         (= "" input) (recur)
 
         :else
-        (let [parsed (-> input (scanner/scan) (parser/parse))
-              {result :result ctx :ctx pid- :pid}
-              (if pid
-                (interpreter/interpret-repl parsed orig-ctx pid)
-                (interpreter/interpret-repl parsed orig-ctx))]
-          (if (= result ::interpreter/error)
-            (recur)
+        (let [parsed (->> input 
+                       (scanner/scan) 
+                       :tokens 
+                       (p/apply-parser g/script))]
+          (if (= :err (:status parsed))
             (do
-              (println (show/show result))
-              (when (not (= @ctx @orig-ctx))
-                (swap! session-atom #(assoc % :ctx ctx)))
-              (when (not (= pid pid-))
-                (swap! session-atom #(assoc % :pid pid-)))
-              (recur))))))))
+              (println (p/err-msg parsed))
+              (recur))
+            (let [{result :result ctx :ctx pid- :pid}
+                  (if pid
+                    (interpreter/interpret-repl parsed orig-ctx pid)
+                    (interpreter/interpret-repl parsed orig-ctx))]
+              (if (= result :error)
+                (recur)
+                (do
+                  (println (show/show result))
+                  (when (not (= @ctx @orig-ctx))
+                    (swap! session-atom #(assoc % :ctx ctx)))
+                  (when (not (= pid pid-))
+                    (swap! session-atom #(assoc % :pid pid-)))
+                  (recur))))))))))
 
 (defn launch []
   (println "Welcome to Ludus (v. 0.1.0-alpha)")
