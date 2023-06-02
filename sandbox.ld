@@ -42,6 +42,8 @@ fn filter {
 	}
 }
 
+let greater_than_two = gt (_, 2)
+
 let xs = [1, 2, 3]
 
-filter (gte (_, 2) ,xs)
+filter (greater_than_two ,xs)
