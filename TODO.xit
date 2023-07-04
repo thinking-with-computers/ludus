@@ -25,6 +25,12 @@ Finish interpreter
 [x] Wire up new interpreter to repl, script situation
 [x] Merge new interpreter
 
+Conditionals
+[ ] Fix let bindings/scope in `if` expressions
+[ ] Make `and` and `or` special forms
+[ ] ---- `if and (let x ...)` pattern
+[ ] ---- arguments are lazily, not eagerly, executed
+
 Write a compiler: desugaring
 [~] `...` to `..._` in tuple & list patterns
 [ ] placeholder partial application to anonymous lambda
