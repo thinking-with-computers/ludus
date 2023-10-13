@@ -36,7 +36,7 @@
       		heading (:heading prev)
       		unit (heading->vec heading)
       		move (scale unit steps)
-      		curr (update prev :postion #(add % move))]
+     	 	curr (update prev :postion #(add % move))]
   		(swap! path #(conj % curr))))
 
 (defn back [steps] (forward (* -1 steps)))

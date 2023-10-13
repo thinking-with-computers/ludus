@@ -5,7 +5,7 @@
   		[ludus.scanner :as s]))
 
 (def source 
-  "(1 2)
+  "(1, 2)
 "
   )
 
