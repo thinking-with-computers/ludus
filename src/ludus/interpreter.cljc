@@ -1,20 +1,15 @@
 (ns ludus.interpreter
   (:require
-    [ludus.parser :as parser]
-    [ludus.parser-new :as p]
+    [ludus.parser :as p]
     [ludus.grammar :as g]
     [ludus.scanner :as scanner]
     [ludus.ast :as ast]
     [ludus.prelude :as prelude]
     [ludus.data :as data]
-    [ludus.show :as show]
-    [ludus.loader :as loader]
-    [ludus.token :as token]
-    [ludus.process :as process]
+    ;;[ludus.loader :as loader]
+    [clojure.pprint :as pp]
     [clojure.set]
     [clojure.string]))
-
-(def ^:dynamic self @process/current-pid)
 
 ;; right now this is not very efficient:
 ;; it's got runtime checking
@@ -593,30 +588,30 @@
          (let [[k v] kv]
            [k (f v)]))))
 
-(defn- interpret-import [ast ctx]
-  (let [data (:data ast)
-        path (-> data first :data first)
-        name (-> data second :data first)
-        file (ludus-resolve :file ctx)
-        from (if (= ::not-found file) :cwd file)]
-    (if (contains? @ctx name)
-      (throw (ex-info (str "Name " name " is alrady bound") {:ast ast}))
-      (let [source (try
-                     (loader/load-import path from)
-                     (catch Exception e
-                       (if (::loader/error (ex-data e))
-                         (throw (ex-info (ex-message e) {:ast ast}))
-                         (throw e))))
-            parsed (->> source (scanner/scan) :tokens (p/apply-parser g/script))] 
-        (if (p/fail? parsed)
-          (throw (ex-info 
-                   (str "Parse error in file " path "\n"
-                     (p/err-msg parsed))
-                   {:ast ast}))        
-          (let [interpret-result (interpret-file source path parsed)]
-            (vswap! ctx update-ctx {name interpret-result})
-            interpret-result))
-        ))))
+; (defn- interpret-import [ast ctx]
+;            (let [data (:data ast)
+;                  path (-> data first :data first)
+;                  name (-> data second :data first)
+;                  file (ludus-resolve :file ctx)
+;                  from (if (= ::not-found file) :cwd file)]
+;              (if (contains? @ctx name)
+;                (throw (ex-info (str "Name " name " is alrady bound") {:ast ast}))
+;                (let [source (try
+;                               (loader/load-import path from)
+;                               (catch Exception e
+;                                 (if (::loader/error (ex-data e))
+;                                   (throw (ex-info (ex-message e) {:ast ast}))
+;                                   (throw e))))
+;                      parsed (->> source (scanner/scan) :tokens (p/apply-parser g/script))] 
+;                  (if (p/fail? parsed)
+;                    (throw (ex-info 
+;                             (str "Parse error in file " path "\n"
+;                               (p/err-msg parsed))
+;                             {:ast ast}))        
+;                    (let [interpret-result (interpret-file source path parsed)]
+;                      (vswap! ctx update-ctx {name interpret-result})
+;                      interpret-result))
+;                  ))))
 
 (defn- interpret-ref [ast ctx]
   (let [data (:data ast)
@@ -757,70 +752,9 @@
         (vswap! ctx update-ctx {name ns})
         ns))))
 
-;; TODO: update this to use new AST representation
-(defn- interpret-receive [ast ctx]
-  (let [process-atom (get @process/processes self)
-        inbox (promise)
-        clauses (:clauses ast)]
-    ;; (println "receiving in" self)
-    (swap! process-atom #(assoc % :inbox inbox :status :idle))
-    ;; (println "awaiting message in" self)
-    (let [msg @inbox]
-      (swap! process-atom #(assoc % :status :occupied))
-      ;; (println "message received by" self ":" msg)
-      (loop [clause (first clauses)
-             clauses (rest clauses)]
-        (if clause
-          (let [pattern (:pattern clause)
-                body (:body clause)
-                new-ctx (volatile! {::parent ctx})
-                match? (match pattern msg new-ctx)
-                success (:success match?)
-                clause-ctx (:ctx match?)]
-            (if success
-              (do
-                (vswap! new-ctx #(merge % clause-ctx))
-                (let [result (interpret-ast body new-ctx)]
-                  (swap! process-atom #(assoc % :status :idle))
-                  result))
-              (recur (first clauses) (rest clauses))))
-          (throw (ex-info "Match Error: No match found" {:ast ast})))))))
-
-;; TODO: update send to be a function (here or in prelude)
-(defn- interpret-send [ast ctx]
-  (let [msg (interpret-ast (:msg ast) ctx) 
-        pid (interpret-ast (:pid ast) ctx)
-        process-atom (get @process/processes pid)
-        process @process-atom
-        q (:queue process)
-        status (:status process)]
-    (when (not (= :dead status))
-      (swap! process-atom #(assoc % :queue (conj q msg)))
-      (Thread/sleep 1) ;; this is terrible--but it avoids deadlock
-      ;;TODO: actually debug this?
-      ;;THOUGHT: is swap! returning before the value is actually changed? Clojure docs say atoms are synchronous
-      )
-    msg))
-
-(defn- interpret-spawn [ast ctx]
-  (let [expr (-> ast :data first)
-        process (process/new-process)
-        pid (:pid @process)]
-    (with-bindings {#'self pid}
-      (future
-        (try (interpret-ast expr ctx)
-          (catch Exception e
-            (println "Panic in Ludus process" (str self ":") (ex-message e))
-            ;; (pp/pprint (ex-data e))
-            (println "On line" (get-in (ex-data e) [:ast :token ::token/line]) "in" (ludus-resolve :file ctx))))
-        (swap! process #(assoc % :status :dead))))
-    pid))
-
 (defn- interpret-literal [ast] (-> ast :data first))
 
 (defn interpret-ast [ast ctx]
-  ;(println "interpreting ast type" (:type ast))
-  ;(println "AST: " ast)
   (case (:type ast)
 
     (:nil :true :false :number :string :keyword) (interpret-literal ast)
@@ -845,15 +779,11 @@
 
     :ns-expr (interpret-ns ast ctx)
 
-    :import-expr (interpret-import ast ctx)
+    ;; :import-expr (interpret-import ast ctx)
 
     :ref-expr (interpret-ref ast ctx)
 
     :when-expr (interpret-ast (-> ast :data first) ctx)
-
-    ; ::ast/spawn (interpret-spawn ast ctx)
-
-    ; ::ast/receive (interpret-receive ast ctx)
 
     :recur-call
     {::data/recur true :args (interpret-ast (-> ast :data first) ctx)}
@@ -899,99 +829,29 @@
       (clojure.string/trim (nth lines (dec line))))))
 
 ;; TODO: update this to use new parser pipeline & new AST representation
-(defn interpret-file [source path parsed]
-  (try 
-    (let [base-ctx (volatile! {::parent (volatile! prelude/prelude) :file path})]
+; (defn interpret-file [source path parsed]
+;   (try 
+;     (let [base-ctx (volatile! {::parent (volatile! prelude/prelude) :file path})]
+;       (interpret-ast parsed base-ctx))
+;     (catch clojure.lang.ExceptionInfo e
+;       (println "Ludus panicked in" path)
+;       (println "On line" (get-in (ex-data e) [:ast :token :line]))
+;       (println ">>> " (get-line source (get-in (ex-data e) [:ast :token :line])))
+;       (println (ex-message e))
+;       (System/exit 67))))
+
+;; TODO: update this to use new parser pipeline & new AST representation
+(defn interpret [source parsed]
+  (try
+    (let [base-ctx (volatile! {::parent (volatile! prelude/prelude)})]
       (interpret-ast parsed base-ctx))
     (catch clojure.lang.ExceptionInfo e
-      (println "Ludus panicked in" path)
+      (println "Ludus panicked!")
       (println "On line" (get-in (ex-data e) [:ast :token :line]))
       (println ">>> " (get-line source (get-in (ex-data e) [:ast :token :line])))
       (println (ex-message e))
-      (System/exit 67))))
+      (pp/pprint (ex-data e)
+        ;;(System/exit 67)
+        ))))
 
-;; TODO: update this to use new parser pipeline & new AST representation
-(defn interpret [source path parsed]
-  (try
-    (let [base-ctx (volatile! {::parent (volatile! prelude/prelude) :file path})
-          process (process/new-process)]
-      (process/start-vm)
-      (with-bindings {#'self (:pid @process)}
-        (let [result (interpret-ast parsed base-ctx)]
-          (swap! process #(assoc % :status :dead))
-          (process/stop-vm)
-          result)))
-    (catch clojure.lang.ExceptionInfo e
-      (println "Ludus panicked in" path)
-      (println "On line" (get-in (ex-data e) [:ast :token :line]))
-      (println ">>> " (get-line source (get-in (ex-data e) [:ast :token :line])))
-      (println (ex-message e))
-      (System/exit 67))))
-
-(defn interpret-safe [parsed]
-  (try
-    (let [base-ctx (volatile! {::parent (volatile! prelude/prelude)})
-          process (process/new-process)]
-      (process/start-vm)
-      (with-bindings {#'self (:pid @process)}
-        (let [result (interpret-ast parsed base-ctx)]
-          (swap! process #(assoc % :status :dead))
-          (process/stop-vm)
-          result)))
-    (catch clojure.lang.ExceptionInfo e
-      (process/stop-vm)
-      (println "Ludus panicked on line " (get-in (ex-data e) [:ast :token :line]))
-      (println "> " (get-in (ex-data e) [:ast :token]))
-      (println (ex-message e))
-      ;(pp/pprint (ex-data e))
-      )))
-
-;; TODO: update this to use new parser pipeline & new AST representation
-(defn interpret-repl
-  ([parsed ctx]
-   (let [orig-ctx @ctx
-         process (process/new-process)
-         pid (:pid @process)]
-     (try
-       (process/start-vm)
-       (with-bindings {#'self pid}
-         (let [result (interpret-ast parsed ctx)]
-           {:result result :ctx ctx :pid pid}))
-       (catch clojure.lang.ExceptionInfo e
-         (println "Ludus panicked!")
-         (println (ex-message e))
-         {:result :error :ctx (volatile! orig-ctx) :pid pid}))))
-  ([parsed ctx pid]
-   (let [orig-ctx @ctx]
-     (try
-       (process/start-vm)
-       (with-bindings {#'self pid}
-         (let [result (interpret-ast parsed ctx)]
-           {:result result :ctx ctx :pid pid}))
-       (catch clojure.lang.ExceptionInfo e
-         (println "Ludus panicked!")
-         (println (ex-message e))
-         {:result :error :ctx (volatile! orig-ctx) :pid pid}
-         )))))
-
-
-(comment
-  (def source "
-    let 2 = 1
-      ")
-
-  (println "")
-  (println "****************************************")
-  (println "*** *** NEW INTERPRETATION *** ***")
-  (println "")
-
-  (let [result (->> source
-                 scanner/scan
-                 :tokens
-                 (p/apply-parser g/script)
-                 interpret-safe
-                 show/show
-                 )]
-    (println result)
-    result))
-
+(+ 1 2)

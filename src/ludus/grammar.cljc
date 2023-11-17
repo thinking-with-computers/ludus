@@ -1,6 +1,13 @@
 (ns ludus.grammar
- 	(:require [ludus.parser-new :refer :all]
-  		[ludus.scanner :as scan]))
+ 	(:require
+    #?(
+       :clj [ludus.parser :refer :all]
+       :cljs [ludus.parser
+              :refer [choice quiet one+ zero+ group order-0 order-1 flat maybe weak-order]
+              :refer-macros [defp]
+              ]
+       )
+    ))
 
 (declare expression pattern)
 
@@ -276,43 +283,3 @@
 (defp script order-0 [nls?
                       (one+ script-line)
                       (quiet :eof)])
-
-
-;;; REPL
-
-(comment
-
-  (def source 
-    "if 1 then 2 else 3"
-    )
-
-  (def rule (literal))
-
-  (def tokens (-> source scan/scan :tokens))
-
-  (def result (apply-parser script tokens))
-
-
-  (defn report [node] 
-    (when (fail? node) (err-msg node))  
-    node)   
-
-  (defn clean [node]  
-    (if (map? node) 
-      (-> node    
-        (report)    
-        (dissoc     
-          ;:status     
-          :remaining  
-          :token) 
-        (update :data #(into [] (map clean) %)))    
-      node))  
-
-  (defn tap [x] (println "\n\n\n\n******NEW RUN\n\n:::=> " x "\n\n") x)   
-
-  (def my-data (-> result     
-                 clean   
-                 tap 
-                 ))
-
-  (println my-data))

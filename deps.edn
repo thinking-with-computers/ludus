@@ -1,7 +1,11 @@
 {
 	:deps {org.clojure/clojurescript {:mvn/version "1.11.121"}}
 
-	:aliases {:nREPL
-          {:extra-deps
-            {nrepl/nrepl {:mvn/version "0.9.0"}}}}
+	:aliases 
+	{:repl
+  {:exec-fn clojure.core.server/start-server
+   :exec-args {:name "repl"
+               :port 5555
+               :accept clojure.core.server/repl
+               :server-daemon false}}}
 }

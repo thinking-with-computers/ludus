@@ -181,7 +181,7 @@
          interpolate? false]
     (let [char (current-char scanner)]
       (case char
-        \{ (recur (update (advance scanner)) (str string char) true)
+        \{ (recur (advance scanner) (str string char) true)
         ; allow multiline strings
         \newline (recur (update (advance scanner) :line inc) (str string char) interpolate?)
         \" (if interpolate?
