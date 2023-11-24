@@ -11,7 +11,9 @@
 
 (declare expression pattern)
 
-(defp separator choice [:comma :newline :break])
+; (defp separator choice [:comma :newline :break])
+
+(defn separator [] (choice :separator [:comma :newline :break]))
 
 (defp separators quiet one+ separator)
 
@@ -24,6 +26,7 @@
 (defp splat group order-1 [(quiet :splat) :word])
 
 (defp patt-splat-able flat choice [:word :ignored :placeholder])
+
 (defp splattern group order-1 [(quiet :splat) (maybe patt-splat-able)])
 
 (defp literal flat choice [:nil :true :false :number :string])

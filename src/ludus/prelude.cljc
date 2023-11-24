@@ -3,6 +3,7 @@
     [ludus.data :as data]
     [ludus.show :as show]
     ;[ludus.draw :as d]
+    #?(:cljs [cljs.reader])
     ))
 
 ;; TODO: make eq, and, or special forms that short-circuit
@@ -96,9 +97,6 @@
            ::data/type ::data/clj
            :body ludus.show/show})
 
-(def sleep- {:name "sleep"
-             ::data/type ::data/clj
-             :body (fn [ms] (Thread/sleep ms))})
 (def conj- {:name "conj"
             ::data/type ::data/clj
             :body conj})
@@ -142,36 +140,85 @@
                       (contains? xs (inc i)) (nth xs (inc i))
                       :else default)))})
 
+(def types {
+            :keyword
+            #?(
+               :clj clojure.lang.Keyword
+               :cljs cljs.core/Keyword
+            )
+
+            :long
+            #?(
+               :clj java.lang.Long
+               :cljs js/Number
+            )
+
+            :double
+            #?(
+               :clj java.lang.Double
+               :cljs js/Number
+            )
+
+            :string
+            #?(
+               :clj java.lang.String
+               :cljs js/String
+            )
+
+            :boolean
+            #?(
+               :clj java.lang.Boolean
+               :cljs js/Boolean
+            )
+
+            :set
+            #?(
+               :clj clojure.lang.PersistentHashSet
+               :cljs cljs.core/PersistentHashSet
+            )
+
+            :vector
+            #?(
+               :clj clojure.lang.PersistentVector
+               :cljs cljs.core/PersistentVector
+            )
+
+            :map
+            #?(
+               :clj clojure.lang.PersistentArrayMap
+               :cljs cljs.core/PersistentArrayMap
+            )
+})
+
 (defn get-type [value]
   (let [t (type value)]
     (cond
       (nil? value) :nil
 
-      (= clojure.lang.Keyword t) :keyword
+      (= (:keyword types) t) :keyword
 
-      (= java.lang.Long t) :number
+      (= (:long types) t) :number
 
-      (= java.lang.Double t) :number
+      (= (:double types) t) :number
 
-      (= java.lang.String t) :string
+      (= (:string types) t) :string
 
-      (= java.lang.Boolean t) :boolean
+      (= (:boolean types) t) :boolean
 
-      (= clojure.lang.PersistentHashSet t) :set
+      (= (:set types) t) :set
 
       ;; tuples and lists
-      (= clojure.lang.PersistentVector t)
+      (= (:vector types) t)
       (if (= ::data/tuple (first value)) :tuple :list)
 
       ;; structs dicts namespaces refs
-      (= clojure.lang.PersistentArrayMap t)
+      (= (:map types) t)
       (cond
         (::data/type value) (case (::data/type value)
                               (::data/fn ::data/clj) :fn
                               ::data/ns :ns)
         (::data/dict value) :dict
         (::data/struct value) :struct
-
         :else :none
         ))))
 
@@ -181,11 +228,17 @@
 
 (defn strpart [kw] (->> kw str rest (apply str)))
 
+(def readstr
+  #?(
+     :clj read-string
+     :cljs cljs.reader/read-string
+  ))
+
 (def clj {:name "clj"
           ::data/type ::data/clj
           :body (fn [& args]
                   (println "Args passed: " args)
-                  (let [called (-> args first strpart read-string eval)
+                  (let [called (-> args first strpart readstr eval)
                         fn-args (rest args)]
                     (println "Fn: " called)
                     (println "Args: " fn-args)
@@ -215,7 +268,6 @@
               "set!" set!-
               "and" and-
               "or" or-
-              "sleep" sleep-
               "assoc" assoc-
               "conj" conj-
               "get" get-

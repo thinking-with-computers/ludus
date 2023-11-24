@@ -1,0 +1,13 @@
+;; shadow-cljs configuration
+{:deps true
+
+ :builds
+ {:node {:target :node-library
+        :output-to "target/js/ludus.js"
+      		:exports-fn ludus.core/run
+      		:asset-path "/js" 
+     			:modules {:main {:entries [ludus.core]}}}
+		:browser {:target :browser
+          		:output-dir "target/js"
+        				:asset-path "/assets"
+      						:modules {:main {:entries [ludus.core]}}}}}

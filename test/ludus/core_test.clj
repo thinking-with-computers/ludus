@@ -1,4 +1,4 @@
-(ns cludus.core-test
+(ns ludus.core-test
   (:require [clojure.test :refer :all]
             [cludus.core :refer :all]))
 

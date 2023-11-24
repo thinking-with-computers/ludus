@@ -5,10 +5,7 @@
   		[ludus.grammar :as grammar]
   		[ludus.interpreter :as interpreter]
   		[ludus.show :as show]
-  		[clojure.pprint :as pp]
   		))
-
-(println "Hi, there.")
 
 (defn run [source]
   (println (str "Running some ludus source: " source))
@@ -16,10 +13,11 @@
     (if (not-empty (:errors scanned))
       (do
         (println "I found some scanning errors!")
-        (pp/pprint (:errors scanned))
-        nil
+        (println (:errors scanned))
         )
       (let [parsed (parser/apply-parser grammar/script (:tokens scanned))]
+        (println "Scanned: ")
+        (println scanned)
         (if (parser/fail? parsed)
           (do
             (println "I found some parsing errors!")
@@ -28,12 +26,21 @@
             )
           (let [interpreted (interpreter/interpret source parsed)]
             (println (show/show interpreted))
-            interpreted
-            ))))))
+            interpreted))))))
 
-(run "
+(defn main! []
+  (println "Ludus says, hi there...")
+  
+  #?(:clj (println "...from Clojure.")
+     :cljs (println "...from ClojureScript."))
+  
+  (run ":foo")
+  (run "add (1, 2)")
+  (run "nil")
+  (run "if true then :foo else :bar")
+  )
 
-fn foo () -> :bar
-
-foo ()
-	")
+(run ":foo")
+(run "add (1, 2)")
+(run "nil")
+(run "if true then :foo else :bar")

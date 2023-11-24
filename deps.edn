@@ -1,11 +1,13 @@
-{
-	:deps {org.clojure/clojurescript {:mvn/version "1.11.121"}}
+{:deps
+ {org.clojure/clojurescript {:mvn/version "1.11.121"}
+  thheller/shadow-cljs {:mvn/version "2.26.0"}}
 
-	:aliases 
-	{:repl
+ :aliases
+ {:main
+  {:exec-fn ludus.core/main!}
+  :repl
   {:exec-fn clojure.core.server/start-server
    :exec-args {:name "repl"
                :port 5555
                :accept clojure.core.server/repl
-               :server-daemon false}}}
-}
+               :server-daemon false}}}}
