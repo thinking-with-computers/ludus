@@ -84,10 +84,16 @@
   [scanner]
   (subs (:source scanner) (:start scanner) (:current scanner)))
 
+(defn- char-code [char]
+  #?(
+     :clj (int char)
+     :cljs (.charCodeAt char 0)
+     ))
+
 (defn- char-in-range? [start end char]
   (and char
-    (>= (int char) (int start))
-    (<= (int char) (int end))))
+    (>= (char-code char) (char-code start))
+    (<= (char-code char) (char-code end))))
 
 (defn- digit? [c]
   (char-in-range? \0 \9 c))
