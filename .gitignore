@@ -21,3 +21,4 @@ pom.xml.asc
 ludus.sublime-workspace
 /ludus
 /out/
+/node_modules/
