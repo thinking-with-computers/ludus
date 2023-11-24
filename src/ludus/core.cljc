@@ -25,22 +25,4 @@
             nil
             )
           (let [interpreted (interpreter/interpret source parsed)]
-            (println (show/show interpreted))
-            interpreted))))))
-
-(defn main! []
-  (println "Ludus says, hi there...")
-  
-  #?(:clj (println "...from Clojure.")
-     :cljs (println "...from ClojureScript."))
-  
-  (run ":foo")
-  (run "add (1, 2)")
-  (run "nil")
-  (run "if true then :foo else :bar")
-  )
-
-(run ":foo")
-(run "add (1, 2)")
-(run "nil")
-(run "if true then :foo else :bar")
+            (show/show interpreted)))))))

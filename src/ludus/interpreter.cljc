@@ -844,20 +844,20 @@
   #?(
      :clj clojure.lang.ExceptionInfo
      :cljs js/Object
-  ))
+     ))
 
 ;; TODO: update this to use new parser pipeline & new AST representation
-(defn interpret [source parsed]
-  (try
-    (let [base-ctx (volatile! {::parent (volatile! prelude/prelude)})]
-      (interpret-ast parsed base-ctx))
-    (catch #?(:cljs :default :clj Throwable) e
-      (println "Ludus panicked!")
-      (println "On line" (get-in (ex-data e) [:ast :token :line]))
-      (println ">>> " (get-line source (get-in (ex-data e) [:ast :token :line])))
-      (println (ex-message e))
-      (pp/pprint (ex-data e)
-        ;;(System/exit 67)
-        ))))
-
-(+ 1 2)
+(defn interpret
+  ([source parsed] (interpret source parsed {}))
+  ([source parsed ctx]
+   (try
+     (let [base-ctx (volatile! {::parent (volatile! (merge prelude/prelude ctx))})]
+       (interpret-ast parsed base-ctx))
+     (catch #?(:cljs :default :clj Throwable) e
+       (println "Ludus panicked!")
+       (println "On line" (get-in (ex-data e) [:ast :token :line]))
+       (println ">>> " (get-line source (get-in (ex-data e) [:ast :token :line])))
+       (println (ex-message e))
+       (pp/pprint (ex-data e)
+         ;;(System/exit 67)
+         )))))

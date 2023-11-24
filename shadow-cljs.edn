@@ -1,6 +1,8 @@
 ;; shadow-cljs configuration
 {:deps true
 
+	:dev-http {8234 "target"}
+
  :builds
  {:node {:target :node-library
         :output-to "target/js/ludus.js"
@@ -9,5 +11,5 @@
      			:modules {:main {:entries [ludus.core]}}}
 		:browser {:target :browser
           		:output-dir "target/js"
-        				:asset-path "/assets"
-      						:modules {:main {:entries [ludus.core]}}}}}
+        				:asset-path "target"
+      						:modules {:main {:init-fn ludus.web/init}}}}}
