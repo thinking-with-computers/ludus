@@ -4,6 +4,7 @@
     [ludus.show :as show]
     ;[ludus.draw :as d]
     #?(:cljs [cljs.reader])
+    #?(:cljs [goog.object :as o])
     ))
 
 ;; TODO: make eq, and, or special forms that short-circuit
@@ -145,50 +146,50 @@
             #?(
                :clj clojure.lang.Keyword
                :cljs cljs.core/Keyword
-            )
+               )
 
             :long
             #?(
                :clj java.lang.Long
                :cljs js/Number
-            )
+               )
 
             :double
             #?(
                :clj java.lang.Double
                :cljs js/Number
-            )
+               )
 
             :string
             #?(
                :clj java.lang.String
                :cljs js/String
-            )
+               )
 
             :boolean
             #?(
                :clj java.lang.Boolean
                :cljs js/Boolean
-            )
+               )
 
             :set
             #?(
                :clj clojure.lang.PersistentHashSet
                :cljs cljs.core/PersistentHashSet
-            )
+               )
 
             :vector
             #?(
                :clj clojure.lang.PersistentVector
                :cljs cljs.core/PersistentVector
-            )
+               )
 
             :map
             #?(
                :clj clojure.lang.PersistentArrayMap
                :cljs cljs.core/PersistentArrayMap
-            )
-})
+               )
+            })
 
 (defn get-type [value]
   (let [t (type value)]
@@ -232,17 +233,25 @@
   #?(
      :clj read-string
      :cljs cljs.reader/read-string
-  ))
+     ))
+
+(defn- resolve-str [str]
+  #?(
+     :clj (eval str)
+     :cljs (.bind (o/get js/window str) js/window)
+     ))
 
 (def clj {:name "clj"
           ::data/type ::data/clj
           :body (fn [& args]
                   (println "Args passed: " args)
-                  (let [called (-> args first strpart readstr eval)
+                  (let [called (-> args first strpart readstr resolve-str)
                         fn-args (rest args)]
                     (println "Fn: " called)
-                    (println "Args: " fn-args)
-                    (apply called fn-args)))})
+                    (println "Args: " (clj->js fn-args))
+                    #?(
+                       :clj(apply called fn-args)
+                       :cljs (.apply called js/window (clj->js fn-args)))))})
 
 (def count- {:name "count"
              ::data/type ::data/clj
