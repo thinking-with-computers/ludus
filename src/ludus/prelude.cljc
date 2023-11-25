@@ -241,17 +241,17 @@
      :cljs (.bind (o/get js/window str) js/window)
      ))
 
-(def clj {:name "clj"
-          ::data/type ::data/clj
-          :body (fn [& args]
-                  (println "Args passed: " args)
-                  (let [called (-> args first strpart readstr resolve-str)
-                        fn-args (rest args)]
-                    (println "Fn: " called)
-                    (println "Args: " (clj->js fn-args))
-                    #?(
-                       :clj(apply called fn-args)
-                       :cljs (.apply called js/window (clj->js fn-args)))))})
+(def extern {:name "extern"
+             ::data/type ::data/clj
+             :body (fn [& args]
+                     ;(println "Args passed: " args)
+                     (let [called (-> args first strpart readstr resolve-str)
+                           fn-args (rest args)]
+                       ;(println "Fn: " called)
+                       ;(println "Args: " (clj->js fn-args))
+                       #?(
+                          :clj(apply called fn-args)
+                          :cljs (.apply called js/window (clj->js fn-args)))))})
 
 (def count- {:name "count"
              ::data/type ::data/clj
@@ -281,7 +281,7 @@
               "conj" conj-
               "get" get-
               "type" type-
-              "clj" clj
+              "extern" extern
               "first" first-
               "rest" rest-
               "nth" nth-
