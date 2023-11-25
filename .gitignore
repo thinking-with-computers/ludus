@@ -22,3 +22,4 @@ ludus.sublime-workspace
 /ludus
 /out/
 /node_modules/
+.shadow-cljs
