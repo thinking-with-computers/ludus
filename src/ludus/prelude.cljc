@@ -250,7 +250,7 @@
                        ;(println "Fn: " called)
                        ;(println "Args: " (clj->js fn-args))
                        #?(
-                          :clj(apply called fn-args)
+                          :clj (apply called fn-args)
                           :cljs (.apply called js/window (clj->js fn-args)))))})
 
 (def count- {:name "count"
