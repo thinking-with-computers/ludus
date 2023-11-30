@@ -1,8 +1,7 @@
 (ns ludus.repl
   (:require
     [ludus.scanner :as scanner]
-    ;[ludus.parser :as parser]
-    [ludus.parser-new :as p]
+    [ludus.parser :as p]
     [ludus.grammar :as g]
     [ludus.interpreter :as interpreter]
     [ludus.prelude :as prelude]
@@ -83,8 +82,7 @@
 (defn repl-loop []
   (let [session-atom @current-session
         session @session-atom
-        orig-ctx (:ctx session)
-        pid (:pid session)]
+        orig-ctx (:ctx session)]
     (print (str (:name session) prompt))
     (flush)
     (let [input (read-line)]
@@ -102,18 +100,14 @@
             (do
               (println (p/err-msg parsed))
               (recur))
-            (let [{result :result ctx :ctx pid- :pid}
-                  (if pid
-                    (interpreter/interpret-repl parsed orig-ctx pid)
-                    (interpreter/interpret-repl parsed orig-ctx))]
+            (let [{result :result ctx :ctx}
+                  (interpreter/interpret-repl parsed orig-ctx)]
               (if (= result :error)
                 (recur)
                 (do
                   (println (show/show result))
                   (when (not (= @ctx @orig-ctx))
                     (swap! session-atom #(assoc % :ctx ctx)))
-                  (when (not (= pid pid-))
-                    (swap! session-atom #(assoc % :pid pid-)))
                   (recur))))))))))
 
 (defn launch []

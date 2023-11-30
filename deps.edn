@@ -1,6 +1,7 @@
 {:deps
  {org.clojure/clojurescript {:mvn/version "1.11.121"}
   thheller/shadow-cljs {:mvn/version "2.26.0"}
+  babashka/fs {:mvn/version "0.4.19"}
  }
 
  :aliases

@@ -769,7 +769,7 @@
 
     :match (interpret-match ast ctx)
 
-    :cond-expr (interpret-cond ast ctx)
+    :when-expr (interpret-cond ast ctx)
 
     :fn-expr (interpret-fn ast ctx)
 
@@ -783,7 +783,7 @@
 
     :ref-expr (interpret-ref ast ctx)
 
-    :when-expr (interpret-ast (-> ast :data first) ctx)
+    ;:when-expr (interpret-ast (-> ast :data first) ctx)
 
     :recur-call
     {::data/recur true :args (interpret-ast (-> ast :data first) ctx)}
@@ -859,5 +859,29 @@
        (println ">>> " (get-line source (get-in (ex-data e) [:ast :token :line])))
        (println (ex-message e))
        (pp/pprint (ex-data e)
-         ;;(System/exit 67)
+         #?(:clj (System/exit 67))
          )))))
+
+;; TODO: update this to use new parser pipeline & new AST representation
+(defn interpret-file [source path parsed]
+  (try 
+    (let [base-ctx (volatile! {::parent (volatile! prelude/prelude) :file path})]
+      (interpret-ast parsed base-ctx))
+    (catch clojure.lang.ExceptionInfo e
+      (println "Ludus panicked in" path)
+      (println "On line" (get-in (ex-data e) [:ast :token :line]))
+      (println ">>> " (get-line source (get-in (ex-data e) [:ast :token :line])))
+      (println (ex-message e))
+      (System/exit 67))))
+
+;; TODO: update this to use new parser pipeline & new AST representation
+(defn interpret-repl
+  ([parsed ctx]
+   (let [orig-ctx @ctx]
+     (try
+       (let [result (interpret-ast parsed ctx)]
+         {:result result :ctx ctx})
+       (catch clojure.lang.ExceptionInfo e
+         (println "Ludus panicked!")
+         (println (ex-message e))
+         {:result :error :ctx (volatile! orig-ctx)})))))
