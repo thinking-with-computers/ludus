@@ -626,9 +626,10 @@
       (throw (ex-info (str "`use` may only use namespaces; " (-> word :data first) " is not a namespace") {:ast ast}))
       (let [ns-entries (dissoc ns ::data/type ::data/name ::data/struct)
             ns-keys (map kw->str (keys ns-entries))
-            ns-words (map str->word ns-keys)
+            ns-words (into [] (map str->word) ns-keys)
             implied-pattern {:type :struct-pattern :data ns-words}
-            sugared-let {:type :let-expr :data [implied-pattern ns]}]
+            implied-synthetic {:type :synthetic :data [word]}
+            sugared-let {:type :let-expr :data [implied-pattern implied-synthetic]}]
         (interpret-let sugared-let ctx)
         )
       )
@@ -918,17 +919,22 @@
       (println "On line" (get-in (ex-data e) [:ast :token :line]))
       (println ">>> " (get-line source (get-in (ex-data e) [:ast :token :line])))
       (println (ex-message e))
-      (pp/pprint (ex-data e)
-        ))))
+      (pp/pprint (ex-data e))
+      (throw e)
+      )))
 
 ;; repl
 (do
 
-  (def source "@{foo}")
+  (def source "
+let one = 1
+ns foo {:zero 0, :one 1, :two 2}
+use foo
+two
+    ")
 
   (def tokens (-> source scanner/scan :tokens))
 
-  (def ast (p/apply-parser g/struct-pattern tokens))
-  (println ast)
-  ;; (interpret-safe source ast {})
+  (def ast (p/apply-parser g/script tokens))
+  (interpret-safe source ast {})
   )
