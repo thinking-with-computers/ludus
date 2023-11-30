@@ -10,7 +10,7 @@
     [ludus.scanner :as s]
     ))
 
-(declare expression pattern binding non-binding simple)
+(declare expression pattern binding-expr non-binding simple)
 
 (defp separator choice [:comma :newline :break])
 
@@ -234,11 +234,11 @@
 
 (defp compound flat choice [match loop-expr if-expr when-expr do-expr block])
 
-(defp binding flat choice [fn-named fn-compound let-expr ref-expr])
+(defp binding-expr flat choice [fn-named let-expr ref-expr])
 
 (defp non-binding flat choice [simple compound])
 
-(defp expression flat choice [binding non-binding])
+(defp expression flat choice [binding-expr non-binding])
 
 (defp test-expr group order-1 [(quiet :test) :string non-binding])
 

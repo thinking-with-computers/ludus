@@ -797,7 +797,8 @@
 
     :when-expr (interpret-cond ast ctx)
 
-    :fn-expr (interpret-fn ast ctx)
+    :fn-named (interpret-fn ast ctx)
+    :lambda (interpret-fn ast ctx)
 
     :do-expr (interpret-do ast ctx)
 
@@ -931,7 +932,7 @@
 (do
 
   (def source "
-    two
+    :foo
     ")
 
   (def tokens (-> source scanner/scan :tokens))

@@ -4,7 +4,7 @@
     [ludus.parser :as p]
     [ludus.grammar :as g]
     [ludus.interpreter :as interpreter]
-    [ludus.prelude :as prelude]
+    [ludus.base :as base]
     [ludus.show :as show]
     [ludus.data :as data]
     ;[ludus.process :as process]
@@ -22,7 +22,7 @@
   (println "\nGoodbye!")
   (System/exit 0))
 
-(def base-ctx (merge prelude/prelude ;process/process
+(def base-ctx (merge base/base ;process/process
                 {::repl true
                  "repl"
                  {::data/struct true
