@@ -25,6 +25,7 @@
    "ref" :ref ;; impl
    "then" :then ;; impl
    "true" :true ;; impl -> literal word
+   "use" :use ;; wip
    "with" :with ;; impl
    "when" :when ;; impl, replaces cond
 

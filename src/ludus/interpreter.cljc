@@ -613,6 +613,27 @@
 ;                      interpret-result))
 ;                  ))))
 
+(defn- kw->str [kw] (apply str (rest (str kw))))
+
+(defn- str->word [wordstr] {:type :word :data [wordstr]})
+
+(defn- interpret-use [ast ctx]
+  (let [data (:data ast)
+        word (first data)
+        ns (resolve-word word ctx)]
+    (println "use: " ns)
+    (if (not (= (::data/type ns) ::data/ns))
+      (throw (ex-info (str "`use` may only use namespaces; " (-> word :data first) " is not a namespace") {:ast ast}))
+      (let [ns-entries (dissoc ns ::data/type ::data/name ::data/struct)
+            ns-keys (map kw->str (keys ns-entries))
+            ns-words (map str->word ns-keys)
+            implied-pattern {:type :struct-pattern :data ns-words}
+            sugared-let {:type :let-expr :data [implied-pattern ns]}]
+        (interpret-let sugared-let ctx)
+        )
+      )
+    ))
+
 (defn- interpret-ref [ast ctx]
   (let [data (:data ast)
         name (-> data first :data first) 
@@ -779,6 +800,8 @@
 
     :ns-expr (interpret-ns ast ctx)
 
+    :use-expr (interpret-use ast ctx)
+
     ;; :import-expr (interpret-import ast ctx)
 
     :ref-expr (interpret-ref ast ctx)
@@ -885,3 +908,27 @@
          (println "Ludus panicked!")
          (println (ex-message e))
          {:result :error :ctx (volatile! orig-ctx)})))))
+
+(defn interpret-safe [source parsed ctx]
+  (try
+    (let [base-ctx (volatile! {::parent (volatile! (merge prelude/prelude ctx))})]
+      (interpret-ast parsed base-ctx))
+    (catch Throwable e
+      (println "Ludus panicked!")
+      (println "On line" (get-in (ex-data e) [:ast :token :line]))
+      (println ">>> " (get-line source (get-in (ex-data e) [:ast :token :line])))
+      (println (ex-message e))
+      (pp/pprint (ex-data e)
+        ))))
+
+;; repl
+(do
+
+  (def source "@{foo}")
+
+  (def tokens (-> source scanner/scan :tokens))
+
+  (def ast (p/apply-parser g/struct-pattern tokens))
+  (println ast)
+  ;; (interpret-safe source ast {})
+  )

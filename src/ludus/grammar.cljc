@@ -251,7 +251,7 @@
                             	(zero+ struct-entry)
                             	(quiet :rbrace)])
 
-(defp use-expr group order-1 [:use :word])
+(defp use-expr group order-1 [(quiet :use) :word])
 
 (defp toplevel flat choice [import-expr
                             ns-expr
