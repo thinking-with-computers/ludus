@@ -89,16 +89,6 @@
                           	(quiet :rbrace)
                           	])
 
-(defp if-expr group order-1 [(quiet :if) 
-                             nls? 
-                             simple 
-                             nls? 
-                             (quiet :then) 
-                             expression 
-                             nls? 
-                             (quiet :else) 
-                             expression])
-
 (defp when-lhs flat choice [simple :placeholder :else])
 
 (defp when-clause group weak-order [when-lhs (quiet :rarrow) expression])
@@ -115,6 +105,18 @@
                              	(quiet :equals)
                              	nls?
                              	non-binding])
+
+(defp condition flat choice [simple let-expr])
+
+(defp if-expr group order-1 [(quiet :if) 
+                             nls? 
+                             condition
+                             nls? 
+                             (quiet :then) 
+                             expression 
+                             nls? 
+                             (quiet :else) 
+                             expression])
 
 (defp tuple-entry weak-order [non-binding separators])
  
