@@ -20,6 +20,7 @@ pom.xml.asc
 sandbox
 ludus.sublime-workspace
 ludus
+!src/ludus
 out/
 node_modules/
 .shadow-cljs
