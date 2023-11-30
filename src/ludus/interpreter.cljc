@@ -420,6 +420,7 @@
           (get map kw))))))
 
 (defn- call-fn [lfn args ctx]
+  (println "Calling function " (:name lfn))
   (cond
     (= ::data/partial (first args))
     {::data/type ::data/clj
@@ -932,12 +933,19 @@
 (do
 
   (def source "
-    :foo
+    let foo = fn () -> :foo
+    fn bar () -> :bar
+    & foo ()
+    bar ()
     ")
 
   (def tokens (-> source scanner/scan :tokens))
 
   (def ast (p/apply-parser g/script tokens))
 
-  (interpret-safe source ast {})
+  (def result (interpret-safe source ast {}))
+
+  ;(pp/pprint result)
+
+  result
   )
