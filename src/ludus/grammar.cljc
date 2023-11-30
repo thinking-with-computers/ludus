@@ -7,9 +7,10 @@
               :refer-macros [defp]
               ]
        )
+    [ludus.scanner :as s]
     ))
 
-(declare expression pattern)
+(declare expression pattern binding non-binding simple)
 
 (defp separator choice [:comma :newline :break])
 
@@ -63,7 +64,7 @@
                                    	(quiet :rbrace)
                                    	])
 
-(defp guard order-0 [(quiet :if) expression])
+(defp guard order-0 [(quiet :if) simple])
 
 (defp pattern flat choice [literal 
                            :ignored 
@@ -81,16 +82,16 @@
 
 (defp match-entry weak-order [match-clause terminators])
 
-(defp match-old group order-1 [(quiet :match) expression nls? 
-                              	(quiet :with) (quiet :lbrace)
-                              	(quiet (zero+ terminator))
-                              	(one+ match-entry)
-                              	(quiet :rbrace)
-                              	])
+(defp match group order-1 [(quiet :match) simple nls? 
+                          	(quiet :with) (quiet :lbrace)
+                          	(quiet (zero+ terminator))
+                          	(one+ match-entry)
+                          	(quiet :rbrace)
+                          	])
 
 (defp if-expr group order-1 [(quiet :if) 
                              nls? 
-                             expression 
+                             simple 
                              nls? 
                              (quiet :then) 
                              expression 
@@ -98,46 +99,31 @@
                              (quiet :else) 
                              expression])
 
-(defp cond-lhs flat choice [expression :placeholder :else])
+(defp when-lhs flat choice [simple :placeholder :else])
 
-(defp cond-clause group weak-order [cond-lhs (quiet :rarrow) expression])
+(defp when-clause group weak-order [when-lhs (quiet :rarrow) expression])
 
-(defp cond-entry weak-order [cond-clause terminators])
+(defp when-entry weak-order [when-clause terminators])
 
-(defp cond-old group order-1 [(quiet :cond) (quiet :lbrace)
-                              (quiet (zero+ terminator))
-                              (one+ cond-entry)
-                              (quiet :rbrace)])
-
-(defp match group order-1 [expression nls? 
-                           (quiet :is) (quiet :lbrace)
-                           (quiet (zero+ terminator))
-                           (one+ match-entry)
-                           (quiet :rbrace)])
-
-(defp cond-expr group order-1 [(quiet :lbrace)
+(defp when-expr group order-1 [(quiet :when) (quiet :lbrace)
                                (quiet (zero+ terminator))
-                               (one+ cond-entry)
+                               (one+ when-entry)
                                (quiet :rbrace)])
-
-(defp when-tail flat choice [match cond-expr])
-
-(defp when-expr weak-order [(quiet :when) when-tail])
 
 (defp let-expr group order-1 [(quiet :let)
                              	pattern
                              	(quiet :equals)
                              	nls?
-                             	expression])
+                             	non-binding])
 
-(defp tuple-entry weak-order [expression separators])
+(defp tuple-entry weak-order [non-binding separators])
  
 (defp tuple group order-1 [(quiet :lparen)
                          		(quiet (zero+ separator))
                          		(zero+ tuple-entry)
                          		(quiet :rparen)])
 
-(defp list-term flat choice [splat expression])
+(defp list-term flat choice [splat non-binding])
 
 (defp list-entry order-1 [list-term separators])
 
@@ -151,7 +137,7 @@
                                 	(zero+ list-entry)
                                 	(quiet :rbrace)])
 
-(defp pair group order-0 [:keyword expression])
+(defp pair group order-0 [:keyword non-binding])
 
 (defp struct-term flat choice [:word pair])
 
@@ -171,7 +157,7 @@
                          	(zero+ dict-entry)
                          	(quiet :rbrace)])
 
-(defp arg-expr flat choice [:placeholder expression])
+(defp arg-expr flat choice [:placeholder non-binding])
 
 (defp arg-entry weak-order [arg-expr separators])
 
@@ -192,21 +178,19 @@
 
 (defp fn-entry order-1 [fn-clause terminators])
 
-(defp compound group order-1 [(quiet :lbrace)
-                            		nls?
-                             	(maybe :string)
-                             	(quiet (zero+ terminator))
-                             	(one+ fn-entry)
-                             	(quiet :rbrace)
-                             	])
+(defp fn-compound group order-1 [(quiet :lbrace)
+                               		nls?
+                                	(maybe :string)
+                                	(quiet (zero+ terminator))
+                                	(one+ fn-entry)
+                                	(quiet :rbrace)
+                                	])
 
-(defp clauses flat choice [fn-clause compound])
+(defp clauses flat choice [fn-clause fn-compound])
 
-(defp named group order-1 [:word clauses])
+(defp fn-named group order-1 [(quiet :fn) :word clauses])
 
-(defp body flat choice [fn-clause named])
-
-(defp fn-expr group order-1 [(quiet :fn) body])
+(defp lambda group order-1 [(quiet :fn) fn-clause])
 
 (defp block-line weak-order [expression terminators])
 
@@ -226,13 +210,13 @@
 
 (defp ref-expr group order-1 [(quiet :ref) :word (quiet :equals) expression])
 
-(defp spawn group order-1 [(quiet :spawn) expression])
+; (defp spawn group order-1 [(quiet :spawn) expression])
 
-(defp receive group order-1 [(quiet :receive) (quiet :lbrace)
-                            	(quiet (zero+ terminator))
-                            	(one+ match-entry)
-                            	(quiet :rbrace)
-                            	])
+; (defp receive group order-1 [(quiet :receive) (quiet :lbrace)
+;                             	(quiet (zero+ terminator))
+;                             	(one+ match-entry)
+;                             	(quiet :rbrace)
+;                             	])
 
 (defp compound-loop group order-0 [(quiet :lbrace)
                                  		(quiet (zero+ terminator))
@@ -242,28 +226,19 @@
 (defp loop-expr group order-1 [(quiet :loop) tuple (quiet :with)
                               	(flat (choice :loop-body [fn-clause compound-loop]))])
 
-(defp expression flat choice [fn-expr
-                             	;match
-                             	loop-expr
-                             	let-expr
-                             	if-expr 
-                             	;cond-expr
-                              when-expr
-                             	spawn
-                             	receive
-                             	synthetic
-                              recur-call
-                             	block 
-                             	do-expr
-                             	ref-expr
-                             	struct-literal
-                             	dict
-                             	list-literal
-                             	set-literal
-                             	tuple 
-                             	literal])
+(defp collection flat choice [struct-literal dict list-literal set-literal tuple])
 
-(defp test-expr group order-1 [(quiet :test) :string expression])
+(defp simple flat choice [literal collection synthetic recur-call lambda])
+
+(defp compound flat choice [match loop-expr if-expr when-expr do-expr block])
+
+(defp binding flat choice [fn-named fn-compound let-expr ref-expr])
+
+(defp non-binding flat choice [simple compound])
+
+(defp expression flat choice [binding non-binding])
+
+(defp test-expr group order-1 [(quiet :test) :string non-binding])
 
 (defp import-expr group order-1 [(quiet :import) :string (quiet :as) :word])
 
@@ -274,10 +249,13 @@
                             	(zero+ struct-entry)
                             	(quiet :rbrace)])
 
+(defp use-expr group order-1 [(quiet :use :word)])
+
 (defp toplevel flat choice [import-expr
                             ns-expr
                             expression 
-                            test-expr])
+                            test-expr
+                            use-expr])
 
 (defp script-line weak-order [toplevel terminators])
 

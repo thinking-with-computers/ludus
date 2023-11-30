@@ -17,7 +17,7 @@
    "import" :import ;; impl
    "let" :let ;; impl
    "loop" :loop ;; impl
-   ; "match" :match ;; impl
+   "match" :match ;; impl
    "nil" :nil ;; impl -> literal word
    "ns" :ns ;; impl
    ;; "panic!" :panic ;; impl (should be a function)
@@ -26,6 +26,7 @@
    "then" :then ;; impl
    "true" :true ;; impl -> literal word
    "with" :with ;; impl
+   "when" :when ;; impl, replaces cond
 
    ;; actor model/concurrency
    "receive" :receive
@@ -38,9 +39,7 @@
    ;; others
    ;;"repeat" :repeat ;; syntax sugar over "loop": still unclear what this syntax could be
    "test" :test
-   "when" :when
    ;; "module" :module ;; not necessary if we don't have datatypes
-   "is" :is
    })
 
 (def literal-words {
