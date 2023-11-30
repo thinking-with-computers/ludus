@@ -4,6 +4,7 @@
     [ludus.grammar :as g]
     [ludus.scanner :as scanner]
     [ludus.ast :as ast]
+    [ludus.base :as base]
     [ludus.prelude :as prelude]
     [ludus.data :as data]
     ;;[ludus.loader :as loader]
@@ -263,7 +264,7 @@
         type (-> data second :data first)]
     (cond
       (contains? ctx name) {:success false :reason (str "Name " name "is already bound") :code :name-error}
-      (not (= type (prelude/get-type value))) {:success false :reason (str "Could not match " pattern " with " value ", because types do not match")}
+      (not (= type (base/get-type value))) {:success false :reason (str "Could not match " pattern " with " value ", because types do not match")}
       :else {:success true :ctx {name value}})))
 
 (defn- match [pattern value ctx-vol]
@@ -588,6 +589,9 @@
          (let [[k v] kv]
            [k (f v)]))))
 
+(defn- map-keys [f]
+  (map (fn [[k v]] [(f k) v])))
+
 ; (defn- interpret-import [ast ctx]
 ;            (let [data (:data ast)
 ;                  path (-> data first :data first)
@@ -852,30 +856,30 @@
     (let [lines (clojure.string/split source #"\n")]
       (clojure.string/trim (nth lines (dec line))))))
 
-;; TODO: update this to use new parser pipeline & new AST representation
-; (defn interpret-file [source path parsed]
-;   (try 
-;     (let [base-ctx (volatile! {::parent (volatile! prelude/prelude) :file path})]
-;       (interpret-ast parsed base-ctx))
-;     (catch clojure.lang.ExceptionInfo e
-;       (println "Ludus panicked in" path)
-;       (println "On line" (get-in (ex-data e) [:ast :token :line]))
-;       (println ">>> " (get-line source (get-in (ex-data e) [:ast :token :line])))
-;       (println (ex-message e))
-;       (System/exit 67))))
-
 (def runtime-error
   #?(
      :clj clojure.lang.ExceptionInfo
      :cljs js/Object
      ))
 
+(defn- ns->ctx [ns]
+  (into {} (map-keys kw->str) ns))
+
+(def ludus-prelude 
+  (let [scanned (scanner/scan prelude/prelude)
+        parsed (p/apply-parser g/script (:tokens scanned))
+        base-ctx (volatile! {::parent (volatile! base/base)})
+        interpreted (interpret-ast parsed base-ctx)
+        namespace (dissoc interpreted ::data/type ::data/name ::data/struct)
+        context (ns->ctx namespace)]
+    context))
+
 ;; TODO: update this to use new parser pipeline & new AST representation
 (defn interpret
   ([source parsed] (interpret source parsed {}))
   ([source parsed ctx]
    (try
-     (let [base-ctx (volatile! {::parent (volatile! (merge prelude/prelude ctx))})]
+     (let [base-ctx (volatile! {::parent (volatile! (merge ludus-prelude ctx))})]
        (interpret-ast parsed base-ctx))
      (catch #?(:cljs :default :clj Throwable) e
        (println "Ludus panicked!")
@@ -889,7 +893,7 @@
 ;; TODO: update this to use new parser pipeline & new AST representation
 (defn interpret-file [source path parsed]
   (try 
-    (let [base-ctx (volatile! {::parent (volatile! prelude/prelude) :file path})]
+    (let [base-ctx (volatile! {::parent (volatile! ludus-prelude) :file path})]
       (interpret-ast parsed base-ctx))
     (catch clojure.lang.ExceptionInfo e
       (println "Ludus panicked in" path)
@@ -912,7 +916,7 @@
 
 (defn interpret-safe [source parsed ctx]
   (try
-    (let [base-ctx (volatile! {::parent (volatile! (merge prelude/prelude ctx))})]
+    (let [base-ctx (volatile! {::parent (volatile! (merge ludus-prelude ctx))})]
       (interpret-ast parsed base-ctx))
     (catch Throwable e
       (println "Ludus panicked!")
@@ -927,14 +931,12 @@
 (do
 
   (def source "
-let one = 1
-ns foo {:zero 0, :one 1, :two 2}
-use foo
-two
+    two
     ")
 
   (def tokens (-> source scanner/scan :tokens))
 
   (def ast (p/apply-parser g/script tokens))
+
   (interpret-safe source ast {})
   )
