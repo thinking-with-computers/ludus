@@ -7,6 +7,7 @@
     [ludus.base :as base]
     [ludus.prelude :as prelude]
     [ludus.data :as data]
+    [ludus.show :as show]
     ;;[ludus.loader :as loader]
     [clojure.pprint :as pp]
     [clojure.set]
@@ -18,6 +19,9 @@
 ;; that's for later, tho
 (defn- ludus-resolve [key ctx-vol]
   (let [ctx @ctx-vol]
+    (println "Resolving " key)
+    (println "Current context: " (keys ctx))
+    ;(println "Parent context: " (keys (if (::parent ctx) (deref (::parent ctx)) {})))
     (if (contains? ctx key)
       (get ctx key)
       (if (contains? ctx ::parent)
@@ -420,7 +424,7 @@
           (get map kw))))))
 
 (defn- call-fn [lfn args ctx]
-  (println "Calling function " (:name lfn))
+  ; (println "Calling function " (:name lfn))
   (cond
     (= ::data/partial (first args))
     {::data/type ::data/clj
@@ -873,6 +877,7 @@
         interpreted (interpret-ast parsed base-ctx)
         namespace (dissoc interpreted ::data/type ::data/name ::data/struct)
         context (ns->ctx namespace)]
+    ;(println context)
     context))
 
 ;; TODO: update this to use new parser pipeline & new AST representation
@@ -938,19 +943,17 @@
     ))
 
 ;; repl
-(do
+(comment
   
-  (def source "fn foo { \"This is a docstring\"; (:foo) -> :foo; (:bar) -> :bar; (_) -> :something_else }
-    :doc (foo)
+  (def source "
     ")
 
   (def tokens (-> source scanner/scan :tokens))
 
   (def ast (p/apply-parser g/script tokens))
 
-  (def result (interpret-safe source ast {}))
+  ;(def result (interpret-safe source ast {}))
 
-  (-> ast prettify-ast pp/pprint)
-
-  result
+  (-> ast prettify-ast println)
+  
   )

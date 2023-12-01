@@ -22,7 +22,7 @@
   (println "\nGoodbye!")
   (System/exit 0))
 
-(def base-ctx (merge base/base ;process/process
+(def repl-ctx (merge interpreter/ludus-prelude
                 {::repl true
                  "repl"
                  {::data/struct true
@@ -35,12 +35,12 @@
                    :body (fn 
                            ([]
                             (let [session @current-session]
-                              (swap! session #(assoc % :ctx (volatile! base-ctx)))
+                              (swap! session #(assoc % :ctx (volatile! repl-ctx)))
                               :ok))
                            ([name]
                             (if-let [session (get @sessions name)]
                               (do
-                                (swap! session #(assoc % :ctx (volatile! base-ctx)))
+                                (swap! session #(assoc % :ctx (volatile! repl-ctx)))
                                 :ok)
                               (do 
                                 (println "No session named" name)
@@ -74,7 +74,7 @@
 
 (defn- new-session [name]
   (let [session (atom {:name name
-                       :ctx (volatile! base-ctx)
+                       :ctx (volatile! repl-ctx)
                        :history []})]
     (swap! sessions #(assoc % name session))
     session))
