@@ -297,7 +297,7 @@
 
       :struct-pattern (match-struct pattern value ctx-vol)
 
-      (throw (ex-info "Unknown pattern on line " {:ast pattern :value value})))))
+      (throw (ex-info (str "Unknown pattern type " (:type pattern)) {:ast pattern :value value})))))
 
 (defn- update-ctx [ctx new-ctx]
   (merge ctx new-ctx))
@@ -566,10 +566,10 @@
 (defn- build-named-fn [ast ctx data]
   (let [name (-> data first :data first)
         body (-> data second)
-        compound? (= :compound (:type body))]
+        compound? (= :fn-compound (:type body))]
     (if compound?
       (if (= :string (-> body :data first :type))
-        (build-fn ast ctx name (map :data (rest (:data body))) (-> body :data first :data))
+        (build-fn ast ctx name (map :data (rest (:data body))) (-> body :data first :data first))
         (build-fn ast ctx name (map :data (:data body))))
       (build-fn ast ctx name [(:data body)]))))
 
@@ -577,7 +577,7 @@
   (let [data (:data ast)]
     (case (:type (first data))
       :fn-clause (build-fn ast ctx :anon (-> data first :data))
-      :named (build-named-fn ast ctx (-> data first :data)))))
+      :word (build-named-fn ast ctx data))))
 
 (defn- interpret-do [ast ctx]
   (let [data (:data ast)
@@ -798,8 +798,7 @@
 
     :when-expr (interpret-cond ast ctx)
 
-    :fn-named (interpret-fn ast ctx)
-    :lambda (interpret-fn ast ctx)
+    (:fn-named :lambda) (interpret-fn ast ctx)
 
     :do-expr (interpret-do ast ctx)
 
@@ -929,14 +928,20 @@
       (throw e)
       )))
 
+(defn prettify-ast [ast]
+  (cond
+    (not (map? ast)) ast
+    (not (:data ast)) (dissoc ast :remaining :token)
+    :else (let [{:keys [type data]} ast]
+            {:type type ;:token token
+             :data (into [] (map prettify-ast) data)})
+    ))
+
 ;; repl
 (do
-
-  (def source "
-    let foo = fn () -> :foo
-    fn bar () -> :bar
-    & foo ()
-    bar ()
+  
+  (def source "fn foo { \"This is a docstring\"; (:foo) -> :foo; (:bar) -> :bar; (_) -> :something_else }
+    :doc (foo)
     ")
 
   (def tokens (-> source scanner/scan :tokens))
@@ -945,7 +950,7 @@
 
   (def result (interpret-safe source ast {}))
 
-  ;(pp/pprint result)
+  (-> ast prettify-ast pp/pprint)
 
   result
   )
