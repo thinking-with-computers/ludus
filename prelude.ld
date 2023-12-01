@@ -18,7 +18,7 @@ fn count {
 	(xs as :tuple) -> extern (:dec, extern (:count, xs))
 }
 
-fn clist {
+fn list {
 	"Takes a tuple, and returns it as a list."
 	(xs as :tuple) -> extern (:into, [], extern (:rest, xs))
 }
@@ -52,8 +52,11 @@ ns math {
 print ("From Prelude, hello.")
 
 ns prelude {
+	first
+	nth
 	conj
-	clist
+	fold
+	list
 }
 
 print (prelude)
