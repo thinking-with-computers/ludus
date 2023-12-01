@@ -1,4 +1,6 @@
-target/
+target/js
+target/classes
+target/stale
 classes/
 checkouts/
 profiles.clj
@@ -19,7 +21,8 @@ pom.xml.asc
 **/.DS_Store
 sandbox
 ludus.sublime-workspace
-ludus
+./ludus
+!./src/ludus
 out/
 node_modules/
 .shadow-cljs
