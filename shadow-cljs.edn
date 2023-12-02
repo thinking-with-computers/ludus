@@ -6,9 +6,8 @@
  :builds
  {:node {:target :node-library
         :output-to "target/js/ludus.js"
-      		:exports-fn ludus.core/run
-      		:asset-path "/js" 
-     			:modules {:main {:entries [ludus.core]}}}
+      		:exports {:run ludus.node/run}
+     			:modules {:main {:entries [ludus.node]}}}
 		:browser {:target :browser
           		:output-dir "target/js"
         				:asset-path "target"

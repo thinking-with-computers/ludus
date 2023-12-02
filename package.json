@@ -1,22 +1,14 @@
 {
-  "name": "ludus",
-  "version": "1.0.0",
-  "description": "![Ludus logo](logo.png) ## Ludus: A friendly, dynamic, functional language",
-  "main": "index.js",
-  "directories": {
-    "doc": "doc",
-    "test": "test"
-  },
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
+  "name": "@ludus/ludus",
+  "version": "0.1.0-ALPHA",
+  "description": "Ludus: A friendly, dynamic, functional language",
+  "main": "target/js/ludus.js",
+  "directories": {},
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "Scott Richmond",
+  "license": "GPL-3.0",
   "devDependencies": {
     "shadow-cljs": "^2.26.0"
   },
-  "dependencies": {
-    "p5": "^1.8.0"
-  }
+  "dependencies": {}
 }
