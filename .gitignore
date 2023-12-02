@@ -1,4 +1,6 @@
-target/
+target/stale
+target/js
+target/classes
 classes/
 checkouts/
 profiles.clj

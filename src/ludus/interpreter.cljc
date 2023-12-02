@@ -19,8 +19,8 @@
 ;; that's for later, tho
 (defn- ludus-resolve [key ctx-vol]
   (let [ctx @ctx-vol]
-    (println "Resolving " key)
-    (println "Current context: " (keys ctx))
+    ;(println "Resolving " key " in context " (keys ctx))
+    ;(println "Current context: " (keys ctx))
     ;(println "Parent context: " (keys (if (::parent ctx) (deref (::parent ctx)) {})))
     (if (contains? ctx key)
       (get ctx key)
@@ -473,7 +473,7 @@
                   (interpret-ast body fn-ctx)))
               (recur (first clauses) (rest clauses))))
 
-          (throw (ex-info "Match Error: No match found" {:ast (:ast lfn)})))))
+          (throw (ex-info (str "Match Error: No match found for " (show/show args) " in function " (:name lfn)) {:ast (:ast lfn)})))))
 
     (keyword? lfn)
     (if (= 2 (count args))
@@ -488,7 +488,7 @@
           (kw target)))
       (throw (ex-info "Called keywords take a single argument" {:ast lfn})))
 
-    :else (throw (ex-info "I don't know how to call that" {:ast lfn}))))
+    :else (throw (ex-info (str "I don't know how to call " (show/show lfn)) {:ast lfn}))))
 
 (defn- interpret-args [args ctx]
   ;(println "interpreting arg" args)
@@ -873,7 +873,7 @@
 (def ludus-prelude 
   (let [scanned (scanner/scan prelude/prelude)
         parsed (p/apply-parser g/script (:tokens scanned))
-        base-ctx (volatile! {::parent (volatile! base/base)})
+        base-ctx (volatile! {::parent (volatile! {"base" base/base})})
         interpreted (interpret-ast parsed base-ctx)
         namespace (dissoc interpreted ::data/type ::data/name ::data/struct)
         context (ns->ctx namespace)]

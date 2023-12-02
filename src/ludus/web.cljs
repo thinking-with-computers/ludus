@@ -35,6 +35,10 @@
   		(js/fill 155))
  	(js/ellipse js/mouseX js/mouseY 80 80))
 
-(doto js/window
- 	(o/set "setup" setup)
- 	(o/set "draw" draw))
+(defn init []
+  (doto js/window
+    (o/set "setup" setup)
+    (o/set "draw" draw)))
+
+(o/set js/window "ludus_init" init)
+

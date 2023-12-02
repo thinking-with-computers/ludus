@@ -63,9 +63,9 @@
            ::data/type ::data/clj
            :body dec})
 
-(def ld-not {:name "not"
-             ::data/type ::data/clj
-             :body not})
+(def not- {:name "not"
+           ::data/type ::data/clj
+           :body not})
 
 (def panic! {:name "panic!"
              ::data/type ::data/clj
@@ -118,10 +118,6 @@
                       (get map key default)
                       default)))})
 
-(def first- {:name "first"
-             ::data/type ::data/clj
-             :body (fn [v] (second v))})
-
 (def rest- {:name "rest"
             ::data/type ::data/clj
             :body (fn [v]
@@ -129,17 +125,7 @@
 
 (def nth- {:name "nth"
            ::data/type ::data/clj
-           :body (fn 
-                   ([i, xs]
-                    (cond
-                      (> 0 i) nil
-                      (contains? xs (inc i)) (nth xs (inc i))
-                      :else nil))
-                   ([i, xs, default]
-                    (cond
-                      (> 0 i) default
-                      (contains? xs (inc i)) (nth xs (inc i))
-                      :else default)))})
+           :body nth})
 
 (def types {
             :keyword
@@ -157,6 +143,12 @@
             :double
             #?(
                :clj java.lang.Double
+               :cljs js/Number
+               )
+
+            :integer
+            #?(
+               :clj java.lang.Integer
                :cljs js/Number
                )
 
@@ -202,6 +194,8 @@
 
       (= (:double types) t) :number
 
+      (= (:integer types) t) :number
+
       (= (:string types) t) :string
 
       (= (:boolean types) t) :boolean
@@ -220,6 +214,7 @@
                               ::data/ns :ns)
         (::data/dict value) :dict
         (::data/struct value) :struct
+        (::data/ref value) :ref
         :else :none
         ))))
 
@@ -255,35 +250,73 @@
 
 (def count- {:name "count"
              ::data/type ::data/clj
-             :body (fn [xs] (dec (count xs)))})
+             :body count})
+
+(def into- {:name "into"
+            ::data/type ::data/clj
+            :body into})
+
+(def to_vec {:name "to_vec"
+             ::data/type ::data.clj
+             :body (fn [xs] (into [] xs))})
+
+(def fold {:name "fold"
+           ::data/type ::data/clj
+           :body reduce})
+
+(def map- {:name "map"
+           ::data/type ::data/clj
+           :body map})
+
+(def prn- {:name "raw"
+           ::data/type ::data/clj
+           :body println})
+
+(def concat- {:name "concat"
+              ::data/type ::data/clj
+              :body (fn [xs ys]
+                      (if (= ::data/list (first xs))
+                        (into [::data/list] (concat (rest xs) (rest ys)))
+                        (into #{} (concat xs ys))))})
+
+(def str- {:name "str"
+           ::data/type ::data/clj
+           :body str})
 
 (def base {
-           "id" id
-           "eq" eq
-           "add" add
-           "print" print-
-           "sub" sub
-           "mult" mult
-           "div" div
-           "gt" gt
-           "gte" gte
-           "lt" lt
-           "lte" lte
-           "inc" inc-
-           "dec" dec-
-           "not" not
-           "show" show
-           "deref" deref-
-           "set!" set!-
-           "and" and-
-           "or" or-
-           "assoc" assoc-
-           "conj" conj-
-           "get" get-
-           "type" type-
-           "extern" extern
-           "first" first-
-           "rest" rest-
-           "nth" nth-
-           "count" count-
+           :id id
+           :eq eq
+           :add add
+           :print print-
+           :sub sub
+           :mult mult
+           :div div
+           :gt gt
+           :gte gte
+           :lt lt
+           :lte lte
+           :inc inc-
+           :dec dec-
+           :not not-
+           :show show
+           :deref deref-
+           :set! set!-
+           :and and-
+           :or or-
+           :assoc assoc-
+           :conj conj-
+           :get get-
+           :type type-
+           :extern extern
+           :rest rest-
+           :nth nth-
+           :count count-
+           :into into-
+           :to_vec to_vec
+           :fold fold
+           :map map
+           :panic! panic!
+           :prn prn-
+           :concat concat-
+           :str str-
            })
