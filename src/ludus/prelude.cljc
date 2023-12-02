@@ -5,5 +5,5 @@
 (def prelude
  	#?(
    		:clj (slurp "src/ludus/prelude.ld")
-   		:cljs (r/inline "prelude.ld")
+   		:cljs (r/inline "./prelude.ld")
     	))

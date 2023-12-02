@@ -4,6 +4,8 @@
   babashka/fs {:mvn/version "0.4.19"}
  }
 
+ :source-paths ["src/ludus"]
+
  :aliases
  {:main
   {:exec-fn ludus.core/main!}

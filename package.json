@@ -1,7 +1,7 @@
 {
-  "name": "@ludus/ludus",
-  "version": "0.1.0-ALPHA",
-  "description": "Ludus: A friendly, dynamic, functional language",
+  "name": "@ludus/ludus-js-pure",
+  "version": "0.1.0-alpha.1",
+  "description": "A Ludus interpreter in a pure JS function.",
   "main": "target/js/ludus.js",
   "directories": {},
   "keywords": [],

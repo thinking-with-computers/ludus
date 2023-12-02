@@ -880,51 +880,51 @@
     ;(println context)
     context))
 
-;; TODO: update this to use new parser pipeline & new AST representation
-(defn interpret
-  ([source parsed] (interpret source parsed {}))
-  ([source parsed ctx]
-   (try
-     (let [base-ctx (volatile! {::parent (volatile! (merge ludus-prelude ctx))})]
-       (interpret-ast parsed base-ctx))
-     (catch #?(:cljs :default :clj Throwable) e
-       (println "Ludus panicked!")
-       (println "On line" (get-in (ex-data e) [:ast :token :line]))
-       (println ">>> " (get-line source (get-in (ex-data e) [:ast :token :line])))
-       (println (ex-message e))
-       (pp/pprint (ex-data e)
-         #?(:clj (System/exit 67))
-         )))))
+; ;; TODO: update this to use new parser pipeline & new AST representation
+; (defn interpret
+;   ([source parsed] (interpret source parsed {}))
+;   ([source parsed ctx]
+;    (try
+;      (let [base-ctx (volatile! {::parent (volatile! (merge ludus-prelude ctx))})]
+;        (interpret-ast parsed base-ctx))
+;      (catch #?(:cljs :default :clj Throwable) e
+;        (println "Ludus panicked!")
+;        (println "On line" (get-in (ex-data e) [:ast :token :line]))
+;        (println ">>> " (get-line source (get-in (ex-data e) [:ast :token :line])))
+;        (println (ex-message e))
+;        (pp/pprint (ex-data e)
+;          #?(:clj (System/exit 67))
+;          )))))
 
-;; TODO: update this to use new parser pipeline & new AST representation
-(defn interpret-file [source path parsed]
-  (try 
-    (let [base-ctx (volatile! {::parent (volatile! ludus-prelude) :file path})]
-      (interpret-ast parsed base-ctx))
-    (catch clojure.lang.ExceptionInfo e
-      (println "Ludus panicked in" path)
-      (println "On line" (get-in (ex-data e) [:ast :token :line]))
-      (println ">>> " (get-line source (get-in (ex-data e) [:ast :token :line])))
-      (println (ex-message e))
-      (System/exit 67))))
+; ;; TODO: update this to use new parser pipeline & new AST representation
+; (defn interpret-file [source path parsed]
+;   (try 
+;     (let [base-ctx (volatile! {::parent (volatile! ludus-prelude) :file path})]
+;       (interpret-ast parsed base-ctx))
+;     (catch clojure.lang.ExceptionInfo e
+;       (println "Ludus panicked in" path)
+;       (println "On line" (get-in (ex-data e) [:ast :token :line]))
+;       (println ">>> " (get-line source (get-in (ex-data e) [:ast :token :line])))
+;       (println (ex-message e))
+;       (System/exit 67))))
 
-;; TODO: update this to use new parser pipeline & new AST representation
-(defn interpret-repl
-  ([parsed ctx]
-   (let [orig-ctx @ctx]
-     (try
-       (let [result (interpret-ast parsed ctx)]
-         {:result result :ctx ctx})
-       (catch clojure.lang.ExceptionInfo e
-         (println "Ludus panicked!")
-         (println (ex-message e))
-         {:result :error :ctx (volatile! orig-ctx)})))))
+; ;; TODO: update this to use new parser pipeline & new AST representation
+; (defn interpret-repl
+;   ([parsed ctx]
+;    (let [orig-ctx @ctx]
+;      (try
+;        (let [result (interpret-ast parsed ctx)]
+;          {:result result :ctx ctx})
+;        (catch clojure.lang.ExceptionInfo e
+;          (println "Ludus panicked!")
+;          (println (ex-message e))
+;          {:result :error :ctx (volatile! orig-ctx)})))))
 
 (defn interpret-safe [source parsed ctx]
   (try
     (let [base-ctx (volatile! {::parent (volatile! (merge ludus-prelude ctx))})]
       (interpret-ast parsed base-ctx))
-    (catch Throwable e
+    (catch #?(:clj Throwable :cljs js/Object) e
       (println "Ludus panicked!")
       (println "On line" (get-in (ex-data e) [:ast :token :line]))
       (println ">>> " (get-line source (get-in (ex-data e) [:ast :token :line])))
