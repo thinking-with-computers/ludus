@@ -66,18 +66,22 @@
 (def not- {:name "not"
            ::data/type ::data/clj
            :body not})
-
-(def panic! {:name "panic!"
-             ::data/type ::data/clj
-             :body (fn [& args] (throw (ex-info (apply show/show (interpose " " args)) {})))})
-
 (defn- print-show [lvalue]
   (if (string? lvalue) lvalue (show/show lvalue)))
 
+(defn- stringify-args [arglist]
+  (apply str (interpose " " (into [] (map print-show) (rest arglist)))))
+
+(def panic! {:name "panic!"
+             ::data/type ::data/clj
+             :body (fn panic-inner
+                     ([] (panic-inner [::data/list])) 
+                     ([args] (throw (ex-info (stringify-args args) {}))))})
+
 (def print- {:name "print"
              ::data/type ::data/clj
-             :body (fn [& args]
-                     (println (apply str (into [] (map print-show) args)))
+             :body (fn [args]
+                     (println (stringify-args args))
                      :ok)})
 
 (def deref- {:name "deref"
@@ -105,6 +109,10 @@
 (def assoc- {:name "assoc"
              ::data/type ::data/clj
              :body assoc})
+
+(def dissoc- {name "dissoc"
+              ::data/type ::data/clj
+              :body dissoc})
 
 (def get- {:name "get"
            ::data/type ::data/clj
@@ -304,6 +312,7 @@
            :and and-
            :or or-
            :assoc assoc-
+           :dissoc dissoc-
            :conj conj-
            :get get-
            :type type-

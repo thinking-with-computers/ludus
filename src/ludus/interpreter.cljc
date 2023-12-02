@@ -13,6 +13,15 @@
     [clojure.set]
     [clojure.string]))
 
+(defn prettify-ast [ast]
+  (cond
+    (not (map? ast)) ast
+    (not (:data ast)) (dissoc ast :remaining :token)
+    :else (let [{:keys [type data]} ast]
+            {:type type ;:token token
+             :data (into [] (map prettify-ast) data)})
+    ))
+
 ;; right now this is not very efficient:
 ;; it's got runtime checking
 ;; we should be able to do these checks statically
@@ -59,15 +68,22 @@
             (if (:success match?)
               (do
                 (vswap! ctx-diff #(merge % (:ctx match?)))
-                (println "current context: " (dissoc @ctx-diff ::parent))
+                ;(println "current context: " (dissoc @ctx-diff ::parent))
                 (recur (inc i)))
-              {:success :false :reason (str "Could not match " pattern " with " value)}
+              {:success :false :reason (str "Could not match " pattern " with " (show/show value))}
               )))))))
 
+;; Match-tuple is misbehaving when the first value is a function and the second is a list
+;; Hangs on success!
+;; printlns at top run just fine
+;; println at top of :else - loop happens once
+;; println in :else - loop - if - let binding match? does not happen
+;; that suggets that match is hanging here
+
 (defn- match-tuple [pattern value ctx-vol]
-  ;(println "\n\n\n**********Matching tuple")
-  ;(println "*****Value:   " value)
-  ;(println "*****Pattern: " pattern)
+  (println "\n\n\n**********Matching tuple")
+  (println "*****Value:   " (show/show value))
+  (println "*****Pattern: " (prettify-ast pattern))
   (let [members (:data pattern)
         length (count members)]
     (cond
@@ -86,9 +102,11 @@
       :else 
       (let [ctx-diff (volatile! @ctx-vol)]
         (loop [i length]
+          (println "Matching tuple elements at index " i)
           (if (= 0 i)
             {:success true :ctx @ctx-diff}
             (let [match? (match (nth members (dec i)) (nth value i) ctx-diff)]
+              (println "Maybe a match?: " match?)
               (if (:success match?)
                 (do
                   (vswap! ctx-diff #(merge % (:ctx match?)))
@@ -688,7 +706,7 @@
                                (interpret-ast body new-ctx)))
                            (recur (first clauses) (rest clauses))))
 
-                       (throw (ex-info (str "Match Error: No match found in loop for " input) {:ast ast}))))]
+                       (throw (ex-info (str "Match Error: No match found in loop for " (show/show input)) {:ast ast}))))]
         (if (::data/recur output)
           (recur (:args output))
           output)))))
@@ -854,7 +872,7 @@
     :struct-literal
     (interpret-struct ast ctx)
 
-    (throw (ex-info (str "Unknown AST node type: " (:type ast)) {:ast ast}))))
+    (throw (ex-info (str "Unknown AST node type " (get ast :type :err) " on line " (get-in ast [:token :line])) {:ast ast}))))
 
 (defn get-line [source line]
   (if line
@@ -909,16 +927,16 @@
 ;       (System/exit 67))))
 
 ; ;; TODO: update this to use new parser pipeline & new AST representation
-; (defn interpret-repl
-;   ([parsed ctx]
-;    (let [orig-ctx @ctx]
-;      (try
-;        (let [result (interpret-ast parsed ctx)]
-;          {:result result :ctx ctx})
-;        (catch clojure.lang.ExceptionInfo e
-;          (println "Ludus panicked!")
-;          (println (ex-message e))
-;          {:result :error :ctx (volatile! orig-ctx)})))))
+(defn interpret-repl
+  ([parsed ctx]
+   (let [orig-ctx @ctx]
+     (try
+       (let [result (interpret-ast parsed ctx)]
+         {:result result :ctx ctx})
+       (catch #?(:clj Throwable :cljs js/Object) e
+         (println "Ludus panicked!")
+         (println (ex-message e))
+         {:result :error :ctx (volatile! orig-ctx)})))))
 
 (defn interpret-safe [source parsed ctx]
   (try
@@ -932,15 +950,6 @@
       (pp/pprint (ex-data e))
       (throw e)
       )))
-
-(defn prettify-ast [ast]
-  (cond
-    (not (map? ast)) ast
-    (not (:data ast)) (dissoc ast :remaining :token)
-    :else (let [{:keys [type data]} ast]
-            {:type type ;:token token
-             :data (into [] (map prettify-ast) data)})
-    ))
 
 ;; repl
 (comment
