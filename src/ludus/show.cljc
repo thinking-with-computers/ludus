@@ -58,3 +58,45 @@
 (def show-keyed (comp
                   (map #(str (show (first %)) " " (show (second %))))
                   (interpose ", ")))
+
+(declare show-pattern)
+
+(defn show-coll-pattern [pattern [start end]]
+  (let [data (:data pattern)
+        members (map show-pattern data)
+        output (apply str (interpose ", " members))]
+    (str start output end)))
+
+(defn show-pattern [pattern]
+  (case (:type pattern)
+    nil ""
+
+    :placeholder "_"
+
+    :else "else"
+
+    (:word :number :keyword :true :false :nil :string) (-> pattern :data first)
+
+    :typed
+    (let [word (-> pattern :data first :data first)
+          type (-> pattern :data second :data first)]
+      (str word " as " type))
+
+    :splattern
+    (let [splatted (-> pattern :data first show-pattern)]
+      (str "..." splatted))
+
+    :pair-pattern
+    (let [key (-> pattern :data first)
+          value (-> pattern :data second)]
+      (str (show-pattern key) " " (show-pattern value)))
+
+    :tuple-pattern (show-coll-pattern pattern ["(" ")"])
+
+    :list-pattern (show-coll-pattern pattern ["[" "]"])
+
+    :dict-pattern (show-coll-pattern pattern ["#{" "}"])
+
+    :struct-pattern (show-coll-pattern pattern ["@{" "}"])
+
+    ))

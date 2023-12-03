@@ -375,9 +375,12 @@ fn get {
 && See interpreter.cljc line 76 for more info.
 fn each {
 	"Takes a list and applies a function, presumably with side effects, to each element in the list. Returns nil."
-	(f as :fn, []) -> :empty
-	(f, [x]) -> :one
-	(f, [...xs]) -> :more
+	(f as :fn, []) -> nil
+	(f as :fn, [x]) -> { f (x); nil }
+	(f, [...xs]) -> loop (xs) with {
+		([x]) -> { f (x); nil }
+		([x, ...xs]) -> { f (x); recur (xs) }
+	}
 }
 
 fn foo {
@@ -408,6 +411,8 @@ fn panic! {
 & position () -> (x, y)
 & turtleheading () -> turns
 & penstate () -> @{:down :boolean, :color (r, g, b, a), :width pixels}
+
+print ("Loaded Prelude.")
 
 ns prelude {
 	first
