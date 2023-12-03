@@ -43,9 +43,15 @@ fn count {
 	(xs as :struct) -> dec (base :count (xs))
 }
 
+fn list? {
+	"Returns true if the value is a list."
+	(l as :list) -> true
+	(_) -> false
+}
+
 fn list {
-	"Takes a tuple, and returns it as a list."
-	(xs as :tuple) -> base :into ([], base :rest (xs))
+	"Takes a value and returns it as a list. For values, it simply wraps them in a list. For collections, conversions are as follows. A tuple->list conversion preservers order and length. Unordered collections do not preserve order. Associative collections return lists of (key, value) tuples."
+	(x) -> base :to_list (x)
 }
 
 fn fold {
@@ -78,7 +84,7 @@ fn conj {
 	(xs as :set, x) -> base :conj (xs, x)
 }
 
-fn print {
+fn print! {
 	"Sends a text representation of Ludus values to the console."
 	(...args) -> base :print (args)
 }
@@ -93,7 +99,7 @@ fn type {
 	(x) -> base :type (x)
 }
 
-fn prn {
+fn prn! {
 	"Prints the underlying Clojure data structure of a Ludus value."
 	(x) -> base :prn (x)
 }
@@ -198,6 +204,28 @@ fn div/0 {
 		let divisor = fold (mult, zs, y)
 		div/0 (x, divisor)
 	}
+}
+
+fn div/safe {
+	"Divides a number. Returns a result tuple."
+	(x as :number) -> (:ok, x)
+	(_, 0) -> (:err, "Division by zero")
+	(x, y) -> (:ok, div (x, y))
+	(x, y, ...zs) -> {
+		let divisor = fold (mult, zs, y)
+		div/safe (x, divisor)
+	}
+}
+
+fn abs {
+	"Returns the absolute value of a number."
+	(0) -> 0
+	(n) -> if neg? (n) then mult (-1, n) else n
+}
+
+fn angle {
+	"Calculates the angle between two vectors."
+	(v1, v2) -> sub (atan/2 (v2), atan/2 (v1))
 }
 
 fn zero? {
@@ -322,17 +350,23 @@ fn or {
 	(x, y, ...zs) -> fold (base :or, zs, base :or (x, y))
 }
 
-fn assoc {
+fn set {
 	"Takes a dict, key, and value, and returns a new dict with the key set to value."
-	(d as :dict) -> d
-	(d as :dict, key as :keyword, value) -> base :assoc (d, key, value)
-	(d as :dict, (key as :keyword, value)) -> base :assoc (d, key, value)
+	(dict as :dict) -> dict
+	(dict as :dict, key as :keyword, value) -> base :assoc (dict, key, value)
+	(dict as :dict, (key as :keyword, value)) -> base :assoc (dict, key, value)
 }
 
-fn dissoc {
+fn unset {
 	"Takes a dict and a key, and returns a new dict with the key and associated value omitted."
-	(d as :dict) -> d
-	(d as :dict, key as :keyword) -> base :dissoc (d, key)
+	(dict as :dict) -> dict
+	(dict as :dict, key as :keyword) -> base :dissoc (dict, key)
+}
+
+fn update {
+	"Takes a dict, key, and function, and returns a new dict with the key set to the result of applying the function to original value held at the key."
+	(dict as :dict) -> dict
+	(dict as :dict, key as :keyword, updater as :fn) -> base :assoc (dict, key, updater (get (key, dict)))
 }
 
 fn coll? {
@@ -366,14 +400,15 @@ fn get {
 	(key as :keyword, coll, default) -> base :get (key, coll, default)
 }
 
-& TODO: make this less awkward once we have tail recursion
+fn dict {
+	"Takes a struct or ns, and returns it as a dict. Returns dicts unharmed."
+	(struct as :struct) -> base :to_dict (struct)
+	(ns_ as :ns) -> base :to_dict (ns_)
+	(dict as :dict) -> dict
+}
 
-&&&&&&&&& TODO:
-&& Fix bug here:
-&& The second pattern in `each` and `foo` hangs when the first argument is a function
-&& But maybe not other kinds of values (works fine if it's a keyword)
-&& See interpreter.cljc line 76 for more info.
-fn each {
+& TODO: make this less awkward once we have tail recursion
+fn each! {
 	"Takes a list and applies a function, presumably with side effects, to each element in the list. Returns nil."
 	(f as :fn, []) -> nil
 	(f as :fn, [x]) -> { f (x); nil }
@@ -383,36 +418,281 @@ fn each {
 	}
 }
 
-fn foo {
-	&(h, []) -> :empty
-	(h, [x]) -> :one
-	(h, [...xs]) -> :more
-}
-
 fn panic! {
 	"Causes Ludus to panic, outputting any arguments as messages."
 	() -> base :panic! ()
 	(...args) -> base :panic! (args)
 }
 
-& base turtle graphics
-& forward, fd (pixels)
-& back, bk (pixels)
-& left, lt (turns)
-& right, rt (turns)
-& penup, pu ()
-& pendown, pd ()
-& pencolor, pc (color)
-& penwidth (pixels)
-& clear ()
-& goto ((x, y))
-& home ()
-& turtlestate () -> @{:position (x, y), :heading turns, :visible boolean, :pen penstate}
-& position () -> (x, y)
-& turtleheading () -> turns
-& penstate () -> @{:down :boolean, :color (r, g, b, a), :width pixels}
+fn doc! {
+	"Prints the documentation of a function to the console."
+	(f as :fn) -> base :doc (f) 
+	(_) -> :none
+}
 
-print ("Loaded Prelude.")
+& math operations necessary for turtle graphics
+& sin
+& cos
+& tan
+& atan/2
+& square
+& dist
+& sum_of_squares
+& random
+
+let pi = base :pi
+
+let tau = mult (2, pi)
+
+fn sin {
+	"Returns the sine of an angle. Default angle measure is turns. An optional keyword argument specifies the units of the angle passed in."
+	(a as :number) -> do a > turn/rad > base :sin
+	(a as :number, :turns) -> do a > turn/rad > base :sin
+	(a as :number, :degrees) -> do a > deg/rad > base :sin
+	(a as :number, :radians) -> base :sin (a)
+}
+
+fn cos {
+	"Returns the cosine of an angle. Default angle measure is turns. An optional keyword argument specifies the units of the angle passed in."
+	(a as :number) -> do a > turn/rad > base :cos
+	(a as :number, :turns) -> do a > turn/rad > base :cos
+	(a as :number, :degrees) -> do a > deg/rad > base :cos
+	(a as :number, :radians) -> base :cos (a)
+}
+
+fn tan {
+	"Returns the sine of an angle. Default angle measure is turns. An optional keyword argument specifies the units of the angle passed in."
+	(a as :number) -> do a > turn/rad > base :tan
+	(a as :number, :turns) -> do a > turn/rad > base :tan
+	(a as :number, :degrees) -> do a > deg/rad > base :tan
+	(a as :number, :radians) -> base :tan (a)
+}
+
+fn turn/deg {
+	"Converts an angle in turns to an angle in degrees."
+	(a as :number) -> mult (a, 360)
+}
+
+fn deg/turn {
+	"Converts an angle in degrees to an angle in turns."
+	(a as :number) -> div (a, 360)
+}
+
+fn turn/rad {
+	"Converts an angle in turns to an angle in radians."
+	(a as :number) -> mult (a, tau)
+}
+
+fn rad/turn {
+	"Converts an angle in radians to an angle in turns."
+	(a as :number) -> div (a, tau)
+}
+
+fn deg/rad {
+	"Converts an angle in degrees to an angle in radians."
+	(a as :number) -> mult (tau, div (a, 360))
+}
+
+fn rad/deg {
+	"Converts an angle in radians to an angle in degrees."
+	(a as :number) -> mult (360, div (a, tau))
+}
+
+fn atan/2 {
+	"Returns an angle from a slope. Takes an optional keyword argument to specify units. Takes either two numbers or a vector tuple."
+	(x as :number, y as :number) -> do base :atan_2 (x, y) > rad/turn
+	(x, y, :turns) -> atan/2 (x, y)
+	(x, y, :radians) -> base :atan_2 (x, y)
+	(x, y, :degrees) -> do base :atan_2 (x, y) > rad/deg
+	((x, y)) -> atan/2 (x, y)
+	((x, y), units as :keyword) -> atan/2 (x, y, units)
+}
+
+fn mod {
+	"Returns the modulus of num and div. Truncates towards negative infinity."
+	(num as :number, y as :number) -> base :mod (num, div)
+}
+
+fn square {
+	"Squares a number."
+	(x as :number) -> mult (x, x)
+}
+
+fn sqrt {
+	"Returns the square root of a number."
+	(x as :number) -> base :sqrt (x) 
+}
+
+fn sum_of_squares {
+	"Returns the sum of squares of numbers."
+	() -> 0
+	(x as :number) -> square (x)
+	(x as :number, y as :number) -> add (square (x), square (y))
+	(x, y, ...zs) -> fold (sum_of_squares, zs, sum_of_squares (x, y))
+}
+
+fn dist {
+	"Returns the distance from the origin to a point described by (x, y)."
+	(x as :number, y as :number) -> sqrt (sum_of_squares (x, y))
+	((x, y)) -> dist (x, y)
+}
+
+fn random {
+	"Returns a random number. With zero arguments, returns a random number between 0 (inclusive) and 1 (exclusive). With one argument, returns a random number between 0 and n. With two arguments, returns a random number between m and n."
+	() -> base :random ()
+	(n as :number) -> base :random (n)
+	(m as :number, n as :number) -> add (m, random (n))
+}
+
+fn floor {
+	"Truncates a number towards negative infinity. With positive numbers, it returns the integer part. With negative numbers, returns the next more-negative integer."
+	(n as :number) -> base :floor (n)
+}
+
+fn ceil {
+	"Truncates a number towards positive infinity. With negative numbers, it returns the integer part. With positive numbers, returns the next more-positive integer."
+	(n as :number) -> base :ceil (n)
+}
+
+fn round {
+	"Rounds a number to the nearest integer."
+	(n as :number) -> base :round (n)
+}
+
+fn range {
+	"Returns the set of integers between start (inclusive) and end (exclusive) as a list. With one argument, starts at 0. If end is less than start, returns an empty list."
+	(end as :number) -> base :range (0, end)
+	(start as :number, end as :number) -> base :range (start, end)
+}
+
+& turtle_commands is a list of commands, expressed as tuples
+& the first member of each tuple is the command
+ref turtle_commands = []
+
+fn add_command! (command) -> {
+	fn updater (commands) -> conj (commands, command)
+	update! (turtle_commands, updater)
+}
+
+fn forward! {
+	"Moves the turtle forward by a number of steps. Alias: fd!"
+	(steps as :number) -> add_command! ((:forward, steps))
+}
+
+let fd! = forward!
+
+fn back! {
+	"Moves the turtle backward by a number of steps. Alias: bk!"
+	(steps as :number) -> add_command! ((:back, steps))
+}
+
+let bk! = back!
+
+fn left! {
+	"Rotates the turtle left, measured in turns. Alias: lt!"
+	(turns as :number) -> add_command! ((:left, turns))
+}
+
+let lt! = left!
+
+fn right! {
+	"Rotates the turtle right, measured in turns. Alias: rt!"
+	(turns as :number) -> add_command! ((:right, turns))
+}
+
+let rt! = right!
+
+fn penup! {
+	"Lifts the turtle's pen, stopping it from drawing. Alias: pu!"
+	() -> add_command! ((:penup))
+}
+
+let pu! = penup!
+
+fn pendown! {
+	"Lowers the turtle's pen, causing it to draw. Alias: pd!"
+	() -> add_command! ((:pendown))
+}
+
+let pd! = pendown!
+
+fn pencolor! {
+	"Changes the turtle's pen color. Takes a single grayscale value, an rgb tuple, or an rgba tuple. Alias: pc!"
+	(gray as :number) -> add_command! ((:pencolor, (gray, gray, gray, 255)))
+	((r as :number, g as :number, b as :number)) -> add_command! ((:pencolor, (r, g, b, 255)))
+	((r as :number, g as :number, b as :number, a as :number)) -> add_command! ((:pencolor, (r, g, b, a)))
+}
+
+let pc! = pencolor!
+
+fn penwidth! {
+	"Sets the width of the turtle's pen, measured in pixels. Alias: pw!"
+	(width as :number) -> add_command! ((:penwidth, width))
+}
+
+let pw! = penwidth!
+
+fn home! {
+	"Sends the turtle home: to the centre of the screen, pointing up. If the pen is down, the turtle will draw a path to home."
+	() -> add_command! ((:home))
+}
+
+fn clear! {
+	"Clears the canvas and sends the turtle home."
+	() -> add_command! ((:clear))
+}
+
+& goto ((x, y))
+fn goto! {
+	"Sends the turtle to (x, y) coordinates. If the pen is down, the turtle will draw a path to its new location."
+	(x as :number, y as :number) -> add_command! ((:goto, (x, y)))
+	((x, y)) -> goto! (x, y)
+}
+
+fn apply_command {
+	"Takes a turtle state and a command and calculates the new state."
+	(state, command) -> match command with {
+		(:goto, (x, y)) -> assoc (state, :position, (x, y))
+		(:right, turns) -> update (state, :heading, sub (_, turns))
+		(:left, turns) -> update (state, :heading, add (_, turns))
+		(:forward, steps) -> {
+			let #{heading, position} = state
+			& turtle heading is a quarter turn off from 
+			let angle = add (0.25, heading) 
+			let v = (cos (angle), sin (angle))
+			update (state, :position, add (v, _))
+		}
+		(:back, steps) -> {
+			let #{heading, position} = state
+			let v = (cos (heading), sin (heading))
+			update (state, :position, sub (_, v))
+		}
+	}
+}
+
+let colors = @{
+	:white (255, 255, 255)
+	:light_gray (150, 150, 150)
+	:dark_gray (50, 50, 50)
+	:red (255, 0, 0)
+	:green (0, 255, 0)
+	:blue (0, 0, 255)
+}
+
+let turtle_init = #{
+	:position (0, 0) & let's call this the origin
+	:heading 0 & this is straight up
+	:pendown true
+	:color colors :white
+	:penwidth 1
+	:visible true
+}
+
+& turtlestate () -> @{:position (x, y), :heading turns, :visible boolean, :pen penstate}
+
+& position () -> (x, y)
+& heading () -> turns
+& penstate () -> @{:down :boolean, :color (r, g, b, a), :width pixels}
 
 ns prelude {
 	first
@@ -426,19 +706,23 @@ ns prelude {
 	list
 	inc
 	dec
-	print
+	print!
 	show
-	prn
+	prn!
 	type
 	report
 	concat
 	deref
 	set!
+	update!
 	add
 	sub
 	mult
 	div
 	div/0
+	div/safe
+	angle
+	abs
 	zero?
 	neg?
 	pos?
@@ -456,9 +740,44 @@ ns prelude {
 	coll?
 	ordered?
 	assoc?
-	assoc
+	set
+	unset
+	update
 	get
-	each
+	dict
+	each!
 	panic!
-	foo
+	doc!
+	sin
+	cos
+	tan
+	turn/rad
+	rad/turn
+	turn/deg
+	deg/turn
+	rad/deg
+	deg/rad
+	atan/2
+	mod
+	square
+	sum_of_squares
+	dist
+	random
+	pi
+	tau
+	floor
+	ceil
+	round
+	range
+	forward!, fd!
+	back!, bk!
+	right!, rt!
+	left!, lt!
+	penup!, pu!
+	pendown!, pd!
+	pencolor!, pc!
+	penwidth!, pw!
+	home!, clear!, goto!,
+	turtle_commands, turtle_init
+	apply_command
 }

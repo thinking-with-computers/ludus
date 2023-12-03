@@ -2,6 +2,7 @@
   (:require
     [ludus.data :as data]
     [ludus.show :as show]
+    [clojure.math :as math]
     ;[ludus.draw :as d]
     #?(:cljs [cljs.reader])
     #?(:cljs [goog.object :as o])
@@ -66,6 +67,7 @@
 (def not- {:name "not"
            ::data/type ::data/clj
            :body not})
+
 (defn- print-show [lvalue]
   (if (string? lvalue) lvalue (show/show lvalue)))
 
@@ -160,6 +162,12 @@
                :cljs js/Number
                )
 
+            :ratio
+            #?(
+               :clj clojure.lang.Ratio
+               :cljs js/Number
+               )
+
             :string
             #?(
                :clj java.lang.String
@@ -204,6 +212,8 @@
 
       (= (:integer types) t) :number
 
+      (= (:ratio types) t) :number
+
       (= (:string types) t) :string
 
       (= (:boolean types) t) :boolean
@@ -229,6 +239,25 @@
 (def type- {:name "type"
             ::data/type ::data/clj
             :body get-type})
+
+(defn- kv->tuple [[k v]] [::data/tuple k v])
+
+(def to_list {name "to_list"
+              ::data/type ::data/clj
+              :body (fn [item]
+                      (case (get-type item)
+                        (:number :nil :boolean :fn :string :ref :keyword) [::data/list item]
+                        :list item
+                        :set (into [::data/list] item)
+                        :tuple (into [::data/list] (rest item))
+                        :dict (into [::data/list] (map kv->tuple) (dissoc item ::data/dict))
+                        :struct (into [::data/list] (map kv->tuple) (dissoc item ::data/struct))
+                        :ns (into [::data/list] (map kv->tuple) (dissoc item ::data/struct ::data/type ::data/name))
+                        ))})
+
+(def to_dict {name "to_dict"
+              ::data/type ::data/clj
+              :body (fn [struct] (-> struct (assoc ::data/dict true) (dissoc ::data/struct ::data/type ::data/name)))})
 
 (defn strpart [kw] (->> kw str rest (apply str)))
 
@@ -265,8 +294,8 @@
             :body into})
 
 (def to_vec {:name "to_vec"
-             ::data/type ::data.clj
-             :body (fn [xs] (into [] xs))})
+             ::data/type ::data/clj
+             :body (fn [xs] (into [] (dissoc xs ::data/type ::data/struct ::data/name)))})
 
 (def fold {:name "fold"
            ::data/type ::data/clj
@@ -290,6 +319,60 @@
 (def str- {:name "str"
            ::data/type ::data/clj
            :body str})
+
+(def doc- {:name "doc"
+           ::data/type ::data/clj
+           :body (fn [f]
+                   (let [name (:name f)
+                         docstring (:doc f)
+                         clauses (:clauses f)
+                         patterns (map first clauses)
+                         pretty-patterns (map show/show-pattern patterns)]
+                     (println name)
+                     (println docstring)
+                     (println (apply str (interpose "\n" pretty-patterns)))
+                     :ok)
+                   )})
+
+(def sin {:name "sin"
+          ::data/type ::data/clj
+          :body math/sin})
+
+(def cos {:name "cos"
+          ::data/type ::data/clj
+          :body math/cos})
+
+(def tan {:name "tan"
+          ::data/type ::data/clj
+          :body math/tan})
+
+(def atan_2 {:name "atan_2"
+             ::data/type ::data/clj
+             :body math/atan2})
+
+(def sqrt {:name "sqrt"
+           ::data/type ::data/clj
+           :body math/sqrt})
+
+(def random {:name "random"
+             ::data/type ::data/clj
+             :body rand})
+
+(def floor {:name "floor"
+            ::data/type ::data/clj
+            :body math/floor})
+
+(def ceil {:name "ceil"
+           ::data/type ::data/clj
+           :body math/ceil})
+
+(def round {:name "round"
+            ::data/type ::data/clj
+            :body math/round})
+
+(def range- {:name "range"
+             ::data/type ::data/clj
+             :body (fn [start end] (into [::data/list] (range (-> start math/ceil int) end)))})
 
 (def base {
            :id id
@@ -328,4 +411,17 @@
            :prn prn-
            :concat concat-
            :str str-
+           :to_list to_list
+           :doc doc-
+           :pi math/PI
+           :sin sin
+           :cos cos
+           :tan tan
+           :atan_2 atan_2
+           :sqrt sqrt
+           :random random
+           :ceil ceil
+           :floor floor
+           :round round
+           :range range-
            })

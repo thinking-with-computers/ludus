@@ -450,7 +450,7 @@
      :body (fn [arg]
              (call-fn
                lfn
-               (concat [::data/tuple] (replace {::data/placeholder arg} (rest args)))
+               (into [::data/tuple] (replace {::data/placeholder arg} (rest args)))
                ctx))}
 
     (= (::data/type lfn) ::data/clj) (apply (:body lfn) (next args))
@@ -954,11 +954,15 @@
 ;; repl
 (comment
   
-  (def source "#{:foo bar}")
+  (def source "fn foo {
+    \"Docstring\"
+    () -> :foo
+    (foo) -> :bar
+    }")
 
   (def tokens (-> source scanner/scan :tokens))
 
-  (def ast (p/apply-parser g/pattern tokens))
+  (def ast (p/apply-parser g/script tokens))
 
   ;(def result (interpret-safe source ast {}))
 
