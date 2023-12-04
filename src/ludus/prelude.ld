@@ -658,12 +658,13 @@ fn range {
 
 &&& Turtle & other graphics
 let colors = @{
-	:white (255, 255, 255)
-	:light_gray (150, 150, 150)
-	:dark_gray (50, 50, 50)
-	:red (255, 0, 0)
-	:green (0, 255, 0)
-	:blue (0, 0, 255)
+	:white (255, 255, 255, 255)
+	:light_gray (150, 150, 150, 255)
+	:dark_gray (50, 50, 50, 255)
+	:red (255, 0, 0, 255)
+	:green (0, 255, 0, 255)
+	:blue (0, 0, 255, 255)
+	:black (0, 0, 0, 255)
 }
 
 & the initial turtle state
@@ -683,11 +684,9 @@ ref turtle_commands = []
 & and a list of turtle states
 ref turtle_states = [turtle_init]
 
-ref p5_calls = [
-	(:background, 0)
-]
+ref p5_calls = []
 
-ref bgcolor = (0, 0, 0, 255)
+ref bgcolor = colors :black
 
 fn add_call! (call) -> update! (p5_calls, append (_, call))
 
