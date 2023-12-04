@@ -442,7 +442,7 @@
           (get map kw))))))
 
 (defn- call-fn [lfn args ctx]
-  ; (println "Calling function " (:name lfn))
+  ;(println "Calling function " (:name lfn))
   (cond
     (= ::data/partial (first args))
     {::data/type ::data/clj
@@ -598,7 +598,7 @@
 (defn- interpret-fn [ast ctx]
   (let [data (:data ast)]
     (case (:type (first data))
-      :fn-clause (build-fn ast ctx :anon (-> data first :data))
+      :fn-clause (build-fn ast ctx :anon [(-> data first :data)])
       :word (build-named-fn ast ctx data))))
 
 (defn- interpret-do [ast ctx]
@@ -954,20 +954,16 @@
 ;; repl
 (comment
   
-  (def source "fn foo {
-    \"Docstring\"
-    () -> :foo
-    (foo) -> :bar
-    }")
+  (def source "fn foo () -> :foo")
 
   (def tokens (-> source scanner/scan :tokens))
 
-  (def ast (p/apply-parser g/script tokens))
+  (def ast (p/apply-parser g/fn-named tokens))
 
   ;(def result (interpret-safe source ast {}))
 
   (-> ast prettify-ast println)
 
-  (-> ast show/show-pattern println)
+  ;(-> ast show/show-pattern println)
   
   )

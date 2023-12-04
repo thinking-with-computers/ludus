@@ -54,6 +54,12 @@ fn list {
 	(x) -> base :to_list (x)
 }
 
+fn set {
+	"Takes an ordered collection--list or tuple--and turns it into a set."
+	(xs as :list) -> base :into (${}, xs)
+	(xs as :tuple) -> base :into (${}, xs)
+}
+
 fn fold {
 	"Folds a list."
 	(f as :fn, xs as :list) -> fold (f, xs, f ())
@@ -70,13 +76,13 @@ fn fold {
 fn map {
 	"Maps over a list."
 	(f as :fn, xs) -> {
-		fn mapper (prev, curr) -> conj (prev, f (curr))
+		fn mapper (prev, curr) -> append (prev, f (curr))
 		fold (mapper, xs, [])
 	}
 }
 
-fn conj {
-	"Adds an element to a list or set. Short for conjoin."
+fn append {
+	"Adds an element to a list or set."
 	() -> []
 	(xs as :list) -> xs
 	(xs as :list, x) -> base :conj (xs, x)
@@ -135,9 +141,9 @@ fn deref {
 	(r as :ref) -> base :deref (r)
 }
 
-fn set! {
+fn make! {
 	"Sets the value of a ref."
-	(r as :ref, value) -> base :set! (r, value)
+	(r as :ref, value) -> base :make! (r, value)
 }
 
 fn update! {
@@ -145,7 +151,7 @@ fn update! {
 	(r as :ref, f as :fn) -> {
 		let current = deref (r)
 		let new = f (current)
-		set! (r, new)
+		make! (r, new)
 	}
 }
 
@@ -162,7 +168,7 @@ fn add {
 	(x as :number, y as :number) -> base :add (x, y)
 	(x, y, ...zs) -> fold (base :add, zs, base :add (x, y))
 	& add vectors
-	((x1, y1), (x2, y2)) -> (base :add (x1, y1), base :add (x2, y2))
+	((x1, y1), (x2, y2)) -> (add (x1, x2), add (y1, y2))
 }
 
 fn sub {
@@ -350,14 +356,15 @@ fn or {
 	(x, y, ...zs) -> fold (base :or, zs, base :or (x, y))
 }
 
-fn set {
+fn assoc {
 	"Takes a dict, key, and value, and returns a new dict with the key set to value."
+	() -> #{}
 	(dict as :dict) -> dict
 	(dict as :dict, key as :keyword, value) -> base :assoc (dict, key, value)
 	(dict as :dict, (key as :keyword, value)) -> base :assoc (dict, key, value)
 }
 
-fn unset {
+fn dissoc {
 	"Takes a dict and a key, and returns a new dict with the key and associated value omitted."
 	(dict as :dict) -> dict
 	(dict as :dict, key as :keyword) -> base :dissoc (dict, key)
@@ -367,6 +374,30 @@ fn update {
 	"Takes a dict, key, and function, and returns a new dict with the key set to the result of applying the function to original value held at the key."
 	(dict as :dict) -> dict
 	(dict as :dict, key as :keyword, updater as :fn) -> base :assoc (dict, key, updater (get (key, dict)))
+}
+
+fn keys {
+	"Takes an associative collection and returns a list of keys in that collection. Returns an empty list on anything other than a collection."
+	(coll) -> if not (assoc? (coll))
+		then []
+		else do coll > list > map (first, _)
+}
+
+fn values {
+	"Takes an associative collection and returns a list of values in that collection. Returns an empty list on anything other than a collection."
+	(coll) -> if not (assoc? (coll))
+		then []
+		else do coll > list > map (second, _)
+}
+
+fn diff {
+	"Takes two associate data structures and returns a dict describing their differences. Does this shallowly, offering diffs only for keys in the original dict."
+	(d1 as :dict, d2 as :dict) -> {
+		let key1 = keys (d1)
+		let key2 = keys (d2)
+		let all = do concat (d1, d2) > set > list
+		let diffs = fold ()
+	}
 }
 
 fn coll? {
@@ -401,10 +432,12 @@ fn get {
 }
 
 fn dict {
-	"Takes a struct or ns, and returns it as a dict. Returns dicts unharmed."
+	"Takes a struct or ns, and returns it as a dict. Or, takes a list or tuple of (key, value) tuples and returns it as a dict. Returns dicts unharmed."
 	(struct as :struct) -> base :to_dict (struct)
 	(ns_ as :ns) -> base :to_dict (ns_)
 	(dict as :dict) -> dict
+	(list as :list) -> fold (assoc, list)
+	(tup as :tuple) -> do tup > list > dict
 }
 
 & TODO: make this less awkward once we have tail recursion
@@ -430,15 +463,7 @@ fn doc! {
 	(_) -> :none
 }
 
-& math operations necessary for turtle graphics
-& sin
-& cos
-& tan
-& atan/2
-& square
-& dist
-& sum_of_squares
-& random
+&&& Trigonometry functions
 
 let pi = base :pi
 
@@ -537,6 +562,7 @@ fn dist {
 	((x, y)) -> dist (x, y)
 }
 
+&&& Number functions
 fn random {
 	"Returns a random number. With zero arguments, returns a random number between 0 (inclusive) and 1 (exclusive). With one argument, returns a random number between 0 and n. With two arguments, returns a random number between m and n."
 	() -> base :random ()
@@ -565,13 +591,42 @@ fn range {
 	(start as :number, end as :number) -> base :range (start, end)
 }
 
+&&& Turtle & other graphics
+let colors = @{
+	:white (255, 255, 255)
+	:light_gray (150, 150, 150)
+	:dark_gray (50, 50, 50)
+	:red (255, 0, 0)
+	:green (0, 255, 0)
+	:blue (0, 0, 255)
+}
+
+& the initial turtle state
+let turtle_init = #{
+	:position (0, 0) & let's call this the origin for now
+	:heading 0 & this is straight up
+	:pendown true
+	:color colors :white
+	:penwidth 1
+	:visible true
+}
+
 & turtle_commands is a list of commands, expressed as tuples
 & the first member of each tuple is the command
 ref turtle_commands = []
 
+& give ourselves a ref for current turtle state
+ref turtle_state = turtle_init
+
+& and a list of turtle states
+ref turtle_states = [turtle_init]
+
 fn add_command! (command) -> {
-	fn updater (commands) -> conj (commands, command)
-	update! (turtle_commands, updater)
+	update! (turtle_commands, append (_, command))
+	let current_state = deref (turtle_state)
+	let new_state = apply_command (current_state, command)
+	update! (turtle_states, append (_, new_state))
+	make! (turtle_state, new_state)
 }
 
 fn forward! {
@@ -632,6 +687,15 @@ fn penwidth! {
 
 let pw! = penwidth!
 
+fn background! {
+	"Sets the background color behind the turtle and path. Alias: bg!"
+	(gray as :number) -> background! ((gray, gray, gray, 255))
+	((r as :number, g as :number, b as :number)) -> background! ((r, g, b, 255))
+	((r as :number, g as :number, b as :number, a as :number)) -> background! ((r, g, b, a))
+}
+
+let bg! = background!
+
 fn home! {
 	"Sends the turtle home: to the centre of the screen, pointing up. If the pen is down, the turtle will draw a path to home."
 	() -> add_command! ((:home))
@@ -642,51 +706,51 @@ fn clear! {
 	() -> add_command! ((:clear))
 }
 
-& goto ((x, y))
 fn goto! {
 	"Sends the turtle to (x, y) coordinates. If the pen is down, the turtle will draw a path to its new location."
 	(x as :number, y as :number) -> add_command! ((:goto, (x, y)))
 	((x, y)) -> goto! (x, y)
 }
 
+fn heading/vector {
+	"Takes a turtle heading, and returns a unit vector of that heading."
+	(heading) -> {
+		& 0 is 90º/0.25T, 0.25 is 180º/0.5T, 0.5 is 270º, 0.75 is 0º
+		let angle = add (heading, 0.25)
+		(cos (angle), sin (angle))
+	}
+}
+
 fn apply_command {
-	"Takes a turtle state and a command and calculates the new state."
+	"Takes a turtle state and a command and calculates a new state."
 	(state, command) -> match command with {
 		(:goto, (x, y)) -> assoc (state, :position, (x, y))
 		(:right, turns) -> update (state, :heading, sub (_, turns))
 		(:left, turns) -> update (state, :heading, add (_, turns))
 		(:forward, steps) -> {
 			let #{heading, position} = state
-			& turtle heading is a quarter turn off from 
-			let angle = add (0.25, heading) 
-			let v = (cos (angle), sin (angle))
-			update (state, :position, add (v, _))
+			let unit = heading/vector (heading)
+			let vect = mult (steps, unit)
+			update (state, :position, add (vect, _))
 		}
 		(:back, steps) -> {
 			let #{heading, position} = state
-			let v = (cos (heading), sin (heading))
-			update (state, :position, sub (_, v))
+			let unit = heading/vector (heading)
+			let vect = mult (steps, unit)
+			update (state, :position, sub (_, vect))
 		}
+		(:penup) -> assoc (state, :pendown, false)
+		(:pendown) -> assoc (state, :pendown, true)
+		(:penwidth, pixels) -> assoc (state, :penwidth, pixels)
+		(:pencolor, color) -> assoc (state, :pencolor, color)
 	}
 }
 
-let colors = @{
-	:white (255, 255, 255)
-	:light_gray (150, 150, 150)
-	:dark_gray (50, 50, 50)
-	:red (255, 0, 0)
-	:green (0, 255, 0)
-	:blue (0, 0, 255)
+fn turtle/p5 {
+	"Takes a list of turtle states and returns a list of p5 calls that will render the turtle states."
+	() -> :todo
 }
 
-let turtle_init = #{
-	:position (0, 0) & let's call this the origin
-	:heading 0 & this is straight up
-	:pendown true
-	:color colors :white
-	:penwidth 1
-	:visible true
-}
 
 & turtlestate () -> @{:position (x, y), :heading turns, :visible boolean, :pen penstate}
 
@@ -700,10 +764,11 @@ ns prelude {
 	rest
 	nth
 	count
-	conj
+	append
 	fold
 	map
 	list
+	set
 	inc
 	dec
 	print!
@@ -713,7 +778,7 @@ ns prelude {
 	report
 	concat
 	deref
-	set!
+	make!
 	update!
 	add
 	sub
@@ -740,11 +805,14 @@ ns prelude {
 	coll?
 	ordered?
 	assoc?
-	set
-	unset
+	assoc
+	dissoc
 	update
 	get
 	dict
+	keys
+	values
+	diff
 	each!
 	panic!
 	doc!
@@ -779,5 +847,8 @@ ns prelude {
 	penwidth!, pw!
 	home!, clear!, goto!,
 	turtle_commands, turtle_init
-	apply_command
+	add_command!, apply_command,
+	heading/vector
+	turtle_state
+	turtle_states
 }
