@@ -717,9 +717,7 @@ let turtle_angle = 0.375
 let turtle_color = (100, 100, 100, 100)
 
 fn render_turtle! () -> {
-	print! ("Rendering turtle")
 	let state = do turtle_states > deref > last
-	print! ("Collected state.")
 	if state :visible?
 		then {
 			add_call! ((:push))	
@@ -750,7 +748,6 @@ fn state/call () -> {
 	let states = deref (turtle_states)
 	let curr = last (states)
 	let prev = nth (states, sub (count (states), 2))
-	& print! ("Curr, prev, command", curr, prev, cmd)
 	match cmd with {
 		:forward -> if curr :pendown?
 			then make_line (prev :position, curr :position)
