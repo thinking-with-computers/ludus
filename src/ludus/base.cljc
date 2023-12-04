@@ -137,6 +137,10 @@
            ::data/type ::data/clj
            :body nth})
 
+(def slice {:name "slice"
+            ::data/type ::data/clj
+            :body subvec})
+
 (def types {
             :keyword
             #?(
@@ -402,6 +406,7 @@
            :extern extern
            :rest rest-
            :nth nth-
+           :slice slice
            :count count-
            :into into-
            :to_vec to_vec

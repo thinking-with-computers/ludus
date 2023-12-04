@@ -648,7 +648,7 @@
   (let [data (:data ast)
         word (first data)
         ns (resolve-word word ctx)]
-    (println "use: " ns)
+    ; (println "use: " ns)
     (if (not (= (::data/type ns) ::data/ns))
       (throw (ex-info (str "`use` may only use namespaces; " (-> word :data first) " is not a namespace") {:ast ast}))
       (let [ns-entries (dissoc ns ::data/type ::data/name ::data/struct)

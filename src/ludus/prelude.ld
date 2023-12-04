@@ -14,13 +14,20 @@ fn inc {
 fn dec {
 	"Decrements a number."
 	(x as :number) -> base :dec (x)
-	(x) -> report (x)
 }
 
 fn nth {
 	"Returns the element at index n of a list or tuple. Zero-indexed: the first element is at index 0."
-	(xs as :list, n as :number) -> base :nth (xs, inc(n))
-	(xs as :tuple, n as :number) -> base :nth (xs, inc (n))
+	(xs as :list, n as :number) -> when {
+		neg? (n) -> nil
+		gte? (n, count (xs)) -> nil
+		else -> base :nth (xs, inc (n))
+	}
+	(xs as :tuple, n as :number) -> when {
+		neg? (n) -> nil
+		gte? (n, count (xs)) -> nil
+		else -> base :nth (xs, inc (n))
+	}
 }
 
 fn first {
@@ -33,9 +40,33 @@ fn second {
 	(xs) -> nth (xs, 1)
 }
 
+fn last {
+	"Returns the last element of a list or tuple."
+	(xs) -> nth (xs, sub (count (xs), 1))
+}
+
+fn butlast {
+	"Returns a list, omitting the last element."
+	(xs as :list) -> base :slice (xs, sub (count (xs), 1))
+}
+
+fn slice {
+	"Returns a slice of a list, representing a sub-list."
+	(xs as :list, end as :number) -> slice (xs, 0, end) 
+	(xs as :list, start as :number, end as :number) -> when {
+		gte? (start, end) -> []
+		gt? (end, count (xs)) -> slice (xs, start, count (xs))
+		neg? (start) -> slice (xs, 0, end)
+		else -> {
+			let slice = base :slice (xs, inc (start), inc (end))
+			base :into ([], slice)
+		}
+	}
+}
+
 fn count {
 	"Returns the number of elements in a collection (including string)."
-	(xs as :list) -> dec (base :count (report(xs)))
+	(xs as :list) -> dec (base :count (xs))
 	(xs as :tuple) -> dec (base :count (xs))
 	(xs as :dict) -> base :count (xs)
 	(xs as :string) -> base :count (xs)
@@ -118,14 +149,14 @@ fn concat {
 	(xs, ys, ...zs) -> fold (concat, zs, concat(xs, ys))
 }
 
-fn report {
+fn report! {
 	"Prints a value, then returns it."
 	(x) -> {
-		print (x)
+		print! (x)
 		x
 	}
 	(msg as :string, x) -> {
-		print (concat (msg, show (x)))
+		print! (concat (msg, show (x)))
 		x
 	}
 }
@@ -615,18 +646,38 @@ let turtle_init = #{
 & the first member of each tuple is the command
 ref turtle_commands = []
 
+ref last_command = ()
+
 & give ourselves a ref for current turtle state
 ref turtle_state = turtle_init
 
 & and a list of turtle states
 ref turtle_states = [turtle_init]
 
+ref p5_calls = [
+	(:background, 0)
+]
+
+fn add_call! (call) -> update! (p5_calls, conj (_, call))
+
 fn add_command! (command) -> {
 	update! (turtle_commands, append (_, command))
+	make! (last_command, command)
 	let current_state = deref (turtle_state)
 	let new_state = apply_command (current_state, command)
 	update! (turtle_states, append (_, new_state))
 	make! (turtle_state, new_state)
+	render_command! ()
+	:ok
+}
+
+fn render_command! () -> {
+	let cmd = first (command)
+	let state = deref (turtle_state)
+	let #{position, heading, pendown, color, penwidth, visible} = state
+	match cmd with {
+		:forward -> :todo
+	}
 }
 
 fn forward! {
@@ -748,7 +799,7 @@ fn apply_command {
 
 fn turtle/p5 {
 	"Takes a list of turtle states and returns a list of p5 calls that will render the turtle states."
-	() -> :todo
+	() -> :todo 
 }
 
 
@@ -763,6 +814,9 @@ ns prelude {
 	second
 	rest
 	nth
+	last
+	butlast
+	slice
 	count
 	append
 	fold
@@ -775,7 +829,7 @@ ns prelude {
 	show
 	prn!
 	type
-	report
+	report!
 	concat
 	deref
 	make!
