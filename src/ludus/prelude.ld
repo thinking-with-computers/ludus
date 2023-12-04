@@ -125,9 +125,24 @@ fn append {
 	(xs as :set, x) -> base :conj (xs, x)
 }
 
+ref console = []
+
+fn add_msg! {
+	"Adds a message to the console."
+	(msgs) -> {
+		let strs = map (show, msgs)
+		let msg = fold (concat, strs, "")
+		update! (console, append (_, msg))
+		:ok
+	}
+}
+
 fn print! {
 	"Sends a text representation of Ludus values to the console."
-	(...args) -> base :print (args)
+	(...args) -> {
+		base :print (args)
+		add_msg! (args)
+	}
 }
 
 fn show {
@@ -694,23 +709,26 @@ let turtle_angle = 0.375
 let turtle_color = (100, 100, 100, 100)
 
 fn render_turtle! () -> {
-	let state = do turtle_state > deref > last
+	let state = do turtle_states > deref > last
 	if state :visible?
 		then {
 			add_call! ((:push))	
 			let (r, g, b, a) = turtle_color
 			add_call! ((:fill, r, g, b, a))
 			add_call! ((:noStroke))
-			let #{heading, position} = state
+			let #{heading, :position (x, y)} = state
+			add_call! ((:translate, x, y))
 			add_call! ((:rotate, turn/deg (heading)))
 			add_call! ((:beginShape))
-			let head_unit = heading/vec (heading)
+			let head_unit = heading/vector (heading)
 			let first = mult (head_unit, turtle_radius)
-			let second = rotate (first, turtle_angle)
-			let third = rotate (first, neg (turtle_angle))
-			add_call! ((:vertex, first))
-			add_call! ((:vertex, second))
-			add_call! ((:vertx, third))
+			let (x1, y1) = first
+			let (x2, y2) = rotate (first, turtle_angle)
+			let (x3, y3) = rotate (first, neg (turtle_angle))
+			add_call! ((:vertex, x1, y1))
+			add_call! ((:vertex, x2, y2))
+			add_call! ((:vertex, x3, y3))
+			add_call! ((:endShape))
 			add_call! ((:pop))
 			:ok
 		}
@@ -911,6 +929,7 @@ ns prelude {
 	inc
 	dec
 	print!
+	console
 	show
 	prn!
 	type
@@ -991,4 +1010,5 @@ ns prelude {
 	heading/vector
 	turtle_state
 	p5_calls, turtle_states, turtle_commands
+	render_turtle!
 }

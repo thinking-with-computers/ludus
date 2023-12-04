@@ -7,3 +7,9 @@
    		:clj (slurp "src/ludus/prelude.ld")
    		:cljs (r/inline "./prelude.ld")
     	))
+
+(def postlude
+ 	#?(
+   		:clj (slurp "src/ludus/postlude.ld")
+   		:cljs (r/inline "./postlude.ld")
+   		))

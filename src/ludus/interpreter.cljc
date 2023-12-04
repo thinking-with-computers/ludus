@@ -895,7 +895,7 @@
         interpreted (interpret-ast parsed base-ctx)
         namespace (dissoc interpreted ::data/type ::data/name ::data/struct)
         context (ns->ctx namespace)]
-    ;(println context)
+    (println "Prelude fully loaded.")
     context))
 
 ; ;; TODO: update this to use new parser pipeline & new AST representation
@@ -939,17 +939,18 @@
          {:result :error :ctx (volatile! orig-ctx)})))))
 
 (defn interpret-safe [source parsed ctx]
-  (try
-    (let [base-ctx (volatile! {::parent (volatile! (merge ludus-prelude ctx))})]
-      (interpret-ast parsed base-ctx))
-    (catch #?(:clj Throwable :cljs js/Object) e
-      (println "Ludus panicked!")
-      (println "On line" (get-in (ex-data e) [:ast :token :line]))
-      (println ">>> " (get-line source (get-in (ex-data e) [:ast :token :line])))
-      (println (ex-message e))
-      (pp/pprint (ex-data e))
-      (throw e)
-      )))
+  (let [base-ctx (volatile! {::parent (volatile! (merge ludus-prelude ctx))})]
+    (try
+      (println "Running source: " source)
+      (interpret-ast parsed base-ctx)
+      (catch #?(:clj Throwable :cljs js/Object) e
+        (println "Ludus panicked!")
+        (println "On line" (get-in (ex-data e) [:ast :token :line]))
+        (println ">>> " (get-line source (get-in (ex-data e) [:ast :token :line])))
+        (println (ex-message e))
+        (pp/pprint (ex-data e))
+        (throw e)
+        ))))
 
 ;; repl
 (comment
