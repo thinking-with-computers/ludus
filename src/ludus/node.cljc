@@ -41,7 +41,7 @@
    	#?(:clj clj_result :cljs (clj->js clj_result))
    	))
 
-(do 
+(comment
  	(def res (run "
 fd! (100)
 rt! (0.25)
