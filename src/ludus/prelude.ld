@@ -110,6 +110,10 @@ fn map {
 		fn mapper (prev, curr) -> append (prev, f (curr))
 		fold (mapper, xs, [])
 	}
+	(kw as :keyword, xs) -> {
+		fn mapper (prev, curr) -> append (prev, kw (curr))
+		fold (mapper, xs, [])
+	}
 }
 
 fn append {
@@ -174,7 +178,7 @@ fn deref {
 
 fn make! {
 	"Sets the value of a ref."
-	(r as :ref, value) -> base :make! (r, value)
+	(r as :ref, value) -> base :set! (r, value)
 }
 
 fn update! {
@@ -258,6 +262,11 @@ fn abs {
 	"Returns the absolute value of a number."
 	(0) -> 0
 	(n) -> if neg? (n) then mult (-1, n) else n
+}
+
+fn neg {
+	"Multiplies a number by -1, negating it."
+	(n as :number) -> mult (n, -1)
 }
 
 fn angle {
@@ -458,6 +467,7 @@ fn assoc? {
 
 fn get {
 	"Takes a dict or struct, key, and optional default value; returns the value at key. If the value is not found, returns nil or the default value. Returns nil or default if the first argument is not a dict or struct."
+	(key as :keyword) -> get (key, _)
 	(key as :keyword, coll) -> base :get (key, coll)
 	(key as :keyword, coll, default) -> base :get (key, coll, default)
 }
@@ -474,11 +484,11 @@ fn dict {
 & TODO: make this less awkward once we have tail recursion
 fn each! {
 	"Takes a list and applies a function, presumably with side effects, to each element in the list. Returns nil."
-	(f as :fn, []) -> nil
-	(f as :fn, [x]) -> { f (x); nil }
-	(f, [...xs]) -> loop (xs) with {
-		([x]) -> { f (x); nil }
-		([x, ...xs]) -> { f (x); recur (xs) }
+	(f! as :fn, []) -> nil
+	(f! as :fn, [x]) -> { f! (x); nil }
+	(f! as :fn, [...xs]) -> loop (xs) with {
+		([x]) -> { f! (x); nil }
+		([x, ...xs]) -> { f! (x); recur (xs) }
 	}
 }
 
@@ -522,6 +532,15 @@ fn tan {
 	(a as :number, :turns) -> do a > turn/rad > base :tan
 	(a as :number, :degrees) -> do a > deg/rad > base :tan
 	(a as :number, :radians) -> base :tan (a)
+}
+
+fn rotate {
+	"Rotates a vector by an angle. Default angle measure is turns. An optional keyword argument specifies the units of the angle passed in."
+	((x, y), angle) -> rotate ((x, y), angle, :turns)
+	((x, y), angle, units as :keyword) -> (
+		sub (mult (x, cos (angle, units)), mult (y, sin (angle, units)))
+		add (mult (x, sin (angle, units)), mult (y, cos (angle, units)))
+	)
 }
 
 fn turn/deg {
@@ -636,20 +655,15 @@ let colors = @{
 let turtle_init = #{
 	:position (0, 0) & let's call this the origin for now
 	:heading 0 & this is straight up
-	:pendown true
+	:pendown? true
 	:color colors :white
 	:penwidth 1
-	:visible true
+	:visible? true
 }
 
 & turtle_commands is a list of commands, expressed as tuples
 & the first member of each tuple is the command
 ref turtle_commands = []
-
-ref last_command = ()
-
-& give ourselves a ref for current turtle state
-ref turtle_state = turtle_init
 
 & and a list of turtle states
 ref turtle_states = [turtle_init]
@@ -658,25 +672,77 @@ ref p5_calls = [
 	(:background, 0)
 ]
 
-fn add_call! (call) -> update! (p5_calls, conj (_, call))
+ref bgcolor = (0, 0, 0, 255)
+
+fn add_call! (call) -> update! (p5_calls, append (_, call))
 
 fn add_command! (command) -> {
-	update! (turtle_commands, append (_, command))
-	make! (last_command, command)
-	let current_state = deref (turtle_state)
-	let new_state = apply_command (current_state, command)
-	update! (turtle_states, append (_, new_state))
-	make! (turtle_state, new_state)
-	render_command! ()
-	:ok
+	update! (turtle_commands, append (_, command))	
+	let prev = do turtle_states > deref > last
+	let curr = apply_command (prev, command)
+	update! (turtle_states, append (_, curr))
+	let call = state/call ()
+	if call then { add_call! (call); :ok } else :ok
 }
 
-fn render_command! () -> {
-	let cmd = first (command)
-	let state = deref (turtle_state)
-	let #{position, heading, pendown, color, penwidth, visible} = state
+fn make_line ((x1, y1), (x2, y2)) -> (:line, x1, y1, x2, y2)
+
+let turtle_radius = 20
+
+let turtle_angle = 0.375
+
+let turtle_color = (100, 100, 100, 100)
+
+fn render_turtle! () -> {
+	let state = do turtle_state > deref > last
+	if state :visible?
+		then {
+			add_call! ((:push))	
+			let (r, g, b, a) = turtle_color
+			add_call! ((:fill, r, g, b, a))
+			add_call! ((:noStroke))
+			let #{heading, position} = state
+			add_call! ((:rotate, turn/deg (heading)))
+			add_call! ((:beginShape))
+			let head_unit = heading/vec (heading)
+			let first = mult (head_unit, turtle_radius)
+			let second = rotate (first, turtle_angle)
+			let third = rotate (first, neg (turtle_angle))
+			add_call! ((:vertex, first))
+			add_call! ((:vertex, second))
+			add_call! ((:vertx, third))
+			add_call! ((:pop))
+			:ok
+		}
+		else :ok
+}
+
+fn state/call () -> {
+	let cmd = do turtle_commands > deref > last > first
+	let states = deref (turtle_states)
+	let curr = last (states)
+	let prev = nth (states, sub (count (states), 2))
+	print! ("Curr, prev, command", curr, prev, cmd)
 	match cmd with {
-		:forward -> :todo
+		:forward -> if curr :pendown?
+			then make_line (curr :position, prev :position)
+			else nil
+		:back -> if curr :pendown?
+			then make_line (curr :position, prev :position)
+			else nil
+		:home -> if curr :pendown?
+			then make_line (curr :position, prev :position)
+			else nil
+		:goto -> if curr :pendown?
+			then make_line (curr :position, prev :position)
+			else nil
+		:penwidth -> (:strokeWeight, curr :penwidth)
+		:pencolor -> {
+			let (r, g, b, a) = curr :pencolor
+			(:stroke, r, g, b, a)
+		}
+		:clear -> (:background, 0, 0, 0, 255)
+		else -> nil
 	}
 }
 
@@ -740,9 +806,9 @@ let pw! = penwidth!
 
 fn background! {
 	"Sets the background color behind the turtle and path. Alias: bg!"
-	(gray as :number) -> background! ((gray, gray, gray, 255))
-	((r as :number, g as :number, b as :number)) -> background! ((r, g, b, 255))
-	((r as :number, g as :number, b as :number, a as :number)) -> background! ((r, g, b, a))
+	(gray as :number) -> make! (bgcolor, (gray, gray, gray, 255))
+	((r as :number, g as :number, b as :number)) -> make! (bgcolor, (r, b, g, 255))
+	((r as :number, g as :number, b as :number, a as :number)) -> make! (bgcolor, (r, g, b, a))
 }
 
 let bg! = background!
@@ -790,24 +856,43 @@ fn apply_command {
 			let vect = mult (steps, unit)
 			update (state, :position, sub (_, vect))
 		}
-		(:penup) -> assoc (state, :pendown, false)
-		(:pendown) -> assoc (state, :pendown, true)
+		(:penup) -> assoc (state, :pendown?, false)
+		(:pendown) -> assoc (state, :pendown?, true)
 		(:penwidth, pixels) -> assoc (state, :penwidth, pixels)
 		(:pencolor, color) -> assoc (state, :pencolor, color)
 	}
 }
 
-fn turtle/p5 {
-	"Takes a list of turtle states and returns a list of p5 calls that will render the turtle states."
-	() -> :todo 
+fn turtle_state {
+	"Returns the turtle's current state."
+	() -> do turtle_states > deref > last
 }
 
-
-& turtlestate () -> @{:position (x, y), :heading turns, :visible boolean, :pen penstate}
-
 & position () -> (x, y)
-& heading () -> turns
-& penstate () -> @{:down :boolean, :color (r, g, b, a), :width pixels}
+fn position {
+	"Returns the turtle's current position."
+	() -> turtle_state () :position
+}
+
+fn heading {
+	"Returns the turtle's current heading."
+	() -> turtle_state () :heading
+}
+
+fn pendown? {
+	"Returns the turtle's pen state: true if the pen is down."
+	() -> turtle_state () :pendown?
+}
+
+fn pencolor {
+	"Returns the turtle's pen color as an (r, g, b, a) tuple."
+	() -> turtle_state () :pencolor
+}
+
+fn penwidth {
+	"Returns the turtle's pen width in pixels."
+	() -> turtle_state () :pencolor
+}
 
 ns prelude {
 	first
@@ -842,6 +927,7 @@ ns prelude {
 	div/safe
 	angle
 	abs
+	neg
 	zero?
 	neg?
 	pos?
@@ -900,9 +986,9 @@ ns prelude {
 	pencolor!, pc!
 	penwidth!, pw!
 	home!, clear!, goto!,
-	turtle_commands, turtle_init
-	add_command!, apply_command,
+	heading, position, pendown?
+	pencolor, penwidth
 	heading/vector
 	turtle_state
-	turtle_states
+	p5_calls, turtle_states, turtle_commands
 }
