@@ -127,6 +127,15 @@ fn append {
 
 ref console = []
 
+fn flush! {
+	"Clears the console, and returns the messages."
+	() -> {
+		let msgs = deref (console)
+		make! (console, [])
+		msgs 
+	}
+}
+
 fn add_msg! {
 	"Adds a message to the console."
 	(msgs) -> {
@@ -708,7 +717,9 @@ let turtle_angle = 0.375
 let turtle_color = (100, 100, 100, 100)
 
 fn render_turtle! () -> {
+	print! ("Rendering turtle")
 	let state = do turtle_states > deref > last
+	print! ("Collected state.")
 	if state :visible?
 		then {
 			add_call! ((:push))	
@@ -739,19 +750,19 @@ fn state/call () -> {
 	let states = deref (turtle_states)
 	let curr = last (states)
 	let prev = nth (states, sub (count (states), 2))
-	print! ("Curr, prev, command", curr, prev, cmd)
+	& print! ("Curr, prev, command", curr, prev, cmd)
 	match cmd with {
 		:forward -> if curr :pendown?
-			then make_line (curr :position, prev :position)
+			then make_line (prev :position, curr :position)
 			else nil
 		:back -> if curr :pendown?
-			then make_line (curr :position, prev :position)
+			then make_line (prev :position, curr :position)
 			else nil
 		:home -> if curr :pendown?
-			then make_line (curr :position, prev :position)
+			then make_line (prev :position, curr :position)
 			else nil
 		:goto -> if curr :pendown?
-			then make_line (curr :position, prev :position)
+			then make_line (prev :position, curr :position)
 			else nil
 		:penwidth -> (:strokeWeight, curr :penwidth)
 		:pencolor -> {
@@ -859,6 +870,8 @@ fn apply_command {
 	"Takes a turtle state and a command and calculates a new state."
 	(state, command) -> match command with {
 		(:goto, (x, y)) -> assoc (state, :position, (x, y))
+		(:home) -> assoc (state, :position, (0, 0))
+		(:clear) -> assoc (state, :position, (0, 0))
 		(:right, turns) -> update (state, :heading, sub (_, turns))
 		(:left, turns) -> update (state, :heading, add (_, turns))
 		(:forward, steps) -> {
@@ -928,6 +941,7 @@ ns prelude {
 	inc
 	dec
 	print!
+	flush!
 	console
 	show
 	prn!
@@ -995,6 +1009,7 @@ ns prelude {
 	ceil
 	round
 	range
+	colors
 	forward!, fd!
 	back!, bk!
 	right!, rt!
@@ -1008,6 +1023,6 @@ ns prelude {
 	pencolor, penwidth
 	heading/vector
 	turtle_state
-	p5_calls, turtle_states, turtle_commands
+	p5_calls, turtle_states, turtle_commands, bgcolor
 	render_turtle!
 }

@@ -876,8 +876,13 @@
 
 (defn get-line [source line]
   (if line
-    (let [lines (clojure.string/split source #"\n")]
-      (clojure.string/trim (nth lines (dec line))))))
+    (let [lines (clojure.string/split source #"\n")
+          numlines (count lines)
+          gettable? (> numlines line)]
+      (if gettable? 
+        (clojure.string/trim (nth lines (dec line)))
+        nil))
+    ))
 
 (def runtime-error
   #?(
@@ -895,7 +900,7 @@
         interpreted (interpret-ast parsed base-ctx)
         namespace (dissoc interpreted ::data/type ::data/name ::data/struct)
         context (ns->ctx namespace)]
-    (println "Prelude fully loaded.")
+    ; (println "Prelude fully loaded.")
     context))
 
 ; ;; TODO: update this to use new parser pipeline & new AST representation
@@ -948,7 +953,7 @@
         (println "On line" (get-in (ex-data e) [:ast :token :line]))
         (println ">>> " (get-line source (get-in (ex-data e) [:ast :token :line])))
         (println (ex-message e))
-        (pp/pprint (ex-data e))
+        ;(pp/pprint (ex-data e))
         (throw e)
         ))))
 

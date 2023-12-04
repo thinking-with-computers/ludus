@@ -40,3 +40,14 @@
       		]
    	#?(:clj clj_result :cljs (clj->js clj_result))
    	))
+
+(do 
+ 	(def res (run "
+fd! (100)
+rt! (0.25)
+fd! (100)
+pencolor! (200)
+fd! (50)
+	"))
+ 	(:draw res)
+ 	)
