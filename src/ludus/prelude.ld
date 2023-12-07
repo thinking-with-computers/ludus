@@ -1,5 +1,25 @@
 & this file, uniquely, gets `base` loaded as context. See src/ludus/base.cljc for exports
 
+& the very base: know something's type
+fn type {
+	"Returns a keyword representing the type of the value passed in."
+	(x) -> base :type (x)
+}
+
+& ...and if two things are the same
+fn eq? {
+	"Returns true if all arguments have the same value."
+	(x) -> true
+	(x, y) -> base :eq (x, y)
+	(x, y, ...zs) -> loop (y, zs) with {
+		(a, [b]) -> base :eq (a, b)
+		(a, [b, ...cs]) -> if base :eq (a, b)
+			then recur (b, cs)
+			else false 
+	}
+}
+
+& what we need for some very basic list manipulation 
 fn rest {
 	"Returns all but the first element of a list or tuple, as a list."
 	(xs as :list) -> base :rest (xs)
@@ -16,7 +36,7 @@ fn dec {
 	(x as :number) -> base :dec (x)
 }
 
-fn nth {
+fn at {
 	"Returns the element at index n of a list or tuple. Zero-indexed: the first element is at index 0."
 	(xs as :list, n as :number) -> when {
 		neg? (n) -> nil
@@ -32,17 +52,17 @@ fn nth {
 
 fn first {
 	"Returns the first element of a list or tuple."
-	(xs) -> nth (xs, 0)
+	(xs) -> at (xs, 0)
 }
 
 fn second {
 	"Returns the second element of a list or tuple."
-	(xs) -> nth (xs, 1)
+	(xs) -> at (xs, 1)
 }
 
 fn last {
 	"Returns the last element of a list or tuple."
-	(xs) -> nth (xs, sub (count (xs), 1))
+	(xs) -> at (xs, sub (count (xs), 1))
 }
 
 fn butlast {
@@ -125,6 +145,17 @@ fn append {
 	(xs as :set, x) -> base :conj (xs, x)
 }
 
+fn concat {
+	"Combines two lists, strings, or sets."
+	(x as :string, y as :string) -> base :str (x, y)
+	(xs as :list, ys as :list) -> base :concat (xs, ys)
+	(xs as :set, ys as :set) -> base :concat (xs, ys)
+	(xs, ys, ...zs) -> fold (concat, zs, concat(xs, ys))
+}
+
+& the console: sending messages to the outside world
+& the console is *both* something we send to the host language's console
+& ...and also a list of messages.
 ref console = []
 
 fn flush! {
@@ -138,11 +169,10 @@ fn flush! {
 
 fn add_msg! {
 	"Adds a message to the console."
-	(msgs) -> {
-		let strs = map (show, msgs)
-		let msg = fold (concat, strs, "")
+	(msg as :string) -> update! (console, append, (_, msg))
+	(msgs as :list) -> {
+		let msg =	do msgs > map (string, _) > join 
 		update! (console, append (_, msg))
-		:ok
 	}
 }
 
@@ -151,6 +181,7 @@ fn print! {
 	(...args) -> {
 		base :print (args)
 		add_msg! (args)
+		:ok
 	}
 }
 
@@ -159,22 +190,9 @@ fn show {
 	(x) -> base :show (x)
 }
 
-fn type {
-	"Returns a keyword representing the type of the value passed in."
-	(x) -> base :type (x)
-}
-
 fn prn! {
 	"Prints the underlying Clojure data structure of a Ludus value."
 	(x) -> base :prn (x)
-}
-
-fn concat {
-	"Combines two lists, strings, or sets."
-	(x as :string, y as :string) -> base :str (x, y)
-	(xs as :list, ys as :list) -> base :concat (xs, ys)
-	(xs as :set, ys as :set) -> base :concat (xs, ys)
-	(xs, ys, ...zs) -> fold (concat, zs, concat(xs, ys))
 }
 
 fn report! {
@@ -188,6 +206,56 @@ fn report! {
 		x
 	}
 }
+
+fn panic! {
+	"Causes Ludus to panic, outputting any arguments as messages."
+	() -> {
+		add_msg! ("Ludus panicked!")
+		base :panic! ()
+	}
+	(...args) -> {
+		add_msg! ("Ludus panicked!")
+		add_msg! (args)
+		base :panic! (args)
+	}
+}
+
+fn doc! {
+	"Prints the documentation of a function to the console."
+	(f as :fn) -> base :doc (f)
+	(_) -> :none
+}
+
+&&& strings: harder than they look!
+fn string? {
+	"Returns true if a value is a string."
+	(x as :string) -> true
+	(_) -> false
+}
+
+fn string {
+	"Converts a value to a string by using `show`. If it is a string, returns it unharmed. Use this to build up strings of differen kinds of values."
+	(x as :string) -> x
+	(x) -> show (x)
+	(x, ...xs) -> fold (string, xs, x)
+}
+
+fn join {
+	"Takes a list of strings, and joins them into a single string, interposing an optional separator."
+	([]) -> ""
+	([str as :string]) -> s
+	(strs as :list) -> join (strs, "")
+	(strs, separator as :string) -> fold (
+		fn (joined, to_join) -> concat (joined, separator, to_join)
+	)
+}
+
+& in another prelude, with a better actual base language than Java (thanks, Rich), counting strings would be reasonable but complex: count/bytes, count/points, count/glyphs. Java's UTF16 strings make this unweildy.
+
+& TODO: add trim, trim/left, trim/right; pad/left, pad/right
+& ...also a version of at,
+
+&&& references: mutable state and state changes
 
 fn ref? {
 	"Returns true if a value is a ref."
@@ -213,6 +281,8 @@ fn update! {
 		make! (r, new)
 	}
 }
+
+&&& numbers, basically: arithmetic and not much else, yet
 
 fn number? {
 	"Returns true if a value is a number."
@@ -261,7 +331,7 @@ fn div {
 }
 
 fn div/0 {
-	"Divides number. Returns 0 on division by zero."
+	"Divides numbers. Returns 0 on division by zero."
 	(x as :number) -> x
 	(_, 0) -> 0
 	(x as :number, y as :number) -> base :div (x, y)
@@ -302,18 +372,6 @@ fn zero? {
 	"Returns true if a number is 0."
 	(0) -> true
 	(_) -> false
-}
-
-fn eq? {
-	"Returns true if all arguments have the same value."
-	(x) -> true
-	(x, y) -> base :eq (x, y)
-	(x, y, ...zs) -> loop (y, zs) with {
-		(a, [b]) -> base :eq (a, b)
-		(a, [b, ...cs]) -> if base :eq (a, b)
-			then recur (b, cs)
-			else false 
-	}
 }
 
 fn gt? {
@@ -376,11 +434,21 @@ fn pos? {
 	(_) -> false
 }
 
+&&& nil: working with nothing
+
 fn nil? {
 	"Returns true if a value is nil."
 	(nil) -> true
 	(_) -> false
 }
+
+fn some? {
+	"Returns true if a value is not nil."
+	(nil) -> false
+	(_) -> true
+}
+
+&&& true & false: boolean logic
 
 fn bool? {
 	"Returns true if a value is of type :boolean."
@@ -420,6 +488,8 @@ fn or {
 	(x, y, ...zs) -> fold (base :or, zs, base :or (x, y))
 }
 
+&&& associative collections: dicts, structs, namespaces
+& TODO?: get_in, update_in
 fn assoc {
 	"Takes a dict, key, and value, and returns a new dict with the key set to value."
 	() -> #{}
@@ -471,6 +541,7 @@ fn coll? {
 	(coll as :list) -> true
 	(coll as :tuple) -> true
 	(coll as :set) -> true
+	(coll as :ns) -> true
 	(_) -> false
 }
 
@@ -516,19 +587,11 @@ fn each! {
 	}
 }
 
-fn panic! {
-	"Causes Ludus to panic, outputting any arguments as messages."
-	() -> base :panic! ()
-	(...args) -> base :panic! (args)
-}
-
-fn doc! {
-	"Prints the documentation of a function to the console."
-	(f as :fn) -> base :doc (f) 
-	(_) -> :none
-}
-
 &&& Trigonometry functions
+
+& Ludus uses turns as its default unit to measure angles
+& However, anything that takes an angle can also take a
+& units argument, that's a keyword of :turns, :degrees, or :radians
 
 let pi = base :pi
 
@@ -665,7 +728,55 @@ fn range {
 	(start as :number, end as :number) -> base :range (start, end)
 }
 
+&&& Results, errors and other unhappy values
+
+fn ok {
+	"Takes a value and wraps it in an :ok result tuple."
+	(value) -> (:ok, value)	
+}
+
+fn ok? {
+	"Takes a value and returns true if it is an :ok result tuple."
+	((:ok, _)) -> true
+	(_) -> false
+}
+
+fn err {
+	"Takes a value and wraps it in an :err result tuple, presumably as an error message."
+	(msg) -> (:err, msg)
+}
+
+fn err? {
+	"Takes a value and returns true if it is an :err result tuple."
+	((:err, _)) -> true
+	(_) -> false
+}
+
+fn unwrap! {
+	"Takes a result tuple. If it's :ok, then returns the value. If it's not :ok, then it panics. If it's not a result tuple, it also panics."
+	((:ok, value)) -> value
+	((:err, msg)) -> panic! ("Unwrapped :err", msg)
+	(_) -> panic! ("Cannot unwrap something that's not an error tuple.")
+}
+
+fn unwrap_or {
+	"Takes a value that is a result tuple and a default value. If it's :ok, then it returns the value. If it's :err, returns the default value."
+	((:ok, value), _) -> value
+	((:err, _), default) -> default
+}
+
+fn assert! {
+	"Asserts a condition: returns the value if the value is truthy, panics if the value is falsy. Takes an optional message."
+	(value) -> if value then value else panic! ("Assert failed", value)
+	(value, message) -> if value 
+		then value 
+		else panic! ("Assert failed:", message, value)
+}
+
 &&& Turtle & other graphics
+
+& some basic colors
+&&& TODO: add colors
 let colors = @{
 	:white (255, 255, 255, 255)
 	:light_gray (150, 150, 150, 255)
@@ -686,15 +797,19 @@ let turtle_init = #{
 	:visible? true
 }
 
+& turtle states: refs that get modified by calls
 & turtle_commands is a list of commands, expressed as tuples
-& the first member of each tuple is the command
 ref turtle_commands = []
 
 & and a list of turtle states
 ref turtle_states = [turtle_init]
 
+& and a list of calls to p5--at least for now
 ref p5_calls = []
 
+& ...and finally, a background color
+& we need to store this separately because, while it can be updated later,
+& it must be the first call to p5.
 ref bgcolor = colors :black
 
 fn add_call! (call) -> update! (p5_calls, append (_, call))
@@ -747,7 +862,7 @@ fn state/call () -> {
 	let cmd = do turtle_commands > deref > last > first
 	let states = deref (turtle_states)
 	let curr = last (states)
-	let prev = nth (states, sub (count (states), 2))
+	let prev = at (states, sub (count (states), 2))
 	match cmd with {
 		:forward -> if curr :pendown?
 			then make_line (prev :position, curr :position)
@@ -785,6 +900,8 @@ fn back! {
 
 let bk! = back!
 
+& turtles, like eveyrthing else in Ludus, use turns by default,
+& not degrees
 fn left! {
 	"Rotates the turtle left, measured in turns. Alias: lt!"
 	(turns as :number) -> add_command! ((:left, turns))
@@ -857,7 +974,7 @@ fn goto! {
 fn heading/vector {
 	"Takes a turtle heading, and returns a unit vector of that heading."
 	(heading) -> {
-		& 0 is 90º/0.25T, 0.25 is 180º/0.5T, 0.5 is 270º, 0.75 is 0º
+		& 0 is 90º/0.25T, 0.25 is 180º/0.5T, 0.5 is 270º/0.75T, 0.75 is 0º/0T
 		let angle = add (heading, 0.25)
 		(cos (angle), sin (angle))
 	}
@@ -925,7 +1042,7 @@ ns prelude {
 	first
 	second
 	rest
-	nth
+	at
 	last
 	butlast
 	slice
@@ -966,6 +1083,7 @@ ns prelude {
 	lt?
 	lte?
 	nil?
+	some?
 	bool?
 	bool
 	not
@@ -1006,6 +1124,12 @@ ns prelude {
 	ceil
 	round
 	range
+	ok
+	ok?
+	err
+	err?
+	unwrap!
+	unwrap_or
 	colors
 	forward!, fd!
 	back!, bk!

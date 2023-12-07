@@ -1,6 +1,7 @@
 & this file runs after any given interpretation
-& the goal is to output any global state
-& this does not have base loaded into it: must be pure ludus
+& even if the original interpretation panics
+& the goal is to output any global state held in Ludus
+& this does not have base loaded into it, only prelude: must be pure Ludus
 
 if turtle_state() :visible? then render_turtle! () else nil
 

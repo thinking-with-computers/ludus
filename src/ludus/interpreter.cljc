@@ -946,7 +946,7 @@
 (defn interpret-safe [source parsed ctx]
   (let [base-ctx (volatile! {::parent (volatile! (merge ludus-prelude ctx))})]
     (try
-      (println "Running source: " source)
+      ;(println "Running source: " source)
       (interpret-ast parsed base-ctx)
       (catch #?(:clj Throwable :cljs js/Object) e
         (println "Ludus panicked!")
@@ -954,17 +954,20 @@
         (println ">>> " (get-line source (get-in (ex-data e) [:ast :token :line])))
         (println (ex-message e))
         ;(pp/pprint (ex-data e))
-        (throw e)
+        ;(throw e)
+        {::data/error true 
+         :line (get-in (ex-data e) [:ast :token :line])
+         :message (ex-message e)}
         ))))
 
 ;; repl
-(comment
+(do
   
-  (def source "fn foo () -> :foo")
+  (def source "1 2")
 
   (def tokens (-> source scanner/scan :tokens))
 
-  (def ast (p/apply-parser g/fn-named tokens))
+  (def ast (p/apply-parser g/script tokens))
 
   ;(def result (interpret-safe source ast {}))
 
