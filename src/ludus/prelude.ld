@@ -19,6 +19,15 @@ fn eq? {
 	}
 }
 
+& TODO: add not_eq
+
+&&& functions: getting things done
+fn fn? {
+	"Returns true if an argument is a function."
+	(f as :fn) -> true
+	(_) -> false
+}
+
 & what we need for some very basic list manipulation 
 fn rest {
 	"Returns all but the first element of a list or tuple, as a list."
@@ -92,6 +101,16 @@ fn count {
 	(xs as :string) -> base :count (xs)
 	(xs as :set) -> base :count (xs)
 	(xs as :struct) -> dec (base :count (xs))
+}
+
+fn empty? {
+	"Returns true if something is empty. Otherwise returns false (including for things that can't logically be empty, like numbers)."
+	([]) -> true
+	(#{}) -> true
+	(${}) -> true
+	(()) -> true
+	("") -> true
+	(_) -> false
 }
 
 fn list? {
@@ -283,7 +302,7 @@ fn update! {
 }
 
 &&& numbers, basically: arithmetic and not much else, yet
-
+& TODO: add nan?, 
 fn number? {
 	"Returns true if a value is a number."
 	(x as :number) -> true
@@ -434,6 +453,27 @@ fn pos? {
 	(_) -> false
 }
 
+fn even? {
+	"Returns true if a value is an even number, otherwise returns false."
+	(x as :number) if eq (0, mod (x, 2)) -> true
+	(_) -> false
+}
+
+fn odd? {
+	"Returns true if a value is an odd number, otherwise returns false."
+	(x as :number) if eq (1, mod (x, 2)) -> true
+	(_) -> false
+}
+
+&&& keywords: funny names
+fn keyword? {
+	"Returns true if a value is a keyword, otherwise returns false."
+	(kw as :keyword) -> true
+	(_) -> false
+}
+
+& TODO: determine if Ludus should have a `keyword` function that takes a string and returns a keyword. Too many panics, it has weird memory consequences, etc.
+
 &&& nil: working with nothing
 
 fn nil? {
@@ -448,12 +488,24 @@ fn some? {
 	(_) -> true
 }
 
+fn some {
+	"Takes a possibly nil value and a default value. Returns the value if it's not nil, returns the default if it's nil."
+	(nil, default) -> default
+	(value, _) -> value 
+}
+
 &&& true & false: boolean logic
 
 fn bool? {
 	"Returns true if a value is of type :boolean."
 	(false) -> true
 	(true) -> true
+	(_) -> false
+}
+
+fn false? {
+	"Returns true if a value is false, otherwise returns false. Useful to distinguish between false and nil."
+	(false) -> true
 	(_) -> false
 }
 
@@ -489,7 +541,7 @@ fn or {
 }
 
 &&& associative collections: dicts, structs, namespaces
-& TODO?: get_in, update_in
+& TODO?: get_in, update_in, merge
 fn assoc {
 	"Takes a dict, key, and value, and returns a new dict with the key set to value."
 	() -> #{}
@@ -699,7 +751,8 @@ fn dist {
 	((x, y)) -> dist (x, y)
 }
 
-&&& Number functions
+&&& more number functions
+& TODO: add max, min
 fn random {
 	"Returns a random number. With zero arguments, returns a random number between 0 (inclusive) and 1 (exclusive). With one argument, returns a random number between 0 and n. With two arguments, returns a random number between m and n."
 	() -> base :random ()
@@ -1039,6 +1092,9 @@ fn penwidth {
 }
 
 ns prelude {
+	type
+	eq?
+	fn?
 	first
 	second
 	rest
@@ -1059,12 +1115,16 @@ ns prelude {
 	console
 	show
 	prn!
-	type
 	report!
+	panic!
+	doc!
 	concat
 	deref
 	make!
 	update!
+	string
+	string?
+	join
 	add
 	sub
 	mult
@@ -1077,14 +1137,18 @@ ns prelude {
 	zero?
 	neg?
 	pos?
-	eq?
+	even?
+	odd?
 	gt?
 	gte?
 	lt?
 	lte?
+	keyword?
 	nil?
 	some?
+	some
 	bool?
+	false?
 	bool
 	not
 	and
@@ -1101,8 +1165,6 @@ ns prelude {
 	values
 	diff
 	each!
-	panic!
-	doc!
 	sin
 	cos
 	tan
@@ -1130,6 +1192,7 @@ ns prelude {
 	err?
 	unwrap!
 	unwrap_or
+	assert!
 	colors
 	forward!, fd!
 	back!, bk!
