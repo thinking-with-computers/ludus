@@ -674,6 +674,8 @@
       (vswap! ctx update-ctx {name ref})
       ref)))
 
+(defn- interpret-repeat [ast ctx] :TODO)
+
 (defn- interpret-loop [ast ctx]
   (let [data (:data ast)
         tuple (interpret-ast (first data) ctx)
@@ -840,6 +842,8 @@
     {::data/recur true :args (interpret-ast (-> ast :data first) ctx)}
 
     :loop-expr (interpret-loop ast ctx)
+
+    :repeat-expr (interpret-repeat ast ctx)
 
     :block
     (let [exprs (:data ast)

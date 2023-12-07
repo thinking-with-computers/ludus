@@ -30,15 +30,15 @@
    "when" :when ;; impl, replaces cond
 
    ;; actor model/concurrency
-   "receive" :receive
+   ;"receive" :receive
    ;;"self" :self ;; maybe not necessary?: self() is a function
    ;;"send" :send ;; not necessary: send(pid, message) is a function
-   "spawn" :spawn
+   ;"spawn" :spawn
    ;;"to" :to ;; not necessary if send is a function
    ;; type system
    ;; "data" :data ;; we are going to tear out datatypes for now: see if dynamism works for us
    ;; others
-   ;;"repeat" :repeat ;; syntax sugar over "loop": still unclear what this syntax could be
+   "repeat" :repeat ;; syntax sugar over "loop": still unclear what this syntax could be
    "test" :test
    ;; "module" :module ;; not necessary if we don't have datatypes
    })
