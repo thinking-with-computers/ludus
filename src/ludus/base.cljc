@@ -331,11 +331,9 @@
                          docstring (:doc f)
                          clauses (:clauses f)
                          patterns (map first clauses)
-                         pretty-patterns (map show/show-pattern patterns)]
-                     (println name)
-                     (println docstring)
-                     (println (apply str (interpose "\n" pretty-patterns)))
-                     :ok)
+                         pretty-patterns (map show/show-pattern patterns)
+                         doc (into [name docstring] pretty-patterns)]
+                     (apply str (interpose "\n" doc)))
                    )})
 
 (def sin {:name "sin"

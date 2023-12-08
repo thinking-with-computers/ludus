@@ -241,7 +241,7 @@ fn panic! {
 
 fn doc! {
 	"Prints the documentation of a function to the console."
-	(f as :fn) -> base :doc (f)
+	(f as :fn) -> do f > base :doc > print!
 	(_) -> :none
 }
 
@@ -264,8 +264,10 @@ fn join {
 	([]) -> ""
 	([str as :string]) -> str
 	(strs as :list) -> join (strs, "")
-	(strs, separator as :string) -> fold (
+	([str, ...strs], separator as :string) -> fold (
 		fn (joined, to_join) -> concat (joined, separator, to_join)
+		strs
+		str
 	)
 }
 
@@ -899,7 +901,7 @@ fn render_turtle! () -> {
 			add_call! ((:noStroke))
 			let #{heading, :position (x, y)} = state
 			add_call! ((:translate, x, y))
-			add_call! ((:rotate, turn/rad (heading)))
+			add_call! ((:rotate, turn/rad (add (heading, 0.25))))
 			add_call! ((:beginShape))
 			let head_unit = heading/vector (heading)
 			let first = mult (head_unit, turtle_radius)
