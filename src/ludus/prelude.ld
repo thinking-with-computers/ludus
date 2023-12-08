@@ -857,6 +857,11 @@ ref turtle_commands = []
 & and a list of turtle states
 ref turtle_states = [turtle_init]
 
+fn reset_turtle! {
+	"Resets the turtle to its original state."
+	() -> make! (turtle_states, [turtle_init])
+}
+
 & and a list of calls to p5--at least for now
 ref p5_calls = []
 
@@ -1208,5 +1213,5 @@ ns prelude {
 	heading/vector
 	turtle_state
 	p5_calls, turtle_states, turtle_commands, bgcolor
-	render_turtle!
+	render_turtle!, reset_turtle!
 }

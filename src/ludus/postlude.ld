@@ -5,7 +5,7 @@
 
 if turtle_state() :visible? then render_turtle! () else nil
 
-make! (turtle_states, [turtle_init])
+reset_turtle! ()
 
 let console_msgs = flush! ()
 
