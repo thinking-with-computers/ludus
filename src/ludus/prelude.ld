@@ -262,7 +262,7 @@ fn string {
 fn join {
 	"Takes a list of strings, and joins them into a single string, interposing an optional separator."
 	([]) -> ""
-	([str as :string]) -> s
+	([str as :string]) -> str
 	(strs as :list) -> join (strs, "")
 	(strs, separator as :string) -> fold (
 		fn (joined, to_join) -> concat (joined, separator, to_join)
