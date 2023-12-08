@@ -8,6 +8,7 @@
     [ludus.prelude :as prelude]
     [ludus.data :as data]
     [ludus.show :as show]
+    [ludus.error :as error]
     ;;[ludus.loader :as loader]
     [clojure.pprint :as pp]
     [clojure.set]
@@ -674,8 +675,6 @@
       (vswap! ctx update-ctx {name ref})
       ref)))
 
-(defn- interpret-repeat [ast ctx] :TODO)
-
 (defn- interpret-loop [ast ctx]
   (let [data (:data ast)
         tuple (interpret-ast (first data) ctx)
@@ -803,6 +802,18 @@
         (vswap! ctx update-ctx {name ns})
         ns))))
 
+;; TODO: make this more robust: can dotimes choke on numbers Ludus passes in?
+;; TODO: 
+(defn- interpret-repeat [ast ctx]
+  (let [data (:data ast)
+        times-expr (-> data first :data first)
+        times (if (= :word (:type times-expr))
+                (resolve-word times-expr ctx)
+                (-> times-expr :data first))
+        block (second data)]
+    (if (not (number? times)) (throw (ex-info (str "Repeat needs a number, not a " (base/get-type times)) {})))
+    (dotimes [_ times] (interpret-ast block ctx))))
+
 (defn- interpret-literal [ast] (-> ast :data first))
 
 (defn interpret-ast [ast ctx]
@@ -835,8 +846,6 @@
     ;; :import-expr (interpret-import ast ctx)
 
     :ref-expr (interpret-ref ast ctx)
-
-    ;:when-expr (interpret-ast (-> ast :data first) ctx)
 
     :recur-call
     {::data/recur true :args (interpret-ast (-> ast :data first) ctx)}
@@ -900,11 +909,14 @@
 (def ludus-prelude 
   (let [scanned (scanner/scan prelude/prelude)
         parsed (p/apply-parser g/script (:tokens scanned))
+        ; _ (println "Parse status: " (:status parsed))
+        ; _ (if (= :err (:status parsed))
+        ;     (throw (ex-info (error/parse-error prelude/prelude parsed) {})))
         base-ctx (volatile! {::parent (volatile! {"base" base/base})})
         interpreted (interpret-ast parsed base-ctx)
         namespace (dissoc interpreted ::data/type ::data/name ::data/struct)
         context (ns->ctx namespace)]
-    ; (println "Prelude fully loaded.")
+    ;(println "Prelude fully loaded.")
     context))
 
 ; ;; TODO: update this to use new parser pipeline & new AST representation
@@ -964,19 +976,26 @@
          :message (ex-message e)}
         ))))
 
+
 ;; repl
-(do
-  
-  (def source "1 2")
+(comment
+   
+  (println "***********")
+
+  (def source "
+    let times = 1.3
+    repeat times { print! (:foo) }
+")
 
   (def tokens (-> source scanner/scan :tokens))
 
   (def ast (p/apply-parser g/script tokens))
 
-  ;(def result (interpret-safe source ast {}))
+  (def result (interpret-safe source ast {}))
 
-  (-> ast prettify-ast println)
+  ;(-> ast prettify-ast println)
 
-  ;(-> ast show/show-pattern println)
-  
+  (println result)  
+
+  result
   )

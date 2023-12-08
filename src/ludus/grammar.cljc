@@ -228,7 +228,7 @@
 (defp loop-expr group order-1 [(quiet :loop) tuple (quiet :with)
                               	(flat (choice :loop-body [fn-clause compound-loop]))])
 
-(defp repeat-expr group order-1 [(quiet :repeat) (choice :word :number) block])
+(defp repeat-expr group order-1 [(quiet :repeat) (choice :times [:word :number]) block])
 
 (defp collection flat choice [struct-literal dict list-literal set-literal tuple])
 
