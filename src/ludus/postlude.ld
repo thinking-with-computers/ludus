@@ -5,6 +5,8 @@
 
 if turtle_state() :visible? then render_turtle! () else nil
 
+make! (turtle_states, [turtle_init])
+
 let console_msgs = flush! ()
 
 let (r, g, b, a) = deref (bgcolor)

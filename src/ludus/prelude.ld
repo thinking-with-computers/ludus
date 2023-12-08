@@ -882,7 +882,7 @@ let turtle_radius = 20
 
 let turtle_angle = 0.375
 
-let turtle_color = (100, 100, 100, 100)
+let turtle_color = (150, 150, 150, 200)
 
 fn render_turtle! () -> {
 	let state = do turtle_states > deref > last
@@ -894,7 +894,7 @@ fn render_turtle! () -> {
 			add_call! ((:noStroke))
 			let #{heading, :position (x, y)} = state
 			add_call! ((:translate, x, y))
-			add_call! ((:rotate, turn/deg (heading)))
+			add_call! ((:rotate, turn/rad (heading)))
 			add_call! ((:beginShape))
 			let head_unit = heading/vector (heading)
 			let first = mult (head_unit, turtle_radius)
