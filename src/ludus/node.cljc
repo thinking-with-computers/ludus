@@ -57,8 +57,3 @@
      	(clean-out clj_result)
      	)
    	))
-
-(do
-
-  (-> "foo" run :errors)
- 	)
