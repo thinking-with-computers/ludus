@@ -107,7 +107,7 @@ fn empty? {
 	"Returns true if something is empty. Otherwise returns false (including for things that can't logically be empty, like numbers)."
 	([]) -> true
 	(#{}) -> true
-	(${}) -> true
+	(s as :set) -> eq (s, ${})
 	(()) -> true
 	("") -> true
 	(_) -> false
@@ -169,7 +169,7 @@ fn concat {
 	(x as :string, y as :string) -> base :str (x, y)
 	(xs as :list, ys as :list) -> base :concat (xs, ys)
 	(xs as :set, ys as :set) -> base :concat (xs, ys)
-	(xs, ys, ...zs) -> fold (concat, zs, concat(xs, ys))
+	(xs, ys, ...zs) -> fold (concat, zs, concat (xs, ys))
 }
 
 & the console: sending messages to the outside world
@@ -188,7 +188,7 @@ fn flush! {
 
 fn add_msg! {
 	"Adds a message to the console."
-	(msg as :string) -> update! (console, append, (_, msg))
+	(msg as :string) -> update! (console, append (_, msg))
 	(msgs as :list) -> {
 		let msg =	do msgs > map (string, _) > join 
 		update! (console, append (_, msg))
