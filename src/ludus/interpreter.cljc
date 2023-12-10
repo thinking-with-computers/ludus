@@ -302,7 +302,7 @@
         (if (= match-value value)
           {:success true :ctx {}}
           {:success false
-           :reason (str "No match: Could not match " (show/show-pattern match-value) " with " (show/show value))}))
+           :reason (str "No match: Could not match " (show/show-pattern pattern) " with " (show/show value))}))
 
       :word
       (let [word (-> pattern :data first)]
@@ -965,10 +965,10 @@
       ;(println "Running source: " source)
       (interpret-ast parsed base-ctx)
       (catch #?(:clj Throwable :cljs js/Object) e
-        (println "Ludus panicked!")
-        (println "On line" (get-in (ex-data e) [:ast :token :line]))
-        (println ">>> " (get-line source (get-in (ex-data e) [:ast :token :line])))
-        (println (ex-message e))
+        ;(println "Ludus panicked!")
+        ;(println "On line" (get-in (ex-data e) [:ast :token :line]))
+        ;(println ">>> " (get-line source (get-in (ex-data e) [:ast :token :line])))
+        ;(println (ex-message e))
         ;(pp/pprint (ex-data e))
         ;(throw e)
         {::data/error true 

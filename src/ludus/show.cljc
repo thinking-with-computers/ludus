@@ -1,6 +1,10 @@
 (ns ludus.show
   (:require
     [ludus.data :as data]
+    ; [ludus.scanner :as s]
+    ; [ludus.parser :as p]
+    ; [ludus.grammar :as g]
+    ; [ludus.interpreter :as i]
     [clojure.pprint :as pp]))
 
 (declare show show-linear show-keyed)
@@ -75,7 +79,7 @@
 
     :else "else"
 
-    (:word :number :keyword :true :false :nil :string) (-> pattern :data first)
+    (:word :number :keyword :true :false :nil :string) (-> pattern :data first show)
 
     :typed
     (let [word (-> pattern :data first :data first)
@@ -100,3 +104,11 @@
     :struct-pattern (show-coll-pattern pattern ["@{" "}"])
 
     ))
+
+(comment
+  (def source "let 1 = 0")
+  (def tokens (-> source s/scan :tokens))
+  (def ast (p/apply-parser g/script tokens))
+  (println (i/prettify-ast ast))
+  (println (-> ast :data first :data first show-pattern))
+  )

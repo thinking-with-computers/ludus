@@ -256,7 +256,10 @@ fn string {
 	"Converts a value to a string by using `show`. If it is a string, returns it unharmed. Use this to build up strings of differen kinds of values."
 	(x as :string) -> x
 	(x) -> show (x)
-	(x, ...xs) -> fold (string, xs, x)
+	(x, ...xs) -> loop (x, xs) with {
+		(out, [x]) -> concat (out, show(x))
+		(out, [x, ...xs]) -> recur (concat (out, show (x)), xs)
+	}
 }
 
 fn join {
@@ -887,31 +890,32 @@ fn make_line ((x1, y1), (x2, y2)) -> (:line, x1, y1, x2, y2)
 
 let turtle_radius = 20
 
-let turtle_angle = 0.375
+let turtle_angle = 0.385
 
-let turtle_color = (150, 150, 150, 200)
+let turtle_color = (255, 255, 255, 150)
 
 fn render_turtle! () -> {
 	let state = do turtle_states > deref > last
 	if state :visible?
 		then {
-			add_call! ((:push))	
 			let (r, g, b, a) = turtle_color
 			add_call! ((:fill, r, g, b, a))
-			add_call! ((:noStroke))
 			let #{heading, :position (x, y)} = state
-			add_call! ((:translate, x, y))
-			add_call! ((:rotate, turn/rad (add (heading, 0.25))))
-			add_call! ((:beginShape))
-			let head_unit = heading/vector (heading)
-			let first = mult (head_unit, turtle_radius)
+			let first = mult ((0, 1), turtle_radius)
 			let (x1, y1) = first
 			let (x2, y2) = rotate (first, turtle_angle)
 			let (x3, y3) = rotate (first, neg (turtle_angle))
+			add_call! ((:push))	
+			add_call! ((:translate, x, y))
+			add_call! ((:rotate, turn/rad (heading)))
+			add_call! ((:noStroke))
+			add_call! ((:beginShape))
 			add_call! ((:vertex, x1, y1))
 			add_call! ((:vertex, x2, y2))
 			add_call! ((:vertex, x3, y3))
 			add_call! ((:endShape))
+			add_call! ((:stroke, 0))
+			add_call! ((:line, 0, 0, x1, y1))
 			add_call! ((:pop))
 			:ok
 		}
@@ -1046,8 +1050,8 @@ fn apply_command {
 		(:goto, (x, y)) -> assoc (state, :position, (x, y))
 		(:home) -> assoc (state, :position, (0, 0))
 		(:clear) -> assoc (state, :position, (0, 0))
-		(:right, turns) -> update (state, :heading, sub (_, turns))
-		(:left, turns) -> update (state, :heading, add (_, turns))
+		(:right, turns) -> update (state, :heading, add (_, turns))
+		(:left, turns) -> update (state, :heading, sub (_, turns))
 		(:forward, steps) -> {
 			let #{heading, position} = state
 			let unit = heading/vector (heading)
@@ -1208,6 +1212,7 @@ ns prelude {
 	penup!, pu!
 	pendown!, pd!
 	pencolor!, pc!
+	background!, bg!
 	penwidth!, pw!
 	home!, clear!, goto!,
 	heading, position, pendown?

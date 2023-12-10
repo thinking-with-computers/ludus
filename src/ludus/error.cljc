@@ -12,7 +12,7 @@
       		line-start (reduce (fn [len line] (+ len (count line))) (count lines-before) lines-before)
       		from-start (- start line-start)
       		underline-length (count lexeme)
-      		padding (string/join (take (+ prefix from-start) (repeat " ")))
+      		padding (string/join (take (+ prefix from-start) (repeat "-")))
       		underline (string/join (take underline-length (repeat "^")))]
   		(apply str padding underline)
   		))
@@ -31,3 +31,9 @@
   		(str message "\n" prefix line "\n" underline)
   		)
  	)
+
+(defn run-error [source {:keys [line message]}]
+ 	(if line
+  		(str "Ludus panicked on line " line ":\n" (get-line source {:line line}) "\n" message)
+  		(str "Ludus panicked!\n" message)
+  		))

@@ -51,7 +51,7 @@
      	(clean-out {:errors [(error/parse-error source user_parsed)]})
 
      	(::data/error user_result)
-     	(clean-out {:errors [user_result]})
+     	(clean-out (assoc (ld->clj post_result) :errors [(error/run-error source user_result)]))
 
      	:else
      	(clean-out clj_result)
