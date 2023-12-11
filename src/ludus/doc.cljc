@@ -18,7 +18,9 @@
 
 (defn escape-underscores [the-str] (string/replace the-str #"_" "\\_"))
 
-(defn toc-entry [name] (let [escaped (escape-underscores name)] (str "•[" escaped "](#" escaped ")")))
+(defn escape-punctuation [the-str] (string/replace the-str #"[\!\?]" ""))
+
+(defn toc-entry [name] (let [escaped (escape-underscores name)] (str "•[" escaped "](#" (escape-punctuation escaped) ")")))
 
 (def toc (string/join "&nbsp;&nbsp;&nbsp; " (map toc-entry sorted-names)))
 
@@ -30,9 +32,9 @@
     		(let [
           		description (second lines)
           		pattern-lines (subvec lines 2)
-          		patterns (string/join " " pattern-lines)
+          		patterns (string/join "\n" pattern-lines)
           		]
-      		(str header "```\n" description "\n" patterns "\n```")
+      		(str header "\n" description "```\n" patterns "\n```")
       		))))
 
 (def entries (string/join "\n\n" (map compose-entry sorted-names)))
@@ -44,6 +46,16 @@ These functions are available in every Ludus script.
 The documentation for any function can be found within Ludus by passing the function to `doc!`, 
 e.g., running `doc! (add)` will send the documentation for `add` to the console.
 
+## A few notes
+**Naming conventions.** Functions whose name ends with a question mark, e.g., `eq?`, return booleans.
+Functions whose name ends with an exclamation point, e.g., `make!`, change state in some way.
+In other words, they _do things_ rather than _calculating values_. 
+Functions whose name includes a slash either convert from one value to another, e.g. `deg/rad`,
+or they are variations on a function, e.g. `div/0` as a variation on `div`.
+
+**How entries are formatted.** Each entry has a brief (sometimes too brief!) description of what it does.
+It is followed by the patterns for each of its function clauses.
+
 "
     toc
     "
@@ -52,4 +64,4 @@ e.g., running `doc! (add)` will send the documentation for `add` to the console.
     entries
     ))
 
-(println doc-file)
+(spit "prelude.md" doc-file)
