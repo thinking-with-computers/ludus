@@ -79,7 +79,15 @@
 
     :else "else"
 
-    (:word :number :keyword :true :false :nil :string) (-> pattern :data first show)
+    :true "true"
+
+    :false "false"
+
+    :nil "nil"
+
+    :string (-> pattern :data first show)
+
+    (:word :number :keyword) (-> pattern :data first str)
 
     :typed
     (let [word (-> pattern :data first :data first)
