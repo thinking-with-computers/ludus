@@ -20,7 +20,7 @@
 
 (defn escape-punctuation [the-str] (string/replace the-str #"[\!\?]" ""))
 
-(defn toc-entry [name] (let [escaped (escape-underscores name)] (str "•[" escaped "](#" (escape-punctuation escaped) ")")))
+(defn toc-entry [name] (let [escaped (escape-underscores name)] (str "[" escaped "](#" (escape-punctuation escaped) ")")))
 
 (def toc (string/join "&nbsp;&nbsp;&nbsp; " (map toc-entry sorted-names)))
 
@@ -34,7 +34,7 @@
           		pattern-lines (subvec lines 2)
           		patterns (string/join "\n" pattern-lines)
           		]
-      		(str header "\n" description "```\n" patterns "\n```")
+      		(str header description "\n```\n" patterns "\n```")
       		))))
 
 (def entries (string/join "\n\n" (map compose-entry sorted-names)))
@@ -55,6 +55,12 @@ or they are variations on a function, e.g. `div/0` as a variation on `div`.
 
 **How entries are formatted.** Each entry has a brief (sometimes too brief!) description of what it does.
 It is followed by the patterns for each of its function clauses.
+This should be enough to indicate order of arguments, types, and so on.
+
+**Patterns often, but do not always, indicate types.** Typed patterns are written as `foo as :bar`,
+where the type is indicated by the keyword. Possible ludus types are: `:nil`, `:boolean`, `:number`, `:keyword` (i.e., atomic values);
+`:string` (strings are their own beast)'' `:tuple` and `:list` (indexed collections); `:set` (again, their own beast), 
+`:dict` and `:ns` (associative collections); and `:ref` (references).
 
 "
     toc

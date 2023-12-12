@@ -1,5 +1,12 @@
 & this file, uniquely, gets `base` loaded as context. See src/ludus/base.cljc for exports
 
+&&& TODO
+& functions to add:
+& true?
+& set?
+& tuple?
+& ref?
+
 & the very base: know something's type
 fn type {
 	"Returns a keyword representing the type of the value passed in."
@@ -19,7 +26,7 @@ fn eq? {
 	}
 }
 
-& TODO: add not_eq
+& TODO: add neq?
 
 &&& functions: getting things done
 fn fn? {
