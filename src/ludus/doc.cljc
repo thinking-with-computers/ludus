@@ -24,6 +24,25 @@
 
 (def toc (string/join "&nbsp;&nbsp;&nbsp; " (map toc-entry sorted-names)))
 
+(def topics {
+            	:math ["abs" "add" "angle" "atan/2" "ceil" "cos" "dec" "deg/rad" "deg/turn" "dist" "div"
+                  		"div/0" "div/safe" "even?" "floor" "gt?" "gte?" "heading/vector" "inc" "lt?" "lte?" "mod"
+                  		"mult" "neg" "neg?" "odd?" "pi" "pos?" "rad/deg" "rad/turn" "random" "range" "round"
+                  		"sin" "square" "sub" "sum_of_squares" "tan" "tau" "turn/deg" "turn/rad" "zero?"]
+            	:boolean ["and" "bool" "bool?" "false?" "or" "not"]
+            	:dicts ["assoc" "assoc?" "dict" "diff" "dissoc" "get" "keys" "update" "values"]
+            	:lists ["append" "at" "butlast" "concat" "count" "each!" "first" "fold" "last" "list" "list?" "map" "ordered?" "range"
+                   		"rest" "second" "slice"]
+            	:strings ["join" "show" "string" "string?"]
+            	:types_and_values ["coll?" "dict?" "eq?" "fn?" "keyword?" "list?" "some" "some?" "nil?" "number?" "type"]
+            	:references ["deref" "make!" "update!"]
+            	:results ["err" "err?" "ok" "ok?" "unwrap!" "unwrap_or"]
+            	:errors ["assert!" "panic!"]
+            	:turtle_graphics ["back!" "background!" "clear!" "forward!" "heading" "home!" "left!" "pencolor" "pencolor!"
+                             		"pendown!" "pendown?" "penup!" "penwidth!" "position" "reset_turtle!" "right!" "turtle_state"]
+            	:output ["print!" "report!"]
+            	})
+
 (defn compose-entry [name]
  	(let [the-doc (get with-docs name)
       		header (str "### " name "\n")
@@ -58,9 +77,21 @@ It is followed by the patterns for each of its function clauses.
 This should be enough to indicate order of arguments, types, and so on.
 
 **Patterns often, but do not always, indicate types.** Typed patterns are written as `foo as :bar`,
-where the type is indicated by the keyword. Possible ludus types are: `:nil`, `:boolean`, `:number`, `:keyword` (i.e., atomic values);
-`:string` (strings are their own beast)'' `:tuple` and `:list` (indexed collections); `:set` (again, their own beast), 
+where the type is indicated by the keyword. 
+Possible ludus types are: `:nil`, `:boolean`, `:number`, `:keyword` (atomic values);
+`:string` (strings are their own beast); `:tuple` and `:list` (indexed collections); `:set` (sets are specific), 
 `:dict` and `:ns` (associative collections); and `:ref` (references).
+
+**Conventional types.** Ludus has two types based on conventions.
+* _Result tuples._ Results are a way of modeling the result of a calculation that might fail.
+The two possible values are `(:ok, value)` and `(:err, msg)`.
+`msg` is usually a string describing what went wrong.
+To work with result tuples, see [`unwrap!`](#unwrap) and [`unwrap_or`](#unwrap_or).
+That said, usually you work with these using pattern matching.
+
+* _Vectors._ Vectors are 2-element tuples of x and y coordinates.
+The origin is `(0, 0)`. 
+`add` and `mult` can take vectors as well as numbers.
 
 "
     toc
