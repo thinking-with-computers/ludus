@@ -18,15 +18,36 @@ fn eq? {
 	"Returns true if all arguments have the same value."
 	(x) -> true
 	(x, y) -> base :eq (x, y)
-	(x, y, ...zs) -> loop (y, zs) with {
-		(a, [b]) -> base :eq (a, b)
-		(a, [b, ...cs]) -> if base :eq (a, b)
-			then recur (b, cs)
-			else false 
-	}
+	(x, y, ...zs) -> if eq? (x, y)
+		then loop (y, zs) with {
+			(a, []) -> eq? (a, x)
+			(a, [b, ...cs]) -> if eq? (a, x)
+				then recur (b, cs)
+				else false
+			}
+		else false
 }
 
-& TODO: add neq?
+fn neq? {
+	"Returns true if none of the arguments have the same value."
+	(x) -> false
+	(x, y) -> not (eq? (x, y))
+	(x, y, ...zs) -> if eq? (x, y)
+		then false
+		else loop (y, zs) with {
+			(a, []) -> neq? (a, x)
+			(a, [b, ...cs]) -> if neq? (a, x)
+				then recur (b, cs)
+				else false
+		}
+}
+
+& tuples: not a lot you can do with them functionally
+fn tuple? {
+	"Returns true if a value is a tuple."
+	(tuple as :tuple) -> true
+	(_) -> false
+}
 
 &&& functions: getting things done
 fn fn? {
@@ -135,6 +156,12 @@ fn set {
 	"Takes an ordered collection--list or tuple--and turns it into a set."
 	(xs as :list) -> base :into (${}, xs)
 	(xs as :tuple) -> base :into (${}, xs)
+}
+
+fn set? {
+	"Returns true if a value is a set."
+	(xs as :set) -> true
+	(_) -> false
 }
 
 fn fold {
