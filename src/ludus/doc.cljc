@@ -25,22 +25,24 @@
 (def toc (string/join "&nbsp;&nbsp;&nbsp; " (map toc-entry sorted-names)))
 
 (def topics {
-            	:math ["abs" "add" "angle" "atan/2" "ceil" "cos" "dec" "deg/rad" "deg/turn" "dist" "div"
-                  		"div/0" "div/safe" "even?" "floor" "gt?" "gte?" "heading/vector" "inc" "lt?" "lte?" "mod"
-                  		"mult" "neg" "neg?" "odd?" "pi" "pos?" "rad/deg" "rad/turn" "random" "range" "round"
-                  		"sin" "square" "sub" "sum_of_squares" "tan" "tau" "turn/deg" "turn/rad" "zero?"]
-            	:boolean ["and" "bool" "bool?" "false?" "or" "not"]
-            	:dicts ["assoc" "assoc?" "dict" "diff" "dissoc" "get" "keys" "update" "values"]
-            	:lists ["append" "at" "butlast" "concat" "count" "each!" "first" "fold" "last" "list" "list?" "map" "ordered?" "range"
-                   		"rest" "second" "slice"]
-            	:strings ["join" "show" "string" "string?"]
-            	:types_and_values ["coll?" "dict?" "eq?" "fn?" "keyword?" "list?" "some" "some?" "nil?" "number?" "type"]
-            	:references ["deref" "make!" "update!"]
-            	:results ["err" "err?" "ok" "ok?" "unwrap!" "unwrap_or"]
-            	:errors ["assert!" "panic!"]
-            	:turtle_graphics ["back!" "background!" "clear!" "forward!" "heading" "home!" "left!" "pencolor" "pencolor!"
-                             		"pendown!" "pendown?" "penup!" "penwidth!" "position" "reset_turtle!" "right!" "turtle_state"]
-            	:output ["print!" "report!"]
+            	"math" ["abs" "add" "angle" "atan/2" "ceil" "cos" "dec" "deg/rad" "deg/turn" "dist" "div"
+                   		"div/0" "div/safe" "even?" "floor" "gt?" "gte?" "heading/vector" "inc" "lt?" "lte?" "mod"
+                   		"mult" "neg" "neg?" "odd?" "pi" "pos?" "rad/deg" "rad/turn" "random" "range" "round"
+                   		"sin" "square" "sub" "sum_of_squares" "tan" "tau" "turn/deg" "turn/rad" "zero?"]
+            	"boolean" ["and" "bool" "bool?" "false?" "or" "not"]
+            	"dicts" ["assoc" "assoc?" "dict" "diff" "dissoc" "get" "keys" "update" "values"]
+            	"lists" ["append" "at" "butlast" "concat" "count" "each!" "first" "fold" "last" "list" "list?" "map" "ordered?" "range"
+                    		"rest" "second" "slice"]
+             "sets" ["set"]
+            	"strings" ["count" "join" "show" "string" "string?"]
+            	"types and values" ["bool?" "coll?" "dict?" "eq?" "fn?" "keyword?" "list?" "ordered?" "show" "some" "some?" "nil?" "number?" "type"]
+            	"references and state" ["deref" "make!" "update!"]
+            	"results" ["err" "err?" "ok" "ok?" "unwrap!" "unwrap_or"]
+            	"errors" ["assert!" "panic!"]
+            	"turtle graphics" ["back!" "background!" "bk!" "clear!" "fd!" "forward!" "goto!" "heading" "heading/vector" "home!" "left!" "lt!" "pc!" "pd!" "pencolor" 
+                                "pencolor!" "pendown!" "pendown?" "penup!" "penwidth" "penwidth!" "position" "pu!" "pw!" "render_turtle!" "reset_turtle!" 
+                                "right!" "rt!" "turtle_state"]
+            	"environment and i/o" ["doc!" "flush!" "print!" "prn!" "report!"]
             	})
 
 (defn compose-entry [name]
@@ -64,6 +66,8 @@
 These functions are available in every Ludus script.
 The documentation for any function can be found within Ludus by passing the function to `doc!`, 
 e.g., running `doc! (add)` will send the documentation for `add` to the console.
+
+For more information on the syntax & semantics of the Ludus language, see [language.md](./language.md).
 
 ## A few notes
 **Naming conventions.** Functions whose name ends with a question mark, e.g., `eq?`, return booleans.
@@ -91,7 +95,9 @@ That said, usually you work with these using pattern matching.
 
 * _Vectors._ Vectors are 2-element tuples of x and y coordinates.
 The origin is `(0, 0)`. 
-`add` and `mult` can take vectors as well as numbers.
+Many math functions take vectors as well as numbers, e.g., `add` and `mult`.
+You will see vectors indicated in patterns by an `(x, y)` tuple.
+You can see what this looks like in the last clause of `add`: `((x1, y1), (x2, y2))`.
 
 "
     toc
