@@ -189,6 +189,21 @@ fn map {
 	}
 }
 
+fn filter {
+	"Takes a list and a predicate function, and returns a new list with only the items that produce truthy values when the function is called on them."
+	(p? as :fn, xs) -> {
+		fn filterer (filtered, x) -> if p? (x)
+			then append (filtered, x)
+			else filtered
+		fold (filterer, xs, [])
+	}
+}
+
+fn keep {
+	"Takes a list and returns a new list with any `nil` values omitted."
+	(xs) -> filter (some?, xs)
+}
+
 fn append {
 	"Adds an element to a list or set."
 	() -> []
@@ -1139,6 +1154,8 @@ fn penwidth {
 ns prelude {
 	type
 	eq?
+	neq?
+	tuple?
 	fn?
 	first
 	second
@@ -1151,8 +1168,11 @@ ns prelude {
 	append
 	fold
 	map
+	filter
+	keep
 	list
 	set
+	set?
 	inc
 	dec
 	print!
@@ -1164,6 +1184,7 @@ ns prelude {
 	panic!
 	doc!
 	concat
+	ref?
 	deref
 	make!
 	update!
