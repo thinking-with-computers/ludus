@@ -63,6 +63,12 @@ ns foo {
   quux
 }
 ```
+
+### Working with collections
+Ludus names are bound permanently and immutably. How do you add something to a list or a dict? How do you get things out of them?
+
+Ludus provides functions that allow working with persistent collections. They're detailed in [the Prelude](/prelude.md). That said, all functions that modify collections take a collection and produce the modified collection _as a return value_, without changing the original collection. E.g., `append ([1, 2, 3], 4)` will produce `[1, 2, 3, 4]`. (For dicts, the equivalent is `assoc`.)
+
 ## Expressions
 Ludus is an expression-based language: all forms in the language are expressions and return values. That said, not all expressions may be used everywhere.
 
@@ -70,15 +76,15 @@ Ludus is an expression-based language: all forms in the language are expressions
 Some expressions may only be used in the "top level" of a script. Because they are the toplevel, they are assured to be statically knowable. These include: `ns`, `use`, `import`, and `test`.
 
 ### Non-binding expressions
-Some forms may take any expression that does _not_ [bind a name](#Words-and-bindings), for example, any entry in a collection, or the right-hand side of a `let` binding. This is because binding a name in some positions is ambiguous, or nonsensical.
+Some forms may take any expression that does _not_ [bind a name](#Words-and-bindings), for example, any entry in a collection, or the right-hand side of a `let` binding. This is because binding a name in some positions is ambiguous, or nonsensical, or leads to unwarranted complications.
 
 ### Simple expressions
-Many complex forms will only accept "simple" expressions. Formally, simple expressions are either literal (atomic, string, or collection literals) or synthetic expressions. They are expressions which do not take sub-expressions.
+Many complex forms will only accept "simple" expressions. Formally, simple expressions are either literal (atomic, string, or collection literals) or synthetic expressions. They are expressions which do not take sub-expressions: no `if`, `when`, `match`, etc. (`do` expressions are currently not simple, but that may be revised.)
 
 ## Words and bindings
-Ludus uses "words" to bind values to names. Words must start with a lower case ASCII letter, and can subsequently include any letter character (modulo backing character encoding), as well as , `_`, `/`, `?`, `!`, and `*`.
+Ludus uses _words_ to bind values to names. Words must start with a lower case ASCII letter, and can subsequently include any letter character (modulo backing character encoding), as well as , `_`, `/`, `?`, `!`, and `*`.
 
-Ludus binds values to names immutably and permanently: no name may ever be re-bound to a different value. (Although see [refs](#references-and-state), below.
+Ludus binds values to names immutably and permanently: no name in the same scope may ever be re-bound to a different value. (Although see [refs](#references-and-state), below.
 
 Attempting to use an unbound name (a word that has not had a value bound to it) will result in a panic.
 
@@ -100,7 +106,7 @@ Ludus makes extensive use of pattern-matching. Patterns do two jobs at once: the
 The simplest pattern is the placeholder: it matches against anything, and does not bind a name. It is written as a single underscore: `_`, e.g., `let _ = :foo`.
 
 #### Ignored names
-If you wish to be a bit more explict than using a placeholder, you can use an ignored name, which is a name that starts with an underscore: `_foo`. This is not bound, is not a valid name, and can be used however much you wish, even multiple times in the same pattern.
+If you wish to be a bit more explict than using a placeholder, you can use an ignored name, which is a name that starts with an underscore: `_foo`. This is not bound, is not a valid name, and can be used however much you wish, even multiple times in the same pattern. It's a placeholder, plus a reader-facing description.
 
 ### Literal patterns
 Patterns can be literal atomic values or strings: `0`, `false`, `nil`, `"foo"`, etc. That means you can write `let 0 = 0` or `let :foo = :foo`, and everything will be jsut fine.
@@ -232,8 +238,6 @@ Functions are called by placing a tuple with arguments immediately after a funct
 ### Defining functions
 Functions have three increasingly complex forms to define them. All of them include the concept of a function clause, which is just a match clause whose left hand side must be a _tuple_ pattern.
 
-### Function forms
-
 #### Anonymous lambda
 An anonymous lambda is written `fn {tuple pattern} -> {expression}`, `fn (x, y) -> if gt? (x, y) then x else add (x, y)`. Lambdas may only have one clause.
 
@@ -271,10 +275,8 @@ In place of nesting function calls inside other function calls, Ludus allows for
 
 ```
 let silly_result = do 23
-  > mult (_, 2)
-  > add (1, _)
-  > sub (_, 2)
-  > div (_, 9) & silly_result is 5
+  > mult (_, 2) > add (1, _)
+  > sub (_, 2) > div (_, 9) & silly_result is 5
 ```
 
 ### Called keywords
@@ -317,16 +319,92 @@ Note that `repeat` does two interesting things:
 2. Unlike everything else in Ludus, it requires a block. You cannot write `repeat 4 forward (100)`. (Watch this space.)
 
 ### `loop`/`recur`
+`loop` and `recur` are largely identical to recursive functions for repetition, but use a special form to allow an anonymous construction and a few guard rails.
+
+```
+let xs = [1, 2, 3, 4]
+loop (xs, 0) with {
+  ([x], sum) -> add (x, sum) & matches against the last element of the list
+  ([x, ...xs], sum) -> recur (xs, add (x, sum)) & recurs with the tail
+} &=> 10
+```
+
+It is `loop <tuple> with { <function clauses> }`. (Or, you can have a single function clause instead of a set of clauses.)
+
+`recur` is the recursive call. It must be in tail position--`recur` must be the root of a synthetic expression, in return position. (At present, this is not checked. It will be statically verified, eventually.)
+
+`recur` calls return to the nearest `loop`. Nested `loop`s are probably a bad idea and should be avoided when possible.
 
 ## Environment and context: the toplevel
+The "toplevel" of a script are the expressions that are not embedded in other expressions or forms: not inside a block, not a member of a collection, not on the right hand side of a binding, not inside a function body. The toplevel-only forms:
 
 ### `import`
 `import` allows for the evaluation of other Ludus scripts: `import "path/to/file" as name`. `import` just evaluates that file, and then binds a name to the result of evaluating that script. This, right now, is quite basic: circular imports are currently allowed but will lead to endless recursion; results are not cached, so each `import` in a chain re-evaluates the file; and so on.
 
 ### `use`
-`use` loads the contents of a namespace into a script's context. To ensure that this is statically checkable, this must be at the toplevel.
+`use` loads the contents of a namespace into a script's context. To ensure that this is statically checkable, this must be at the toplevel. 
 
 ### `ns`
+A namespace is an associative data structure that has some restrictions on it beyond dicts, which they resemble. `ns`es must be declared at the toplevel, to ensure static checkability. At current, accessing an absent member on an `ns` leads to a panic; eventually, it will be checked statically at compile-time. `ns`es must be named:
+
+```
+ns foo {
+  bar
+  baz
+  :quux 42
+}
+```
+
+Typically, namespaces are the last thing exported in a script; an `import` then imports a namespace.
+
+### `test`
+A `test` expression (currently not working!--it will blow up your script, although it parses properly) is a way of ensuring things behave the way you want them to. Run the script in test mode (how?--that doesn't exist yet), and these are evaluated. If the expression under `test` returns a truthy value, you're all good! If the expression under `test` returns a falsy value or raises a panic, then Ludus will report which test(s) failed.
+
+```
+test "something goes right" eq? (:foo, :foo)
+
+test "something goes wrong" {
+  let foo = :foo
+  let bar = :bar
+  eq? (foo, bar)
+} &=> test failed: "something goes wrong" on line 3
+```
+
+`test`s must be at the toplevel--or embedded within other tests in _their_ highest level.
+
+Formally: `test <string> <expression>`.
+
+## Changing things: `ref`s
+Ludus does not let you re-bind names. It does, however, have a type that allows for changing values over time: `ref` (short for reference--they are references to values). `ref`s are straightforward, but do require a bit more overhead than `let` bindings. The idea is that Ludus makes it obvious where mutable state is in a program, as well as where that mutable state may change. It does so elegantly, but with some guardrails that may take a little getting used to.
+
+```
+ref foo = 42 & foo is now bound to a _ref that contains 42_
+add (1, foo) & panic! no match: foo is _not_ a number
+make! (foo, 23) & foo is now a ref containing 23
+update! (foo, inc) & foo is now a ref containing 24
+value_of (foo) &=> 23; use value_of to get the value contained in a ref
+```
+
+### Ending with a bang!
+Ludus has a strong naming convention that functions that change state or could cause a panic end in an exclamation point (or, in computer nerd parlance, a "bang"). So anything function that mutates the value held in a reference ends with a bang: `make!` and `update!` take bangs; `value_of` does not.
+
+This convention also includes anything that prints to the console: `print!`, `report!`, `doc!`, `update!`, `make!`, etc.
+
+### Ending with a whimper?
+Relatedly, just about any function that returns a boolean value is a predicate function--and has a name that ends with a question mark: `eq?` tests for equality; `ref?` tells you if something is a ref or not; `lte?` is less-than-or-equal.
 
 ## Errors: panic! in the Ludus script
+A special function, `panic!`, halts script execution with any arguments output as error messages. Panics also happen in the following cases:
+* a `let` binding has no match against the value of its expression
+* a `match` or `when` form has no matching clause
+* a function is called with arguments that do not match any of its clauses
+* something that is not a function or keyword is called as a function
+* `div` divides by zero
+* certain error handling functions, like `unwrap!` or `assert!`, are invoked on values that cause them to panic
 
+In fact, the only functions in the Prelude which can cause panics are, at current, `div`, `unwrap!`, and `assert!`. And, of course, `panic!` itself.
+
+### Result tuples
+Instead of exceptions or special error values, recoverable errors in Ludus are handled instead by result tuples: `(:ok, value)` and `(:err, msg)`. So, for example, `unwrap!` takes a result tuple and either returns the value in the `:ok` case, or panics in the `:err` case.
+
+Variants of some functions that may have undesirably inexplicit behaviour are written as `{name}/safe`. So, for example, you can get a variant of `div` that returns a result tuple in `div/safe`, which returns `(:ok, result)` when everything's good; and `(:err, "division by zero")` when the divisor is 0. Or, `get/safe` will give you a result rather than returning `nil`. (Althougn `nil` punning makes this mostly unncessary. Mostly.)
