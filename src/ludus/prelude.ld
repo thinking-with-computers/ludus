@@ -557,8 +557,14 @@ fn bool? {
 	(_) -> false
 }
 
+fn true? {
+	"Returns true if a value is boolean `true`. Useful to distinguish between `true` and anything else."
+	(true) -> true
+	(_) -> false
+}
+
 fn false? {
-	"Returns true if a value is false, otherwise returns false. Useful to distinguish between false and nil."
+	"Returns `true` if a value is `false`, otherwise returns `false`. Useful to distinguish between `false` and `nil`."
 	(false) -> true
 	(_) -> false
 }
@@ -579,7 +585,7 @@ fn not {
 
 & TODO: make `and` and `or` special forms which lazily evaluate arguments
 fn and {
-	"Returns true if all values passed in are truthy."
+	"Returns true if all values passed in are truthy. Note that this does not short-circuit: all arguments are evaulated before they are passed in."
 	() -> true
 	(x) -> bool (x)
 	(x, y) -> base :and (x, y)
@@ -587,7 +593,7 @@ fn and {
 }
 
 fn or {
-	"Returns true if any value passed in is truthy."
+	"Returns true if any value passed in is truthy. Note that this does not short-circuit: all arguments are evaluated before they are passed in."
 	() -> true
 	(x) -> bool (x)
 	(x, y) -> base :or (x, y)
@@ -636,7 +642,24 @@ fn diff {
 		let key1 = keys (d1)
 		let key2 = keys (d2)
 		let all = do concat (d1, d2) > set > list
-		let diffs = fold ()
+		let diffs = loop (all, []) with {
+			& TODO: reduce this redundancy?
+			([k, ...ks], diffs) -> {
+				let v1 = get (k, d1)
+				let v2 = get (k, d2)
+				if eq? (v1, v2)
+					then recur (ks, diffs)
+					else recur (ks, append (diffs, (k, (v1, v2))))
+			}
+			([k], diffs) -> {
+				let v1 = get (k, d1)
+				let v2 = get (k, d2)
+				if eq? (v1, v2)
+					then diffs
+					else append (diffs, (k, (v1, v2)))
+			}
+		}
+		dict (diffs)
 	}
 }
 
@@ -673,6 +696,12 @@ fn get {
 	(key as :keyword, coll, default) -> base :get (key, coll, default)
 }
 
+fn has? {
+	"Takes a key and a dict, and returns true if there is a non-`nil` value stored at the key."
+	(key as :keyword) -> has? (key, _)
+	(key as :keyword, dict as :dict) -> do dict > key > nil?
+}
+
 fn dict {
 	"Takes a struct or ns, and returns it as a dict. Or, takes a list or tuple of (key, value) tuples and returns it as a dict. Returns dicts unharmed."
 	(struct as :struct) -> base :to_dict (struct)
@@ -680,6 +709,12 @@ fn dict {
 	(dict as :dict) -> dict
 	(list as :list) -> fold (assoc, list)
 	(tup as :tuple) -> do tup > list > dict
+}
+
+fn dict? {
+	"Returns true if a value is a dict."
+	(dict as :dict) -> true
+	(_) -> false
 }
 
 & TODO: make this less awkward once we have tail recursion
@@ -1227,6 +1262,7 @@ ns prelude {
 	update
 	get
 	dict
+	dict?
 	keys
 	values
 	diff

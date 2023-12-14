@@ -22,7 +22,7 @@
 
 (defn toc-entry [name] (let [escaped (escape-underscores name)] (str "[" escaped "](#" (escape-punctuation escaped) ")")))
 
-(def toc (string/join "&nbsp;&nbsp;&nbsp; " (map toc-entry sorted-names)))
+(def alphabetical-list (string/join "&nbsp;&nbsp;&nbsp; " (map toc-entry sorted-names)))
 
 (def topics {
             	"math" ["abs" "add" "angle" "atan/2" "ceil" "cos" "dec" "deg/rad" "deg/turn" "dist" "div"
@@ -33,9 +33,9 @@
             	"dicts" ["assoc" "assoc?" "dict" "diff" "dissoc" "get" "keys" "update" "values"]
             	"lists" ["append" "at" "butlast" "concat" "count" "each!" "first" "fold" "last" "list" "list?" "map" "ordered?" "range"
                     		"rest" "second" "slice"]
-             "sets" ["set"]
+             "sets" ["set" "set?"]
             	"strings" ["count" "join" "show" "string" "string?"]
-            	"types and values" ["bool?" "coll?" "dict?" "eq?" "fn?" "keyword?" "list?" "ordered?" "show" "some" "some?" "nil?" "number?" "type"]
+            	"types and values" ["bool?" "coll?" "dict?" "eq?" "fn?" "keyword?" "list?" "neq?" "nil?" "number?" "ordered?" "show" "some" "some?" "type"]
             	"references and state" ["deref" "make!" "update!"]
             	"results" ["err" "err?" "ok" "ok?" "unwrap!" "unwrap_or"]
             	"errors" ["assert!" "panic!"]
@@ -44,6 +44,14 @@
                                 "right!" "rt!" "turtle_state"]
             	"environment and i/o" ["doc!" "flush!" "print!" "prn!" "report!"]
             	})
+
+(defn topic-entry [topic] (str "### " (string/capitalize topic) "\n" 
+                            (->> topic (get topics) sort (map toc-entry) (string/join "&nbsp;&nbsp;&nbsp; "))
+                            "\n"))
+
+(def by-topic (let [the-topics (-> topics keys sort)
+                    topics-entries (map topic-entry the-topics)]
+                (string/join "\n" topics-entries)))
 
 (defn compose-entry [name]
  	(let [the-doc (get with-docs name)
@@ -99,8 +107,16 @@ Many math functions take vectors as well as numbers, e.g., `add` and `mult`.
 You will see vectors indicated in patterns by an `(x, y)` tuple.
 You can see what this looks like in the last clause of `add`: `((x1, y1), (x2, y2))`.
 
+## Functions by topic
+
 "
-    toc
+    by-topic
+    
+    "
+    
+## All functions, alphabetically
+"
+    alphabetical-list
     "
 ## Function documentation
 "

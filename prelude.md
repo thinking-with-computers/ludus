@@ -3,6 +3,8 @@ These functions are available in every Ludus script.
 The documentation for any function can be found within Ludus by passing the function to `doc!`, 
 e.g., running `doc! (add)` will send the documentation for `add` to the console.
 
+For more information on the syntax & semantics of the Ludus language, see [language.md](./language.md).
+
 ## A few notes
 **Naming conventions.** Functions whose name ends with a question mark, e.g., `eq?`, return booleans.
 Functions whose name ends with an exclamation point, e.g., `make!`, change state in some way.
@@ -29,8 +31,50 @@ That said, usually you work with these using pattern matching.
 
 * _Vectors._ Vectors are 2-element tuples of x and y coordinates.
 The origin is `(0, 0)`. 
-`add` and `mult` can take vectors as well as numbers.
+Many math functions take vectors as well as numbers, e.g., `add` and `mult`.
+You will see vectors indicated in patterns by an `(x, y)` tuple.
+You can see what this looks like in the last clause of `add`: `((x1, y1), (x2, y2))`.
 
+## Functions by topic
+
+### Boolean
+[and](#and)&nbsp;&nbsp;&nbsp; [bool](#bool)&nbsp;&nbsp;&nbsp; [bool?](#bool)&nbsp;&nbsp;&nbsp; [false?](#false)&nbsp;&nbsp;&nbsp; [not](#not)&nbsp;&nbsp;&nbsp; [or](#or)
+
+### Dicts
+[assoc](#assoc)&nbsp;&nbsp;&nbsp; [assoc?](#assoc)&nbsp;&nbsp;&nbsp; [dict](#dict)&nbsp;&nbsp;&nbsp; [diff](#diff)&nbsp;&nbsp;&nbsp; [dissoc](#dissoc)&nbsp;&nbsp;&nbsp; [get](#get)&nbsp;&nbsp;&nbsp; [keys](#keys)&nbsp;&nbsp;&nbsp; [update](#update)&nbsp;&nbsp;&nbsp; [values](#values)
+
+### Environment and i/o
+[doc!](#doc)&nbsp;&nbsp;&nbsp; [flush!](#flush)&nbsp;&nbsp;&nbsp; [print!](#print)&nbsp;&nbsp;&nbsp; [prn!](#prn)&nbsp;&nbsp;&nbsp; [report!](#report)
+
+### Errors
+[assert!](#assert)&nbsp;&nbsp;&nbsp; [panic!](#panic)
+
+### Lists
+[append](#append)&nbsp;&nbsp;&nbsp; [at](#at)&nbsp;&nbsp;&nbsp; [butlast](#butlast)&nbsp;&nbsp;&nbsp; [concat](#concat)&nbsp;&nbsp;&nbsp; [count](#count)&nbsp;&nbsp;&nbsp; [each!](#each)&nbsp;&nbsp;&nbsp; [first](#first)&nbsp;&nbsp;&nbsp; [fold](#fold)&nbsp;&nbsp;&nbsp; [last](#last)&nbsp;&nbsp;&nbsp; [list](#list)&nbsp;&nbsp;&nbsp; [list?](#list)&nbsp;&nbsp;&nbsp; [map](#map)&nbsp;&nbsp;&nbsp; [ordered?](#ordered)&nbsp;&nbsp;&nbsp; [range](#range)&nbsp;&nbsp;&nbsp; [rest](#rest)&nbsp;&nbsp;&nbsp; [second](#second)&nbsp;&nbsp;&nbsp; [slice](#slice)
+
+### Math
+[abs](#abs)&nbsp;&nbsp;&nbsp; [add](#add)&nbsp;&nbsp;&nbsp; [angle](#angle)&nbsp;&nbsp;&nbsp; [atan/2](#atan/2)&nbsp;&nbsp;&nbsp; [ceil](#ceil)&nbsp;&nbsp;&nbsp; [cos](#cos)&nbsp;&nbsp;&nbsp; [dec](#dec)&nbsp;&nbsp;&nbsp; [deg/rad](#deg/rad)&nbsp;&nbsp;&nbsp; [deg/turn](#deg/turn)&nbsp;&nbsp;&nbsp; [dist](#dist)&nbsp;&nbsp;&nbsp; [div](#div)&nbsp;&nbsp;&nbsp; [div/0](#div/0)&nbsp;&nbsp;&nbsp; [div/safe](#div/safe)&nbsp;&nbsp;&nbsp; [even?](#even)&nbsp;&nbsp;&nbsp; [floor](#floor)&nbsp;&nbsp;&nbsp; [gt?](#gt)&nbsp;&nbsp;&nbsp; [gte?](#gte)&nbsp;&nbsp;&nbsp; [heading/vector](#heading/vector)&nbsp;&nbsp;&nbsp; [inc](#inc)&nbsp;&nbsp;&nbsp; [lt?](#lt)&nbsp;&nbsp;&nbsp; [lte?](#lte)&nbsp;&nbsp;&nbsp; [mod](#mod)&nbsp;&nbsp;&nbsp; [mult](#mult)&nbsp;&nbsp;&nbsp; [neg](#neg)&nbsp;&nbsp;&nbsp; [neg?](#neg)&nbsp;&nbsp;&nbsp; [odd?](#odd)&nbsp;&nbsp;&nbsp; [pi](#pi)&nbsp;&nbsp;&nbsp; [pos?](#pos)&nbsp;&nbsp;&nbsp; [rad/deg](#rad/deg)&nbsp;&nbsp;&nbsp; [rad/turn](#rad/turn)&nbsp;&nbsp;&nbsp; [random](#random)&nbsp;&nbsp;&nbsp; [range](#range)&nbsp;&nbsp;&nbsp; [round](#round)&nbsp;&nbsp;&nbsp; [sin](#sin)&nbsp;&nbsp;&nbsp; [square](#square)&nbsp;&nbsp;&nbsp; [sub](#sub)&nbsp;&nbsp;&nbsp; [sum_of_squares](#sum_of_squares)&nbsp;&nbsp;&nbsp; [tan](#tan)&nbsp;&nbsp;&nbsp; [tau](#tau)&nbsp;&nbsp;&nbsp; [turn/deg](#turn/deg)&nbsp;&nbsp;&nbsp; [turn/rad](#turn/rad)&nbsp;&nbsp;&nbsp; [zero?](#zero)
+
+### References and state
+[deref](#deref)&nbsp;&nbsp;&nbsp; [make!](#make)&nbsp;&nbsp;&nbsp; [update!](#update)
+
+### Results
+[err](#err)&nbsp;&nbsp;&nbsp; [err?](#err)&nbsp;&nbsp;&nbsp; [ok](#ok)&nbsp;&nbsp;&nbsp; [ok?](#ok)&nbsp;&nbsp;&nbsp; [unwrap!](#unwrap)&nbsp;&nbsp;&nbsp; [unwrap_or](#unwrap_or)
+
+### Sets
+[set](#set)&nbsp;&nbsp;&nbsp; [set?](#set)
+
+### Strings
+[count](#count)&nbsp;&nbsp;&nbsp; [join](#join)&nbsp;&nbsp;&nbsp; [show](#show)&nbsp;&nbsp;&nbsp; [string](#string)&nbsp;&nbsp;&nbsp; [string?](#string)
+
+### Turtle graphics
+[back!](#back)&nbsp;&nbsp;&nbsp; [background!](#background)&nbsp;&nbsp;&nbsp; [bk!](#bk)&nbsp;&nbsp;&nbsp; [clear!](#clear)&nbsp;&nbsp;&nbsp; [fd!](#fd)&nbsp;&nbsp;&nbsp; [forward!](#forward)&nbsp;&nbsp;&nbsp; [goto!](#goto)&nbsp;&nbsp;&nbsp; [heading](#heading)&nbsp;&nbsp;&nbsp; [heading/vector](#heading/vector)&nbsp;&nbsp;&nbsp; [home!](#home)&nbsp;&nbsp;&nbsp; [left!](#left)&nbsp;&nbsp;&nbsp; [lt!](#lt)&nbsp;&nbsp;&nbsp; [pc!](#pc)&nbsp;&nbsp;&nbsp; [pd!](#pd)&nbsp;&nbsp;&nbsp; [pencolor](#pencolor)&nbsp;&nbsp;&nbsp; [pencolor!](#pencolor)&nbsp;&nbsp;&nbsp; [pendown!](#pendown)&nbsp;&nbsp;&nbsp; [pendown?](#pendown)&nbsp;&nbsp;&nbsp; [penup!](#penup)&nbsp;&nbsp;&nbsp; [penwidth](#penwidth)&nbsp;&nbsp;&nbsp; [penwidth!](#penwidth)&nbsp;&nbsp;&nbsp; [position](#position)&nbsp;&nbsp;&nbsp; [pu!](#pu)&nbsp;&nbsp;&nbsp; [pw!](#pw)&nbsp;&nbsp;&nbsp; [render_turtle!](#render_turtle)&nbsp;&nbsp;&nbsp; [reset_turtle!](#reset_turtle)&nbsp;&nbsp;&nbsp; [right!](#right)&nbsp;&nbsp;&nbsp; [rt!](#rt)&nbsp;&nbsp;&nbsp; [turtle_state](#turtle_state)
+
+### Types and values
+[bool?](#bool)&nbsp;&nbsp;&nbsp; [coll?](#coll)&nbsp;&nbsp;&nbsp; [dict?](#dict)&nbsp;&nbsp;&nbsp; [eq?](#eq)&nbsp;&nbsp;&nbsp; [fn?](#fn)&nbsp;&nbsp;&nbsp; [keyword?](#keyword)&nbsp;&nbsp;&nbsp; [list?](#list)&nbsp;&nbsp;&nbsp; [neq?](#neq)&nbsp;&nbsp;&nbsp; [nil?](#nil)&nbsp;&nbsp;&nbsp; [number?](#number)&nbsp;&nbsp;&nbsp; [ordered?](#ordered)&nbsp;&nbsp;&nbsp; [show](#show)&nbsp;&nbsp;&nbsp; [some](#some)&nbsp;&nbsp;&nbsp; [some?](#some)&nbsp;&nbsp;&nbsp; [type](#type)
+
+    
+## All functions, alphabetically
 [abs](#abs)&nbsp;&nbsp;&nbsp; [add](#add)&nbsp;&nbsp;&nbsp; [and](#and)&nbsp;&nbsp;&nbsp; [angle](#angle)&nbsp;&nbsp;&nbsp; [append](#append)&nbsp;&nbsp;&nbsp; [assert!](#assert)&nbsp;&nbsp;&nbsp; [assoc](#assoc)&nbsp;&nbsp;&nbsp; [assoc?](#assoc)&nbsp;&nbsp;&nbsp; [at](#at)&nbsp;&nbsp;&nbsp; [atan/2](#atan/2)&nbsp;&nbsp;&nbsp; [back!](#back)&nbsp;&nbsp;&nbsp; [background!](#background)&nbsp;&nbsp;&nbsp; [bg!](#bg)&nbsp;&nbsp;&nbsp; [bgcolor](#bgcolor)&nbsp;&nbsp;&nbsp; [bk!](#bk)&nbsp;&nbsp;&nbsp; [bool](#bool)&nbsp;&nbsp;&nbsp; [bool?](#bool)&nbsp;&nbsp;&nbsp; [butlast](#butlast)&nbsp;&nbsp;&nbsp; [ceil](#ceil)&nbsp;&nbsp;&nbsp; [clear!](#clear)&nbsp;&nbsp;&nbsp; [coll?](#coll)&nbsp;&nbsp;&nbsp; [colors](#colors)&nbsp;&nbsp;&nbsp; [concat](#concat)&nbsp;&nbsp;&nbsp; [console](#console)&nbsp;&nbsp;&nbsp; [cos](#cos)&nbsp;&nbsp;&nbsp; [count](#count)&nbsp;&nbsp;&nbsp; [dec](#dec)&nbsp;&nbsp;&nbsp; [deg/rad](#deg/rad)&nbsp;&nbsp;&nbsp; [deg/turn](#deg/turn)&nbsp;&nbsp;&nbsp; [deref](#deref)&nbsp;&nbsp;&nbsp; [dict](#dict)&nbsp;&nbsp;&nbsp; [diff](#diff)&nbsp;&nbsp;&nbsp; [dissoc](#dissoc)&nbsp;&nbsp;&nbsp; [dist](#dist)&nbsp;&nbsp;&nbsp; [div](#div)&nbsp;&nbsp;&nbsp; [div/0](#div/0)&nbsp;&nbsp;&nbsp; [div/safe](#div/safe)&nbsp;&nbsp;&nbsp; [doc!](#doc)&nbsp;&nbsp;&nbsp; [each!](#each)&nbsp;&nbsp;&nbsp; [eq?](#eq)&nbsp;&nbsp;&nbsp; [err](#err)&nbsp;&nbsp;&nbsp; [err?](#err)&nbsp;&nbsp;&nbsp; [even?](#even)&nbsp;&nbsp;&nbsp; [false?](#false)&nbsp;&nbsp;&nbsp; [fd!](#fd)&nbsp;&nbsp;&nbsp; [first](#first)&nbsp;&nbsp;&nbsp; [floor](#floor)&nbsp;&nbsp;&nbsp; [flush!](#flush)&nbsp;&nbsp;&nbsp; [fn?](#fn)&nbsp;&nbsp;&nbsp; [fold](#fold)&nbsp;&nbsp;&nbsp; [forward!](#forward)&nbsp;&nbsp;&nbsp; [get](#get)&nbsp;&nbsp;&nbsp; [goto!](#goto)&nbsp;&nbsp;&nbsp; [gt?](#gt)&nbsp;&nbsp;&nbsp; [gte?](#gte)&nbsp;&nbsp;&nbsp; [heading](#heading)&nbsp;&nbsp;&nbsp; [heading/vector](#heading/vector)&nbsp;&nbsp;&nbsp; [home!](#home)&nbsp;&nbsp;&nbsp; [inc](#inc)&nbsp;&nbsp;&nbsp; [join](#join)&nbsp;&nbsp;&nbsp; [keys](#keys)&nbsp;&nbsp;&nbsp; [keyword?](#keyword)&nbsp;&nbsp;&nbsp; [last](#last)&nbsp;&nbsp;&nbsp; [left!](#left)&nbsp;&nbsp;&nbsp; [list](#list)&nbsp;&nbsp;&nbsp; [lt!](#lt)&nbsp;&nbsp;&nbsp; [lt?](#lt)&nbsp;&nbsp;&nbsp; [lte?](#lte)&nbsp;&nbsp;&nbsp; [make!](#make)&nbsp;&nbsp;&nbsp; [map](#map)&nbsp;&nbsp;&nbsp; [mod](#mod)&nbsp;&nbsp;&nbsp; [mult](#mult)&nbsp;&nbsp;&nbsp; [neg](#neg)&nbsp;&nbsp;&nbsp; [neg?](#neg)&nbsp;&nbsp;&nbsp; [nil?](#nil)&nbsp;&nbsp;&nbsp; [not](#not)&nbsp;&nbsp;&nbsp; [odd?](#odd)&nbsp;&nbsp;&nbsp; [ok](#ok)&nbsp;&nbsp;&nbsp; [ok?](#ok)&nbsp;&nbsp;&nbsp; [or](#or)&nbsp;&nbsp;&nbsp; [ordered?](#ordered)&nbsp;&nbsp;&nbsp; [p5_calls](#p5_calls)&nbsp;&nbsp;&nbsp; [panic!](#panic)&nbsp;&nbsp;&nbsp; [pc!](#pc)&nbsp;&nbsp;&nbsp; [pd!](#pd)&nbsp;&nbsp;&nbsp; [pencolor](#pencolor)&nbsp;&nbsp;&nbsp; [pencolor!](#pencolor)&nbsp;&nbsp;&nbsp; [pendown!](#pendown)&nbsp;&nbsp;&nbsp; [pendown?](#pendown)&nbsp;&nbsp;&nbsp; [penup!](#penup)&nbsp;&nbsp;&nbsp; [penwidth](#penwidth)&nbsp;&nbsp;&nbsp; [penwidth!](#penwidth)&nbsp;&nbsp;&nbsp; [pi](#pi)&nbsp;&nbsp;&nbsp; [pos?](#pos)&nbsp;&nbsp;&nbsp; [position](#position)&nbsp;&nbsp;&nbsp; [print!](#print)&nbsp;&nbsp;&nbsp; [prn!](#prn)&nbsp;&nbsp;&nbsp; [pu!](#pu)&nbsp;&nbsp;&nbsp; [pw!](#pw)&nbsp;&nbsp;&nbsp; [rad/deg](#rad/deg)&nbsp;&nbsp;&nbsp; [rad/turn](#rad/turn)&nbsp;&nbsp;&nbsp; [random](#random)&nbsp;&nbsp;&nbsp; [range](#range)&nbsp;&nbsp;&nbsp; [render_turtle!](#render_turtle)&nbsp;&nbsp;&nbsp; [report!](#report)&nbsp;&nbsp;&nbsp; [reset_turtle!](#reset_turtle)&nbsp;&nbsp;&nbsp; [rest](#rest)&nbsp;&nbsp;&nbsp; [right!](#right)&nbsp;&nbsp;&nbsp; [round](#round)&nbsp;&nbsp;&nbsp; [rt!](#rt)&nbsp;&nbsp;&nbsp; [second](#second)&nbsp;&nbsp;&nbsp; [set](#set)&nbsp;&nbsp;&nbsp; [show](#show)&nbsp;&nbsp;&nbsp; [sin](#sin)&nbsp;&nbsp;&nbsp; [slice](#slice)&nbsp;&nbsp;&nbsp; [some](#some)&nbsp;&nbsp;&nbsp; [some?](#some)&nbsp;&nbsp;&nbsp; [square](#square)&nbsp;&nbsp;&nbsp; [string](#string)&nbsp;&nbsp;&nbsp; [string?](#string)&nbsp;&nbsp;&nbsp; [sub](#sub)&nbsp;&nbsp;&nbsp; [sum_of_squares](#sum_of_squares)&nbsp;&nbsp;&nbsp; [tan](#tan)&nbsp;&nbsp;&nbsp; [tau](#tau)&nbsp;&nbsp;&nbsp; [turn/deg](#turn/deg)&nbsp;&nbsp;&nbsp; [turn/rad](#turn/rad)&nbsp;&nbsp;&nbsp; [turtle_commands](#turtle_commands)&nbsp;&nbsp;&nbsp; [turtle_state](#turtle_state)&nbsp;&nbsp;&nbsp; [turtle_states](#turtle_states)&nbsp;&nbsp;&nbsp; [type](#type)&nbsp;&nbsp;&nbsp; [unwrap!](#unwrap)&nbsp;&nbsp;&nbsp; [unwrap_or](#unwrap_or)&nbsp;&nbsp;&nbsp; [update](#update)&nbsp;&nbsp;&nbsp; [update!](#update)&nbsp;&nbsp;&nbsp; [values](#values)&nbsp;&nbsp;&nbsp; [zero?](#zero)
 ## Function documentation
 ### abs
