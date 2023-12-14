@@ -303,7 +303,20 @@ let baz = :b (foo) :d & `baz` is now "baz"
 Ludus will have optimized tail calls--the most straightforward way to accomplish repeating behaviour is function recursion. There are two additional looping forms, `repeat` and `loop`.
 
 ### `repeat`
-`repeat` is a help to learners, and is useful for making 
+`repeat` is a help to learners, and is useful for executing side effects multiple times. It is written `repeat {number|word} { {exprs} }`. From turtle graphics:
+
+```
+repeat 4 {
+  forward! (100)
+  right! (0.25)
+}
+```
+Note that `repeat` does two interesting things:
+
+1. It never returns a value other than `nil`. If it's in the block, it disappears.
+2. Unlike everything else in Ludus, it requires a block. You cannot write `repeat 4 forward (100)`. (Watch this space.)
+
+### `loop`/`recur`
 
 ## Environment and context: the toplevel
 
