@@ -85,6 +85,7 @@ fn at {
 		gte? (n, count (xs)) -> nil
 		else -> base :nth (xs, inc (n))
 	}
+	(_) -> nil
 }
 
 fn first {
