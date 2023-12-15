@@ -35,7 +35,7 @@ Strings' type is `:string`.
 Ludus has a few different types of collections, in increasing order of complexity.
 
 ### Separators
-In all collection literals, members are written with a separator between them. On the same line, use a comma; or a newline will also separate elements. You may use as many 
+In all collection literals, members are written with a separator between them. On the same line, use a comma; or a newline will also separate elements. You may use as many separators as you wish at any point inside a collection or pattern. `(,,,,,,,3,,4,,,,,,)` and `(3, 4)` are the same value.
 
 ### Tuples
 Tuples are fully-imutable, ordered collections of any kinds of values, delimited by parentheses, e.g. `(1, :a, "foo")`. At current, they have no length limit (although they eventually will). Unlike in some languages, tuples can be empty or contain a single element: `()` and `(:foo)` are both just fine. Tuples largely cannot be manipulated functionally; they must be written as literals and unpacked using pattern matching. They can, however, be converted to lists, either through pattern matching or the `list` function. Their type is `:tuple`.

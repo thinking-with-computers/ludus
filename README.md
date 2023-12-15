@@ -54,8 +54,10 @@ Or, if you're on a Mac and want to open a terminal:
 * Persistent or immutable data structures
 * Careful, explicit state management using `ref`erences
 * Clean, concise, expressive syntax
+* Value-based equality; only functions are reference types
 
 #### Under construction
+* Tail call optimization
 * Actor model style concurrency?
 * ~Strong nominal data typing, including tagged unions~
 	- ~Exhaustiveness-checking in `match` expressions in dynamically-typed code~
