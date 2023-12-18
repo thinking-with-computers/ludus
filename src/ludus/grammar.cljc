@@ -58,11 +58,11 @@
                                 	 (quiet :rbrace)
                                  	])
 
-(defp struct-pattern group order-1 [(quiet :startstruct)
-                                   	(quiet (zero+ separator))
-                                   	(zero+ dict-pattern-entry)
-                                   	(quiet :rbrace)
-                                   	])
+; (defp struct-pattern group order-1 [(quiet :startstruct)
+;                                    	(quiet (zero+ separator))
+;                                    	(zero+ dict-pattern-entry)
+;                                    	(quiet :rbrace)
+;                                    	])
 
 (defp guard order-0 [(quiet :if) simple])
 
@@ -75,7 +75,7 @@
                            :else 
                            tuple-pattern 
                            dict-pattern 
-                           struct-pattern 
+                           ;struct-pattern 
                            list-pattern])
 
 (defp match-clause group weak-order [pattern (maybe guard) (quiet :rarrow) expression])
@@ -141,14 +141,15 @@
 
 (defp pair group order-0 [:keyword non-binding])
 
+;; "struct-term" and "struct-entry" are necessary for nses
 (defp struct-term flat choice [:word pair])
 
 (defp struct-entry order-1 [struct-term separators])
 
-(defp struct-literal group order-1 [(quiet :startstruct)
-                                   	(quiet (zero+ separator))
-                                   	(zero+ struct-entry)
-                                   	(quiet :rbrace)])
+; (defp struct-literal group order-1 [(quiet :startstruct)
+;                                    	(quiet (zero+ separator))
+;                                    	(zero+ struct-entry)
+;                                    	(quiet :rbrace)])
 
 (defp dict-term flat choice [splat :word pair])
 
@@ -230,7 +231,8 @@
 
 (defp repeat-expr group order-1 [(quiet :repeat) (choice :times [:word :number]) block])
 
-(defp collection flat choice [struct-literal dict list-literal set-literal tuple])
+(defp collection flat choice [;struct-literal 
+                              dict list-literal set-literal tuple])
 
 (defp simple flat choice [literal collection synthetic recur-call lambda])
 
