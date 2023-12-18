@@ -281,10 +281,10 @@
            (add-token (advance scanner) :startset)
            (add-error scanner (str "Expected beginning of set: ${. Got " char next)))
 
-      ;; struct @{
-      \@ (if (= next \{)
-           (add-token (advance scanner) :startstruct)
-           (add-error scanner (str "Expected beginning of struct: @{. Got " char next)))
+      ;; struct @{: Deleted from the language in December 2023
+      ; \@ (if (= next \{)
+      ;      (add-token (advance scanner) :startstruct)
+      ;      (add-error scanner (str "Expected beginning of struct: @{. Got " char next)))
 
       ;; placeholders
       ;; there's a flat _, and then ignored words
