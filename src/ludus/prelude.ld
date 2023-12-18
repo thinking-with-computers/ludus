@@ -920,7 +920,7 @@ fn assert! {
 
 & some basic colors
 &&& TODO: add colors
-let colors = @{
+let colors = #{
 	:white (255, 255, 255, 255)
 	:light_gray (150, 150, 150, 255)
 	:dark_gray (50, 50, 50, 255)
