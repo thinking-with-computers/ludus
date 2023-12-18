@@ -774,9 +774,9 @@
       :pair (let [data (:data member) k (-> data first :data first) v (second data)]
               (assoc struct k (interpret-ast v ctx))))))
 
-(defn- interpret-struct [ast ctx]
-  (let [members (:data ast)]
-    (assoc (reduce (struct-term ctx) {} members) ::data/struct true)))
+; (defn- interpret-struct [ast ctx]
+;   (let [members (:data ast)]
+;     (assoc (reduce (struct-term ctx) {} members) ::data/struct true)))
 
 (defn- ns-term [ctx]
   (fn [ns member]
@@ -883,8 +883,8 @@
 
     :dict (interpret-dict ast ctx)
 
-    :struct-literal
-    (interpret-struct ast ctx)
+    ; :struct-literal
+    ; (interpret-struct ast ctx)
 
     (throw (ex-info (str "Unknown AST node type " (get ast :type :err) " on line " (get-in ast [:token :line])) {:ast ast}))))
 
