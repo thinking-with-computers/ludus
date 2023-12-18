@@ -33,7 +33,9 @@
 (defn run [source]
  	(let [user_scanned (s/scan source)
       		user_tokens (:tokens user_scanned)
+        _ (println "Tokens: " user_tokens)
       		user_parsed (p/apply-parser g/script user_tokens)
+        _ (println "Ast: " (i/prettify-ast user_parsed))
       		user_result (i/interpret-safe source user_parsed {})
       		result_str (show/show user_result)
       		post_scanned (s/scan pre/postlude)
@@ -57,3 +59,4 @@
      	(clean-out clj_result)
      	)
    	))
+

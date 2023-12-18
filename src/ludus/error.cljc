@@ -6,6 +6,8 @@
      			the_line (nth lines (dec line))]
  			the_line))
 
+(string/split-lines "abcd")
+
 (defn get-underline [source {:keys [line start lexeme]} prefix]
  	(let [lines (string/split-lines source)
       		lines-before (subvec lines 0 (dec line))
@@ -37,3 +39,4 @@
   		(str "Ludus panicked on line " line ":\n" (get-line source {:line line}) "\n" message)
   		(str "Ludus panicked!\n" message)
   		))
+

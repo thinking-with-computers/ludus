@@ -442,7 +442,7 @@
               (throw (ex-info (str "Struct error: no member at " kw) {:ast kw}))))
           (get map kw))))))
 
-(defn- call-fn [lfn args ctx]
+(defn- call-fn [lfn args ctx from]
   ;(println "Calling function " (:name lfn))
   (cond
     (= ::data/partial (first args))
@@ -452,7 +452,8 @@
              (call-fn
                lfn
                (into [::data/tuple] (replace {::data/placeholder arg} (rest args)))
-               ctx))}
+               ctx
+               from))}
 
     (= (::data/type lfn) ::data/clj) (apply (:body lfn) (next args))
 
@@ -492,7 +493,7 @@
                   (interpret-ast body fn-ctx)))
               (recur (first clauses) (rest clauses))))
 
-          (throw (ex-info (str "Match Error: No match found for " (show/show args) " in function " (:name lfn)) {:ast (:ast lfn)})))))
+          (throw (ex-info (str "Match Error: No match found for " (show/show args) " in function " (:name lfn)) {:ast from})))))
 
     (keyword? lfn)
     (if (= 2 (count args))
@@ -531,7 +532,7 @@
             (throw (ex-info (str "Namespace error: no member " (:value curr) " in ns " (::data/name prev-value)) {:ast curr}))
             (throw (ex-info (str "Struct error: no member " (:value curr)) {:ast curr}))))
         (get prev-value (first data)))
-      (call-fn prev-value (interpret-args data ctx) ctx))))
+      (call-fn prev-value (interpret-args data ctx) ctx curr))))
 
 (defn- interpret-synthetic [ast ctx]
   ;;(println "interpreting synthetic " ast)
@@ -606,7 +607,7 @@
   (let [data (:data ast)
         root (interpret-ast (first data) ctx)
         fns (rest data)]
-    (reduce #(call-fn (interpret-ast %2 ctx) [::data/tuple %1] ctx) root fns)))
+    (reduce #(call-fn (interpret-ast %2 ctx) [::data/tuple %1] ctx ast) root fns)))
 
 (defn- map-values [f]
   (map (fn [kv]
